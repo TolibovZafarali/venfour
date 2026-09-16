@@ -492,7 +492,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
         <footer className="relative z-10 shrink-0 bg-canvas px-5 py-2 sm:px-8">
           <nav
             aria-label="Legal"
-            className="mx-auto flex w-full items-center justify-center gap-5 text-xs text-copy"
+            className="mx-auto flex w-full flex-wrap items-center justify-center gap-x-5 text-xs text-copy"
           >
             <Link
               to="/terms"
@@ -506,6 +506,12 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
             >
               Privacy
             </Link>
+            <a
+              href={publicHref("/refund-policy")}
+              className="report-action-focus inline-flex min-h-11 items-center rounded-sm hover:text-ink"
+            >
+              Refund policy
+            </a>
           </nav>
         </footer>
       ) : !appVisualSystem && !startFlowRoute && !adminRoute ? (
@@ -569,6 +575,11 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
                   <li>
                     <Link to="/terms" className={footerLinkClassName}>
                       Terms
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/refund-policy" className={footerLinkClassName}>
+                      Refund policy
                     </Link>
                   </li>
                   <li>

@@ -28,11 +28,9 @@ function stripeFor(publishableKey: string) {
 
 function PaymentForm({
   onConfirm,
-  priceLabel,
   sessionId,
 }: {
   readonly onConfirm: (sessionId: string) => void;
-  readonly priceLabel?: string | null;
   readonly sessionId: string;
 }) {
   const checkout = useCheckoutElements();
@@ -107,7 +105,6 @@ function PaymentForm({
         </div>
       )}
       {error ? <WorkflowError>{error}</WorkflowError> : null}
-      {priceLabel ? <p className="checkout-confirm-total"><span>Total due</span><strong>{priceLabel}</strong></p> : null}
       <Button className="checkout-submit" disabled={checkout.type !== "success" || !ready || !billingReady || submitting} type="submit">
         {submitting ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : null}
         {submitting ? "Confirming payment…" : "Complete purchase"}
@@ -120,13 +117,11 @@ export function EmbeddedPayment({
   accessToken,
   caseId,
   onConfirm,
-  priceLabel,
   userId,
 }: {
   readonly accessToken: string;
   readonly caseId: string;
   readonly onConfirm: (sessionId: string | null) => void;
-  readonly priceLabel?: string | null;
   readonly userId: string;
 }) {
   const { mutateAsync } = useTotalLossCheckoutMutation({ accessToken, caseId, userId });
@@ -201,7 +196,7 @@ export function EmbeddedPayment({
         },
       }}
     >
-      <PaymentForm sessionId={checkout.checkoutSessionId} onConfirm={onConfirm} priceLabel={priceLabel} />
+      <PaymentForm sessionId={checkout.checkoutSessionId} onConfirm={onConfirm} />
     </CheckoutElementsProvider>
   );
 }

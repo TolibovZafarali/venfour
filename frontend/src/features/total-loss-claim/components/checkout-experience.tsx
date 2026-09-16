@@ -2,7 +2,10 @@ import { LoaderCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 
+import { publicHref } from "@/app/site-boundary";
 import { Button } from "@/components/ui/button";
+import { useTotalLossDependencies } from "@/features/total-loss/dependencies";
+import { useTotalLossDetailsQuery } from "@/features/total-loss/queries";
 import { formatCommercePrice } from "@/features/total-loss-claim/browser-actions";
 import {
   ClaimWorkflowFrame,
@@ -41,6 +44,14 @@ export function CheckoutScreen({
   const verified = claim.state === "secured";
   const nextState = resolvedTotalLossClaimJourneyState(claim);
   const quote = useTotalLossCheckoutQuoteQuery({ accessToken, caseId, userId, enabled: true });
+  const dependencies = useTotalLossDependencies();
+  const detailsQuery = useTotalLossDetailsQuery({
+    service: dependencies?.totalLossDetailsService ?? null,
+    caseId,
+    userId,
+  });
+  const details = detailsQuery.data?.caseId === caseId ? detailsQuery.data : null;
+  const vehicle = [details?.vehicleYear, details?.vehicleMake, details?.vehicleModel].filter(Boolean).join(" ");
   const currency = quote.data?.currency;
   const confirming = verified && (searchParameters.get("payment") === "confirming" || Boolean(searchParameters.get("session_id")) || nextState === "checkout_confirmation");
   const price = formatCommercePrice(quote.data?.amountMinorUnits, currency, null);
@@ -60,6 +71,15 @@ export function CheckoutScreen({
     <ClaimWorkflowFrame>
       {canceled ? <p className="checkout-notice" role="status">Checkout was canceled. Your claim and purchase progress are saved.</p> : null}
       <div className="checkout-columns">
+        <aside aria-label="Purchase summary" className="checkout-summary">
+          <p className="checkout-summary-eyebrow">Order summary</p>
+          <h1 className="checkout-package-heading">Total-Loss Review Package</h1>
+          {vehicle ? <p className="checkout-vehicle">{vehicle}</p> : null}
+          <dl className="checkout-summary-total" aria-live="polite" aria-atomic="true">
+            <div><dt>Total</dt><dd>{summaryPrice}</dd></div>
+          </dl>
+          <p className="checkout-payment-terms">{currency ? `${currency.toUpperCase()} · ` : ""}One-time payment · No subscription</p>
+        </aside>
         <div className="checkout-form-column">
           <section aria-labelledby="secure-claim-heading" className="checkout-account">
             <h2 id="secure-claim-heading" className="checkout-section-heading">Your account</h2>
@@ -83,7 +103,7 @@ export function CheckoutScreen({
               ) : confirming ? (
                 <PaymentConfirmation accessToken={accessToken} caseId={caseId} checkoutSessionId={searchParameters.get("session_id")} onRefresh={onRefresh} onResume={onResume} userId={userId} />
               ) : paymentReady ? (
-                <EmbeddedPayment key={`${caseId}:${userId}`} accessToken={accessToken} caseId={caseId} onConfirm={onConfirm} priceLabel={price} userId={userId} />
+                <EmbeddedPayment key={`${caseId}:${userId}`} accessToken={accessToken} caseId={caseId} onConfirm={onConfirm} userId={userId} />
               ) : quote.isPending ? <p className="py-5 text-sm text-copy" role="status">Loading your purchase details…</p> : (
                 <div><Button asChild className="mb-4" variant="outline"><Link to={`/total-loss/cases/${caseId}/review-report`}>Check your insurer valuation report</Link></Button><WorkflowError>Payment is not available right now. Your claim is saved, and no payment has been taken on this page.</WorkflowError><Button className="mt-4" variant="outline" type="button" onClick={() => { void quote.refetch(); void onRefresh(); }}>Check availability</Button></div>
               )}
@@ -91,18 +111,22 @@ export function CheckoutScreen({
             </div>
           </section>
         </div>
-        <div className="checkout-summary-rail">
-          <aside aria-label="Purchase summary" className="checkout-summary">
-            <h2 className="checkout-section-heading">Order summary</h2>
-            <div className="checkout-order-item"><h3>Valuation Evidence Review</h3><span>{summaryPrice}</span></div>
-            <ul className="checkout-inclusions">
-              {["Review of the insurer’s valuation and relevant market evidence", "Venfour Total-Loss Valuation Evidence Package", "Guided reconsideration request preparation when supported"].map((item) => <li key={item}>{item}</li>)}
-            </ul>
-            <dl className="checkout-summary-total"><div><dt>Total</dt><dd>{summaryPrice}</dd></div></dl>
-            <p className="checkout-payment-terms">{currency ? `${currency.toUpperCase()} · ` : ""}One-time payment · No subscription</p>
-            <div className="checkout-policy"><h3>Fair-result policy</h3><p>If our completed review does not identify reasonable support for a valuation dispute, we’ll explain the result and refund the purchase under our fair-result policy.</p><p className="checkout-disclaimer">Payment does not guarantee a higher insurance settlement.</p></div>
-          </aside>
-        </div>
+        <aside aria-labelledby="checkout-included-heading" className="checkout-package-details">
+          <h2 id="checkout-included-heading" className="checkout-summary-eyebrow">Included with your review</h2>
+          <dl className="checkout-inclusions">
+            <div><dt>Your insurer’s valuation, reviewed</dt><dd>Review of the vehicle details, comparable vehicles, and adjustments in your insurer’s report.</dd></div>
+            <div><dt>A report you can share</dt><dd>A downloadable PDF with the findings and supporting market evidence.</dd></div>
+            <div><dt>A request prepared for your case</dt><dd>A personalized reconsideration request for you to review and send when the evidence supports it.</dd></div>
+            <div><dt>Guidance after the insurer replies</dt><dd>Assessment of the response you share and guidance on your next step.</dd></div>
+          </dl>
+          <section aria-labelledby="checkout-refund-heading" className="checkout-policy">
+            <h2 id="checkout-refund-heading">Fair-Result Refund Protection</h2>
+            <p>If our completed review does not support a valuation dispute, your purchase is refunded automatically.</p>
+            <p>If our review supports a dispute but your insurer’s final verified vehicle valuation increases by less than $1,000 after you follow the recommended process, you may request a full refund.</p>
+            <a href={publicHref("/refund-policy")} target="_blank" rel="noopener noreferrer">See Fair-Result Refund Policy<span className="sr-only"> (opens in a new tab)</span></a>
+          </section>
+          <p className="checkout-disclaimer">Payment does not guarantee a higher insurer valuation or settlement.</p>
+        </aside>
       </div>
     </ClaimWorkflowFrame>
     </div>

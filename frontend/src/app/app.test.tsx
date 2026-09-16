@@ -22,6 +22,32 @@ import { representativeRunId } from "@/test/fixtures/analysis-presentation";
 import { renderTestApp } from "@/test/render";
 
 describe("Venfour application", () => {
+  test("makes the fair-result refund policy readable without signing in", () => {
+    renderTestApp(["/refund-policy"], { authService: null });
+    expect(screen.getByRole("heading", { name: "Fair-Result Refund Policy" })).toBeVisible();
+    expect(screen.getByText(/You only need to satisfy the path that applies/u)).toBeVisible();
+    const automatic = within(screen.getByRole("region", { name: /No supported dispute — automatic refund/u }));
+    expect(automatic.getByText(/full refund automatically.+retain access/u)).toBeVisible();
+    expect(automatic.getByText(/You do not need to submit.+deadline.+do not apply/u)).toBeVisible();
+    const manual = within(screen.getByRole("region", { name: /Supported dispute.+manual refund/u }));
+    expect(manual.getByText(/within 30 days after receiving/u)).toBeVisible();
+    expect(manual.getByRole("row", { name: /\$0–\$999\.99/u })).toHaveTextContent("Qualifies if the other manual requirements are met");
+    expect(manual.getByRole("row", { name: /\$1,000 or more/u })).toHaveTextContent("Does not qualify under this path");
+    expect(manual.getByText(/at the time of purchase.+not your final settlement check/u)).toBeVisible();
+    expect(manual.getByRole("link", { name: "Contact Venfour" })).toHaveAttribute("href", "/contact?topic=fair-result-refund");
+    expect(manual.queryByText(/retain access/u)).not.toBeInTheDocument();
+  });
+
+  test("links the additional refund right from Terms", async () => {
+    const user = userEvent.setup();
+    const { router } = renderTestApp(["/terms"], { authService: null });
+    expect(screen.getByText(/refunded automatically and you retain access/u)).toBeVisible();
+    expect(screen.getByText(/As an additional right/u)).toBeVisible();
+    await user.click(screen.getByRole("link", { name: "Fair-Result Refund Policy" }));
+    expect(router.state.location.pathname).toBe("/refund-policy");
+    expect(screen.getByRole("heading", { name: "Fair-Result Refund Policy" })).toBeVisible();
+  });
+
   test("renders the root route", () => {
     renderTestApp(["/"], { authService: null });
 
@@ -107,7 +133,8 @@ describe("Venfour application", () => {
     const footerNavigation = screen.getByRole("navigation", {
       name: "Footer navigation",
     });
-    expect(within(footerNavigation).getAllByRole("link")).toHaveLength(8);
+    expect(within(footerNavigation).getAllByRole("link")).toHaveLength(9);
+    expect(within(footerNavigation).getByRole("link", { name: "Refund policy" })).toHaveAttribute("href", "/refund-policy");
     expect(
       within(footerNavigation).getByRole("link", { name: "Total Loss" }),
     ).toHaveAttribute("href", "#total-loss");
@@ -988,6 +1015,7 @@ describe("Venfour application", () => {
       "Referral Partners | Venfour",
     ],
     ["/contact", "Questions about Venfour", "Contact Venfour"],
+    ["/contact?topic=fair-result-refund", "Get help with a refund", "Contact Venfour"],
     [
       "/contact?topic=diminished-value",
       "Get help with a diminished-value request",

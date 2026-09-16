@@ -681,13 +681,14 @@ describe("total-loss customer workflow", () => {
     );
   });
 
-  it("uses the resolver as the authoritative resume route and loads a server quote", async () => {
+  it("uses the resolver and shows one server-quoted total with the saved vehicle", async () => {
     let projection = claimProjection({ journey: "checkout" });
-    useClaimHandler(() => projection);
+    detailsMock.getDetails.mockResolvedValue({ caseId: CASE_ID, intakeMode: "report", vehicleYear: 2022, vehicleMake: "Honda", vehicleModel: "Accord" });
+    useClaimHandler(() => ({ ...projection, commerce: { ...projection.commerce, amountMinorUnits: 14900, currency: "USD" } }));
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () =>
         HttpResponse.json({
-          amountMinorUnits: 19900,
+          amountMinorUnits: 21735,
           availability: "available",
           currency: "USD",
         }),
@@ -703,9 +704,19 @@ describe("total-loss customer workflow", () => {
         name: "Your account",
       }),
     ).toBeVisible();
-    expect((await screen.findAllByText(/199\.00/u))[0]).toBeVisible();
-    expect(within(screen.getByRole("complementary", { name: "Purchase summary" })).getByText("Total")).toBeVisible();
+    expect(await screen.findByText("$217.35")).toBeVisible();
+    expect(screen.getAllByText("$217.35")).toHaveLength(1);
+    const summary = within(screen.getByRole("complementary", { name: "Purchase summary" }));
+    expect(summary.getByRole("heading", { name: "Total-Loss Review Package" })).toBeVisible();
+    expect(summary.getByText("2022 Honda Accord")).toBeVisible();
+    expect(summary.getByText("Total")).toBeVisible();
+    expect(summary.getByText("USD · One-time payment · No subscription")).toBeVisible();
+    expect(screen.queryByText(/149\.00|199\.00/u)).not.toBeInTheDocument();
     expect(screen.queryByText("Tax", { exact: true })).not.toBeInTheDocument();
+    expect(screen.getByText(/your purchase is refunded automatically/u)).toBeVisible();
+    expect(screen.getByText(/final verified vehicle valuation increases by less than \$1,000/u)).toBeVisible();
+    expect(screen.getByRole("link", { name: /See Fair-Result Refund Policy/u })).toHaveAttribute("href", "/refund-policy");
+    expect(screen.getByRole("link", { name: /See Fair-Result Refund Policy/u })).toHaveAttribute("target", "_blank");
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);
     await waitFor(() =>
       expect(
@@ -717,6 +728,21 @@ describe("total-loss customer workflow", () => {
       journey: "guide_report",
       progress: educationSteps(true),
     });
+  });
+
+  it.each(["missing", "wrong-case"])("keeps checkout usable with %s optional vehicle details", async (state) => {
+    detailsMock.getDetails.mockResolvedValue(state === "missing" ? null : {
+      caseId: "99999999-9999-4999-8999-999999999999",
+      vehicleYear: 2022, vehicleMake: "Honda", vehicleModel: "Accord",
+    });
+    useClaimHandler(() => claimProjection({ journey: "checkout" }));
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () =>
+      HttpResponse.json({ amountMinorUnits: 21735, availability: "available", currency: "USD" }),
+    ));
+    renderTestApp([`${CLAIM_BASE}/checkout`], { authService: authService() });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Complete purchase" })).toBeEnabled());
+    expect(screen.queryByText("2022 Honda Accord")).not.toBeInTheDocument();
+    expect(screen.getAllByText("$217.35")).toHaveLength(1);
   });
 
   it("shows a canceled checkout without changing the saved checkout state", async () => {

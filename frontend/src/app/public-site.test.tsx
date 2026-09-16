@@ -45,7 +45,7 @@ describe("public-only launch", () => {
     expect(screen.getByRole("heading", { name: "Page not found" })).toBeInTheDocument();
   });
 
-  it.each(["/terms", "/privacy", "/contact", "/methodology", "/referral-partners"])("keeps %s public without a broken app link", path => {
+  it.each(["/terms", "/privacy", "/refund-policy", "/contact", "/contact?topic=fair-result-refund", "/methodology", "/referral-partners"])("keeps %s public without a broken app link", path => {
     const { container } = renderTestApp([path], { authService: null });
     expect(screen.queryByRole("heading", { name: "Page not found" })).not.toBeInTheDocument();
     expect(container.querySelector('a[href*="app.venfour.com"],a[href^="/start"],a[href^="/partners"]')).toBeNull();

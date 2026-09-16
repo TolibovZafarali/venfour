@@ -12,6 +12,19 @@ import {
 
 function contactContentFor(topic: string | null) {
   switch (topic) {
+    case "fair-result-refund":
+      return {
+        eyebrow: "Fair-Result Refund Policy",
+        title: "Get help with a refund",
+        introduction:
+          "Use the published support channel to ask about either refund protection or request a manual review of your insurer’s final outcome.",
+        sectionTitle: "Contact refund support",
+        emailCopy:
+          "For a manual refund request, contact us within 30 days after receiving the insurer’s final written response. Identify your case and the date you received that response. Provide the final response or revised valuation and evidence that you submitted the supported reconsideration request; Venfour may ask for additional reasonable documentation.",
+        emailSubject: "Fair-Result Refund Policy request",
+        unavailableCopy:
+          "Venfour has not yet published a support address here. Use only a support channel published by Venfour for your purchase; do not send claim documents to an unlisted address.",
+      };
     case "report-format":
       return {
         eyebrow: "Report format inquiry",

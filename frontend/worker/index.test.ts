@@ -45,7 +45,7 @@ describe("public website boundary", () => {
     DEPLOYMENT_ENVIRONMENT: "public-site", ASSETS: { fetch } as Fetcher,
   });
 
-  it.each(["/", "/terms", "/privacy", "/contact", "/methodology", "/cookies", "/referral-partners"])("serves %s without backend configuration or transport", async path => {
+  it.each(["/", "/terms", "/privacy", "/refund-policy", "/refund-policy/", "/contact", "/methodology", "/cookies", "/referral-partners"])("serves %s without backend configuration or transport", async path => {
     const assets = vi.fn(async () => new Response("Venfour", { headers: { "Content-Type": "text/html" } }));
     const transport = vi.fn();
     const response = await handleRequest(new Request(`https://venfour.com${path}`), publicEnv(assets), dependencies(transport));
@@ -544,7 +544,7 @@ describe("production Worker boundary", () => {
     expect(response.headers.get("cache-control")).toContain("no-store");
   });
 
-  it.each(["/contact", "/cookies", "/methodology", "/privacy", "/terms/", "/referral-partners"])("directs public page %s to the canonical public website", async (path) => {
+  it.each(["/contact", "/cookies", "/methodology", "/privacy", "/terms/", "/refund-policy", "/refund-policy/", "/referral-partners"])("directs public page %s to the canonical public website", async (path) => {
     const assets = vi.fn(async () => new Response("asset"));
     const response = await handleRequest(new Request(`https://app.venfour.com${path}?from=app`), productionEnv(assets));
     expect(response.status).toBe(308);

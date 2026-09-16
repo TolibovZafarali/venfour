@@ -37,7 +37,7 @@ const STRIPE_WEBHOOK_PATH = "/webhooks/stripe";
 const PUBLIC_ORIGIN = "https://venfour.com";
 const APP_ORIGIN = "https://app.venfour.com";
 const PRODUCTION_ORIGINS = new Set([PUBLIC_ORIGIN, APP_ORIGIN, "https://www.venfour.com"]);
-const PUBLIC_PATHS = new Set(["/", "/contact", "/cookies", "/methodology", "/privacy", "/terms", "/referral-partners"]);
+const PUBLIC_PATHS = new Set(["/", "/contact", "/cookies", "/methodology", "/privacy", "/terms", "/refund-policy", "/referral-partners"]);
 
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",

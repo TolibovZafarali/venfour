@@ -31,6 +31,7 @@ import { FindReviewPage, PreviewReturnPage } from "@/pages/preview-return-page";
 import { ReferralPartnersPage } from "@/pages/referral-partners-page";
 import { RouteErrorPage } from "@/pages/route-error-page";
 import { TermsPage } from "@/pages/terms-page";
+import { RefundPolicyPage } from "@/pages/refund-policy-page";
 import { TotalLossAnalysisPage } from "@/pages/total-loss-analysis-page";
 import { TotalLossClaimPage } from "@/pages/total-loss-claim-page";
 import { TotalLossClaimWorkflowPage } from "@/pages/total-loss-claim-workflow-page";
@@ -63,6 +64,7 @@ const combinedRoutes: RouteObject[] = [
     errorElement: <RouteErrorPage />,
     children: [
       { path: "app", element: <AppEntryPage />, handle: metadata("Your Workspace | Venfour", "Resume your saved appraisal.") },
+      { path: "refund-policy", element: <RefundPolicyPage />, handle: metadata("Fair-Result Refund Policy | Venfour", "Two separate protections: an automatic refund when a review does not support a dispute, and a manual refund for an eligible final valuation increase under $1,000.") },
       { path: "total-loss/cases/:caseId", element: <AppraisalResumePage />, handle: metadata("Your Appraisal | Venfour", "Resume your saved appraisal.") },
       ...(import.meta.env.DEV ? [{
         path: "_local/status-experience",

@@ -12,7 +12,7 @@ export function TermsPage() {
       eyebrow="Terms of use"
       title="Terms for using Venfour"
       introduction="These terms describe Venfour’s current supported total-loss review and the present availability of its diminished-value service, including the important limits on what either service means."
-      updated="Last updated August 23, 2026"
+      updated="Last updated September 15, 2026"
       tone="terms"
     >
       <PublicPageSection title="The service">
@@ -61,6 +61,30 @@ export function TermsPage() {
           other third-party information can be incomplete, delayed, changed, or
           inaccurate. Venfour does not guarantee that an insurer will accept any
           listing, analysis, or conclusion.
+        </p>
+      </PublicPageSection>
+
+      <PublicPageSection title="Refund protection">
+        <p>
+          The Total-Loss Review Package includes two separate refund protections.
+          If our completed review finds no reasonable support for a valuation
+          dispute, your purchase is refunded automatically and you retain access
+          to the completed review and report. You do not need to submit a
+          reconsideration request or obtain a final insurer response for that refund.
+        </p>
+        <p>
+          As an additional right, if our review supports a dispute and you follow
+          the Venfour-supported reconsideration process, you may request a full
+          refund when your insurer’s final verified vehicle valuation increase is
+          less than $1,000 compared with the valuation at purchase. This manual
+          path requires supporting documentation and a request within 30 days
+          after receiving the insurer’s final written response. You only need to
+          satisfy the applicable path. See the{" "}
+          <Link to="/refund-policy" className={`${publicTextLinkClassName} inline-block`}>
+            Fair-Result Refund Policy
+          </Link>{" "}
+          for the eligibility requirements and request process. Neither
+          protection guarantees a higher insurer valuation or settlement.
         </p>
       </PublicPageSection>
 

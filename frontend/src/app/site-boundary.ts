@@ -1,7 +1,7 @@
 export const PUBLIC_ORIGIN = "https://venfour.com";
 export const APPLICATION_ORIGIN = "https://app.venfour.com";
 
-const publicPaths = new Set(["/", "/contact", "/cookies", "/methodology", "/privacy", "/terms", "/referral-partners"]);
+const publicPaths = new Set(["/", "/contact", "/cookies", "/methodology", "/privacy", "/terms", "/refund-policy", "/referral-partners"]);
 
 export function routeAudience(pathname: string): "public" | "application" {
   return publicPaths.has(pathname.replace(/\/+$/, "") || "/") ? "public" : "application";
