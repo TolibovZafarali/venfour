@@ -121,9 +121,10 @@ class MarketEvidenceDisplayTests(unittest.TestCase):
         manifest = validate_valuation_evidence_report_pdf_v1(pdf, report)
         with pymupdf.open(stream=pdf, filetype="pdf") as document:
             text = "\n".join(page.get_text() for page in document)
-        self.assertIn(SUPPORTING_TITLE, text)
+        self.assertNotIn(SUPPORTING_TITLE, text)
+        self.assertIn("Supplemental records", text)
         self.assertIn("$24,000.00", text)
-        self.assertIn("not typical market prices", text)
+        self.assertIn("not representative of the market", text)
         self.assertEqual(manifest.to_dict()["status"], "PASS")
 
 

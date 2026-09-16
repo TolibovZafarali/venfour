@@ -271,7 +271,7 @@ class ValuationEvidenceReportTests(TemporaryRepositoryTestCase):
         )
         self.assertEqual(
             payload["insurerValuationReviewed"]["claimReference"]["evidenceLabel"],
-            UNAVAILABLE,
+            INSURER_EXTRACTED,
         )
         self.assertEqual(
             payload["insurerValuationReviewed"]["evidenceLabel"],
@@ -311,16 +311,16 @@ class ValuationEvidenceReportTests(TemporaryRepositoryTestCase):
         self.assertEqual(manifest.pdf_sha256, hashlib.sha256(pdf).hexdigest())
         self.assertEqual(manifest.filename, REPORT_STORAGE_FILENAME)
         self.assertNotEqual(manifest.filename, suggested_report_filename(report))
-        self.assertEqual(len(manifest.mandatory_section_checks), 13)
+        self.assertEqual(len(manifest.mandatory_section_checks), 3)
         self.assertFalse(manifest.blank_pages)
         self.assertFalse(manifest.unresolved_placeholders)
 
         with pymupdf.open(stream=pdf, filetype="pdf") as document:
             text = "\n".join(page.get_text("text") for page in document)
             self.assertEqual(document.metadata["title"], REPORT_TITLE)
-        self.assertIn("SELECTED ADVERTISED", text.upper())
-        self.assertIn("DESCRIPTIVE_ONLY", text)
-        self.assertIn("NOT_DETERMINED_BY_V1", text)
+        self.assertIn("SELECTED COMPARABLE ADVERTISED-PRICE RANGE", text.upper())
+        self.assertNotIn("DESCRIPTIVE_ONLY", text)
+        self.assertNotIn("NOT_DETERMINED_BY_V1", text)
         self.assertNotIn("amount owed by the insurer", text.lower())
 
     def test_manual_case_uses_customer_labels_and_no_insurer_comparables(self) -> None:
@@ -445,7 +445,7 @@ class ValuationEvidenceReportTests(TemporaryRepositoryTestCase):
         pdf = render_valuation_evidence_report_pdf_v1(expanded)
         manifest = validate_valuation_evidence_report_pdf_v1(pdf, expanded)
 
-        self.assertGreater(manifest.page_count, 9)
+        self.assertGreater(manifest.page_count, 3)
         with pymupdf.open(stream=pdf, filetype="pdf") as document:
             for page in document:
                 self.assertTrue(page.get_text("text").strip())

@@ -62,6 +62,12 @@ def resolve_report_local_evidence_source(
             value=value,
         )
 
+    if json_pointer == "/extraction/normalizedReport/report/claimReferenceNumber" and source_input.get("intakeMode") == "REPORT":
+        value = ((source_snapshot.get("extraction") or {}).get("normalizedReport") or {}).get("report", {}).get("claimReferenceNumber")
+        if isinstance(value, str) and value.strip():
+            return ReportLocalEvidenceSource(source_identity="claimReference", evidence_label=INSURER_EXTRACTED, value=value.strip())
+        return None
+
     if (
         json_pointer != _EXTRACTED_INSURER_POINTER
         or source_input.get("intakeMode") != "REPORT"

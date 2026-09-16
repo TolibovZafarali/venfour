@@ -25,6 +25,21 @@
     "reportDigest"
   ],
   "properties": {
+    "reviewContext": {
+      "type": "object", "additionalProperties": false,
+      "required": ["vehicleDisplay", "trimVerified", "sourceDocumentName", "sourceProvider", "comparables", "searchDescription"],
+      "properties": {
+        "vehicleDisplay": {"type": "string", "minLength": 1}, "trimVerified": {"type": "boolean"},
+        "vin": {"type": ["string", "null"]},
+        "sourceDocumentName": {"type": ["string", "null"]}, "sourceProvider": {"type": ["string", "null"]},
+        "searchDescription": {"type": ["string", "null"]},
+        "comparables": {"type": "array", "items": {"type": "object", "additionalProperties": false,
+          "required": ["evidenceId", "listingUrl", "differences"], "properties": {
+            "evidenceId": {"type": "string"}, "listingUrl": {"type": ["string", "null"]},
+            "differences": {"type": "array", "items": {"type": "string"}}
+          }}}
+      }
+    },
     "schemaVersion": { "const": "1" },
     "identity": { "$ref": "#/$defs/identity" },
     "lineage": { "$ref": "#/$defs/lineage" },
@@ -314,7 +329,8 @@
         "suggestedFilename"
       ],
       "properties": {
-        "title": { "const": "Venfour Total-Loss Valuation Evidence Package" },
+        "title": { "enum": ["Venfour Total-Loss Valuation Evidence Package", "Vehicle Valuation Review"] },
+        "templateVersion": { "const": "2" },
         "reportSeriesId": { "$ref": "#/$defs/uuid" },
         "reportVersionId": { "$ref": "#/$defs/uuid" },
         "finalAssessmentId": { "$ref": "#/$defs/uuid" },

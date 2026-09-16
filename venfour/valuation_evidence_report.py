@@ -67,10 +67,11 @@ from venfour.market_evidence_presentation import (
 
 
 REPORT_SCHEMA_VERSION = "1"
-REPORT_TEMPLATE_VERSION = "1"
-REPORT_RENDERER_VERSION = "1"
+REPORT_TEMPLATE_VERSION = "2"
+REPORT_RENDERER_VERSION = "2"
 PDF_VALIDATION_SCHEMA_VERSION = "1"
-REPORT_TITLE = "Venfour Total-Loss Valuation Evidence Package"
+LEGACY_REPORT_TITLE = "Venfour Total-Loss Valuation Evidence Package"
+REPORT_TITLE = "Vehicle Valuation Review"
 REPORT_STORAGE_FILENAME = "valuation-evidence-package.pdf"
 
 VERIFIED_FACT = "VERIFIED_FACT"
@@ -792,6 +793,7 @@ def _project_report_data(
     final_assessment_id: str,
     version_number: int,
     generated_at: str,
+    template_version: str = REPORT_TEMPLATE_VERSION,
 ) -> dict[str, Any]:
     generated_at, issue_date = _canonical_utc(generated_at, "Report generation time")
     from venfour.full_review_package import review_source_view
@@ -829,12 +831,17 @@ def _project_report_data(
         evidence_label=insurer_name_label,
         evidence_ids=insurer_name_ids,
     )
+    claim_pointer = "/extraction/normalizedReport/report/claimReferenceNumber"
+    claim_source = resolve_report_local_evidence_source(source, claim_pointer) if template_version == "2" else None
+    if claim_source is not None:
+        index.append(_local_reference(source, pointer=claim_pointer))
+        index.sort(key=lambda row: row["evidenceId"])
     claim_reference_fact = _fact(
         key="claimReference",
         label="Confirmed claim / report reference",
-        value=None,
-        evidence_label=UNAVAILABLE,
-        evidence_ids=[],
+        value=claim_source.value if claim_source else None,
+        evidence_label=INSURER_EXTRACTED if claim_source else UNAVAILABLE,
+        evidence_ids=[_reference_id(index, claim_pointer)] if claim_source else [],
     )
     evidence_ids = (
         list(assessment["supportedRange"]["evidenceIds"])
@@ -893,7 +900,7 @@ def _project_report_data(
     report = {
         "schemaVersion": REPORT_SCHEMA_VERSION,
         "identity": {
-            "title": REPORT_TITLE,
+            "title": REPORT_TITLE if template_version == "2" else LEGACY_REPORT_TITLE,
             "reportSeriesId": report_series_id,
             "reportVersionId": report_version_id,
             "finalAssessmentId": final_assessment_id,
@@ -995,6 +1002,10 @@ def _project_report_data(
             }, ASSUMPTION))
     if supporting_listings is not None:
         report["independentMarketEvidence"]["higherPricedComparableListings"] = supporting_listings
+    if template_version == "2":
+        from venfour.valuation_review import project_review_context
+        report["identity"]["templateVersion"] = "2"
+        report["reviewContext"] = project_review_context(source, assessment)
     return report
 
 
@@ -1018,8 +1029,11 @@ class ValuationEvidenceReportV1:
     exhibits: tuple[Mapping[str, Any], ...]
     report_digest: str
     schema_version: str = REPORT_SCHEMA_VERSION
+    review_context: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
+        if self.review_context is not None:
+            object.__setattr__(self, "review_context", _freeze_json(self.review_context))
         for field_name in (
             "identity",
             "lineage",
@@ -1063,6 +1077,7 @@ class ValuationEvidenceReportV1:
             "sourceEvidenceIndex": _thaw_json(self.source_evidence_index),
             "exhibits": _thaw_json(self.exhibits),
             "reportDigest": self.report_digest,
+            **({"reviewContext": _thaw_json(self.review_context)} if self.review_context is not None else {}),
         }
 
     @classmethod
@@ -1087,6 +1102,7 @@ class ValuationEvidenceReportV1:
             exhibits=tuple(value["exhibits"]),
             report_digest=value["reportDigest"],
             schema_version=value["schemaVersion"],
+            review_context=value.get("reviewContext"),
         )
 
 
@@ -1121,7 +1137,10 @@ def _validate_report_semantics(report: Mapping[str, Any]) -> None:
     if report["reportDigest"] != canonical_package_digest(unsigned):
         raise _failure("Report digest does not match", "REPORT_DIGEST_MISMATCH")
     identity = report["identity"]
-    if identity["title"] != REPORT_TITLE:
+    template = identity.get("templateVersion", "1")
+    if (template == "2") != ("reviewContext" in report):
+        raise _failure("Report presentation version is incomplete", "REPORT_IDENTITY_INVALID")
+    if identity["title"] != (REPORT_TITLE if template == "2" else LEGACY_REPORT_TITLE):
         raise _failure("Report title is invalid", "REPORT_IDENTITY_INVALID")
     if identity["versionLabel"] != f"v{identity['versionNumber']}":
         raise _failure("Report version label is invalid", "REPORT_IDENTITY_INVALID")
@@ -1228,6 +1247,7 @@ def validate_valuation_evidence_report_v1(
         final_assessment_id=identity["finalAssessmentId"],
         version_number=identity["versionNumber"],
         generated_at=identity["generatedAt"],
+        template_version=identity.get("templateVersion", "1"),
     )
     expected["reportDigest"] = canonical_package_digest(expected)
     if canonical_json_bytes(report) != canonical_json_bytes(expected):
@@ -1466,7 +1486,7 @@ def _header_footer(
     if document.page > 1:
         canvas.setFont("Helvetica-Bold", 7)
         canvas.setFillColor(colors.HexColor("#52636B"))
-        canvas.drawString(0.68 * inch, height - 0.42 * inch, REPORT_TITLE)
+        canvas.drawString(0.68 * inch, height - 0.42 * inch, LEGACY_REPORT_TITLE)
         canvas.setStrokeColor(colors.HexColor("#CAD5D8"))
         canvas.line(0.68 * inch, height - 0.50 * inch, width - 0.68 * inch, height - 0.50 * inch)
     canvas.setStrokeColor(colors.HexColor("#CAD5D8"))
@@ -1787,9 +1807,27 @@ def _render_report_story(
 
 def render_valuation_evidence_report_pdf_v1(
     report: ValuationEvidenceReportV1 | Mapping[str, Any],
+    *, fictional: bool = False,
 ) -> bytes:
     value = report.to_dict() if isinstance(report, ValuationEvidenceReportV1) else copy.deepcopy(dict(report))
     validate_valuation_evidence_report_v1(value)
+    if value["identity"].get("templateVersion") == "2":
+        from functools import partial
+        from venfour.valuation_review import NumberedCanvas, build_story
+        buffer = io.BytesIO()
+        identity = value["identity"]
+        document = SimpleDocTemplate(buffer, pagesize=LETTER, leftMargin=48, rightMargin=48,
+                                     topMargin=44, bottomMargin=54, title=REPORT_TITLE,
+                                     author="Venfour", subject="Total-loss vehicle valuation evidence",
+                                     creator=f"Venfour renderer {REPORT_RENDERER_VERSION}")
+        def metadata(canvas, doc):
+            canvas.setKeywords(f"reportVersionId={identity['reportVersionId']};reportDigest={value['reportDigest']};template=2")
+        try:
+            document.build(build_story(value, fictional=fictional), onFirstPage=metadata, onLaterPages=metadata,
+                           canvasmaker=partial(NumberedCanvas, report_identity=identity, fictional=fictional))
+        except Exception as exc:
+            raise _failure("PDF rendering failed", "REPORT_PDF_RENDER_FAILED") from exc
+        return buffer.getvalue()
     buffer = io.BytesIO()
     styles = _styles()
     identity = value["identity"]
@@ -1800,19 +1838,19 @@ def render_valuation_evidence_report_pdf_v1(
         leftMargin=0.68 * inch,
         topMargin=0.62 * inch,
         bottomMargin=0.62 * inch,
-        title=REPORT_TITLE,
+        title=LEGACY_REPORT_TITLE,
         author="Venfour",
         subject="Total-loss vehicle valuation evidence",
-        creator=f"Venfour renderer {REPORT_RENDERER_VERSION}",
+        creator="Venfour renderer 1",
     )
 
     def page(canvas: Canvas, doc: SimpleDocTemplate) -> None:
-        canvas.setTitle(REPORT_TITLE)
+        canvas.setTitle(LEGACY_REPORT_TITLE)
         canvas.setAuthor("Venfour")
         canvas.setSubject("Total-loss vehicle valuation evidence")
-        canvas.setCreator(f"Venfour renderer {REPORT_RENDERER_VERSION}")
+        canvas.setCreator("Venfour renderer 1")
         canvas.setKeywords(
-            f"reportVersionId={identity['reportVersionId']};reportDigest={value['reportDigest']};template={REPORT_TEMPLATE_VERSION}"
+            f"reportVersionId={identity['reportVersionId']};reportDigest={value['reportDigest']};template=1"
         )
         _header_footer(canvas, doc, identity)
 
@@ -1923,8 +1961,33 @@ def validate_report_pdf_manifest_v1(
 def _required_pdf_content(report: Mapping[str, Any]) -> list[tuple[str, str]]:
     identity = report["identity"]
     conclusion = report["executiveConclusion"]
+    if identity.get("templateVersion") == "2":
+        checks = [("REPORT_TITLE", REPORT_TITLE), ("REPORT_REFERENCE", identity["reportVersionId"][-12:].upper()),
+                  ("REPORT_VERSION", identity["versionLabel"]), ("ISSUE_DATE", identity["issueDate"]),
+                  ("SUBJECT_VEHICLE", report["reviewContext"]["vehicleDisplay"]),
+                  ("INSURER_VALUATION", conclusion["insurerValuation"]["value"]["display"] if conclusion["insurerValuation"]["value"]["minorUnits"] is not None else "Not recorded"),
+                  ("PRICE_SCOPE", "not verified completed sales"), ("ADJUSTMENT_SCOPE", "No independent dollar adjustments"),
+                  ("APPRAISAL_SCOPE", "not an independent appraisal"), ("INSPECTION_SCOPE", "No physical inspection")]
+        if conclusion["supportedAdvertisedPriceRange"]:
+            checks.extend((f"RANGE_{key.upper()}", conclusion["supportedAdvertisedPriceRange"][key]["display"]) for key in ("low", "median", "high"))
+        claim = report["insurerValuationReviewed"]["claimReference"]["value"]
+        if claim: checks.append(("CLAIM_REFERENCE", claim))
+        for index, comp in enumerate(report["independentMarketEvidence"]["comparables"]):
+            checks.append((f"COMPARABLE_PRICE_{index}", comp["advertisedPrice"]))
+            if comp["role"] == "PRIMARY":
+                checks.extend([(f"COMPARABLE_VEHICLE_{index}", comp["vehicleDisplay"]), (f"COMPARABLE_ID_{index}", comp["vin"] or comp["sourceListingId"])])
+        for index, comp in enumerate(report["insurerComparableReview"]["comparables"]):
+            checks.append((f"INSURER_COMPARABLE_{index}", comp["vehicleDisplay"]))
+            for key in ("adjustedValue", "netAdjustment"):
+                if comp.get(key): checks.append((f"INSURER_{key.upper()}_{index}", comp[key]))
+            for key, amount in comp["adjustments"].items():
+                if amount: checks.append((f"INSURER_ADJUSTMENT_{index}_{key.upper()}", amount))
+            source_price = comp.get("sourcePrice")
+            if source_price:
+                checks.append((f"INSURER_PRICE_{index}", f"{source_price['typeLabel']}: {source_price['amount']}"))
+        return checks
     result = [
-        ("REPORT_TITLE", REPORT_TITLE),
+        ("REPORT_TITLE", LEGACY_REPORT_TITLE),
         ("REPORT_ID", identity["reportVersionId"]),
         ("REPORT_VERSION", identity["versionLabel"]),
         ("ISSUE_DATE", identity["issueDate"]),
@@ -1982,6 +2045,7 @@ def validate_valuation_evidence_report_pdf_v1(
             raise _failure("Rendered PDF has no pages", "REPORT_PDF_INVALID")
         page_texts = [document.load_page(index).get_text("text") for index in range(page_count)]
         metadata = document.metadata or {}
+        public_links = [link.get("uri") for page in document for link in page.get_links() if link.get("uri")]
     finally:
         document.close()
     blank_pages = [index + 1 for index, text in enumerate(page_texts) if not text.strip()]
@@ -1993,13 +2057,15 @@ def validate_valuation_evidence_report_pdf_v1(
             for match in pattern.finditer(extracted_text)
         }
     )
+    template = value["identity"].get("templateVersion", "1")
+    sections = (("REVIEW_SUMMARY", "Reason for review"), ("COMPARABLE_EVIDENCE", "Comparable evidence"), ("SOURCES", "Sources and qualifications")) if template == "2" else MANDATORY_PDF_SECTIONS
     section_checks = [
         {"code": code, "status": "PASS"}
-        for code, heading in MANDATORY_PDF_SECTIONS
+        for code, heading in sections
         if heading in extracted_text
     ]
     missing_sections = [
-        heading for _, heading in MANDATORY_PDF_SECTIONS if heading not in extracted_text
+        heading for _, heading in sections if heading not in extracted_text
     ]
     normalized_extracted_text = " ".join(extracted_text.split())
     content_checks = [
@@ -2013,7 +2079,7 @@ def validate_valuation_evidence_report_pdf_v1(
         if " ".join(expected.split()) not in normalized_extracted_text
     ]
     metadata_errors: list[str] = []
-    if metadata.get("title") != REPORT_TITLE:
+    if metadata.get("title") != value["identity"]["title"]:
         metadata_errors.append("PDF title metadata does not match")
     keywords = metadata.get("keywords") or ""
     if value["identity"]["reportVersionId"] not in keywords:
@@ -2030,6 +2096,16 @@ def validate_valuation_evidence_report_pdf_v1(
     if missing_content:
         errors.append(f"missing required content checks: {missing_content}")
     errors.extend(metadata_errors)
+    if template == "2":
+        from venfour.valuation_review import public_listing_url
+        if any(public_listing_url(url) != url for url in public_links):
+            errors.append("Private or unsafe PDF link")
+        for index, page_text in enumerate(page_texts, 1):
+            if f"Page {index} of {page_count}" not in page_text:
+                errors.append("Incorrect page numbering")
+        forbidden = ("DESCRIPTIVE_ONLY", "NOT_DETERMINED_BY_V1", "LOSS_DATE_HISTORICAL", "Phase 3D", "deterministic assessment")
+        if any(term in extracted_text for term in forbidden):
+            errors.append("Internal terminology in customer report")
     if errors:
         raise _failure(
             "Rendered PDF failed deterministic validation",
@@ -2041,8 +2117,8 @@ def validate_valuation_evidence_report_pdf_v1(
         "status": "PASS",
         "reportVersionId": value["identity"]["reportVersionId"],
         "reportDigest": value["reportDigest"],
-        "rendererVersion": REPORT_RENDERER_VERSION,
-        "templateVersion": REPORT_TEMPLATE_VERSION,
+        "rendererVersion": template,
+        "templateVersion": template,
         # Storage identity is intentionally independent from the friendly
         # customer download name projected into report.identity.
         "filename": REPORT_STORAGE_FILENAME,

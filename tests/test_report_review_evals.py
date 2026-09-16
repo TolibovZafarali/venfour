@@ -54,7 +54,7 @@ EXPECTED_SUITE_DIGEST = (
 )
 RELEASE_QUALIFIED_MODEL = "gpt-5.6-sol"
 EXPECTED_PROMPT_TEMPLATE_DIGEST = (
-    "9c50e019f28f240e80db4bb849688fb0f932a3e86c3952a67bb46efcc69460ac"
+    "d5d7e21e4cfb0e8a6725d93074e398298e8c5e3f14633344ad1e5d0b7e1b8a14"
 )
 EXPECTED_REVIEW_SCHEMA_DIGEST = (
     "11839c12f40f8212c41cd2e3736baa131f46a963fdd83a25bbca1b41e92280f6"
@@ -487,39 +487,23 @@ class ReportReviewEvalSuiteTests(_review_fixture.ReportReviewFixture):
                             expected_model_identifier=RELEASE_QUALIFIED_MODEL,
                         )
 
-    def test_checked_in_attestation_qualifies_exact_release_reviewer(self) -> None:
-        attestation = load_report_review_eval_attestation(
-            expected_model_identifier=RELEASE_QUALIFIED_MODEL,
-        )
-
-        self.assertIsNotNone(attestation)
-        self.assertEqual(attestation.returned_model_identifier, RELEASE_QUALIFIED_MODEL)
-        self.assertEqual(attestation.prompt_version, REPORT_REVIEW_PROMPT_VERSION)
-        self.assertEqual(
-            attestation.review_schema_version, REPORT_REVIEW_SCHEMA_VERSION
-        )
-        self.assertEqual(
-            attestation.prompt_template_digest,
-            EXPECTED_PROMPT_TEMPLATE_DIGEST,
-        )
-        self.assertEqual(
-            attestation.review_schema_digest,
-            EXPECTED_REVIEW_SCHEMA_DIGEST,
-        )
-        self.assertEqual(
-            attestation.review_input_contract_digest,
-            EXPECTED_REVIEW_INPUT_CONTRACT_DIGEST,
-        )
-        self.assertEqual(attestation.eval_suite_digest, EXPECTED_SUITE_DIGEST)
-        self.assertEqual(
-            attestation.eval_suite_schema_digest,
-            EXPECTED_EVAL_SUITE_SCHEMA_DIGEST,
-        )
-        self.assertEqual(attestation.passed_case_count, 20)
-        self.assertEqual(attestation.total_case_count, 20)
-        self.assertTrue(attestation.all_passed)
-        self.assertTrue(attestation.provider_backed)
-        self.assertEqual(attestation.artifact_digest, PRESERVED_ATTESTATION_DIGEST)
+    def test_preserved_attestation_does_not_qualify_redesigned_report(self) -> None:
+        persisted = json.loads(REPORT_REVIEW_EVAL_ATTESTATION_PATH.read_text())
+        self.assertEqual(persisted["artifactDigest"], PRESERVED_ATTESTATION_DIGEST)
+        self.assertEqual(persisted["passedCaseCount"], 20)
+        self.assertEqual(persisted["totalCaseCount"], 20)
+        self.assertTrue(persisted["allPassed"])
+        self.assertTrue(persisted["providerBacked"])
+        self.assertEqual(persisted["returnedModelIdentifier"], RELEASE_QUALIFIED_MODEL)
+        self.assertEqual(persisted["reviewSchemaVersion"], REPORT_REVIEW_SCHEMA_VERSION)
+        self.assertEqual(persisted["reviewSchemaDigest"], EXPECTED_REVIEW_SCHEMA_DIGEST)
+        self.assertEqual(persisted["reviewInputContractDigest"], EXPECTED_REVIEW_INPUT_CONTRACT_DIGEST)
+        self.assertEqual(persisted["evalSuiteDigest"], EXPECTED_SUITE_DIGEST)
+        self.assertEqual(persisted["evalSuiteSchemaDigest"], EXPECTED_EVAL_SUITE_SCHEMA_DIGEST)
+        self.assertEqual(persisted["promptVersion"], "1")
+        self.assertNotEqual(persisted["promptTemplateDigest"], report_review_prompt_template_digest())
+        with self.assertRaises(ReportReviewEvalError):
+            load_report_review_eval_attestation(expected_model_identifier=RELEASE_QUALIFIED_MODEL)
 
     def test_checked_in_attestation_fails_closed_for_release_identity_drift(
         self,
