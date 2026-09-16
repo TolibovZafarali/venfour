@@ -1,4 +1,4 @@
-# Customer workspace preview
+# Screen preview dashboard
 
 Run from the repository root:
 
@@ -7,6 +7,15 @@ npm --prefix frontend run preview:workspace
 ```
 
 Open [the local launcher](http://127.0.0.1:4186/_local/workspace). Stop the server with Ctrl+C in its terminal. The server binds only to `127.0.0.1:4186` and does not load environment files.
+
+
+The dashboard groups the available screens into public website, account and access, intake and free valuation, insurer report, payment and preparation, completed review, insurer response and outcome, admin, businesses, and status examples. Use search and the category selector to find a screen. **All screens** returns to the dashboard from customer, staff, and business previews. Legacy route aliases open their current screen and are not listed as separate pages. Paused diminished-value intake shows its current availability screen; inactive staff routes are not enabled.
+
+Customer and staff/business examples run on the same preview server. Staff and business services use browser-local fictional records. Their edits persist in session storage; use the preview reset controls to restore examples. Payment-approval decisions affect only the local queue. Communications uses three illustrative email cards, not the complete delivered email library. No email is sent.
+
+Response, follow-up, and closure tiles are fixed saved-state examples for visual inspection. Their service writes remain disconnected. Start and recovery pages also support visual inspection; this dashboard does not simulate the complete intake or recovery workflow.
+
+Validate the preview with `cd frontend && npx tsc -p preview/workspace/tsconfig.json` and `npx vitest run preview/workspace/response-fixtures.test.ts preview/workspace/stripe-sandbox.test.ts`.
 
 By default, the preview uses the production routes and components with fictional, browser-local services. Fetch calls are intercepted, external connections are blocked by a local content-security policy, and payment fields are simulated. No real charge, report extraction, market search, email, or hosted database write occurs.
 

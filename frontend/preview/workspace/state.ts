@@ -11,7 +11,10 @@ import { materialUndervalueAnalysis } from "@/test/fixtures/analysis-presentatio
 import { CASE_ID, OTHER_CASE_ID, USER_ID, REPORT_ID, RUN_ID, NOW, claimProjection, completedEducationSteps } from "./claim-fixtures";
 import { waitForEntryPreview } from "./entry-preview";
 
+import { responseScenarios, isResponseScenario, responseClaim, responsePayload } from "./response-fixtures";
+
 export const scenarios = [
+  ...responseScenarios,
   ["free", "Free result", "A focused result with report upload in a modal."],
   ["listing", "Listing context", "Saved asking-price context."],
   ["insufficient", "Limited evidence", "The saved result without an estimate."],
@@ -24,6 +27,7 @@ export const scenarios = [
   ["payment", "Payment", import.meta.env.VITE_WORKSPACE_STRIPE_SANDBOX ? "Stripe test fields; payment submission disabled." : "Simulated fields and example price; no charge."],
   ["confirming", "Payment processing", "Payment confirmation at checkout, followed by report preparation."],
   ["paid", "Preparing valuation report", "Full-screen stars while the paid report is checked and prepared."],
+  ["send", "Review and send", "A saved reconsideration draft ready to review."],
   ["completed", "Completed review", "Existing review, evidence, and section navigation."],
   ["waiting", "Waiting for response", "The existing insurer-response workflow."],
   ["processing", "Free valuation processing", "Processing within the stable shell."],
@@ -52,6 +56,8 @@ export function resetScenario(phase: Scenario) {
 }
 export function scenarioPath(phase: Scenario) {
   const base = `/total-loss/cases/${CASE_ID}`;
+  if (isResponseScenario(phase)) return `${base}/claim/review/${phase}`;
+  if (phase === "send") return `${base}/claim/review/request`;
   return phase === "zero" ? "/app" : phase === "intake" ? `/start?service=total-loss&caseId=${CASE_ID}` : phase === "upload" ? `${base}/analysis?upload=report` : ["free", "listing", "insufficient", "processing"].includes(phase) ? `${base}/analysis`
     : phase === "payment-unverified" || phase === "payment" || phase === "confirming" ? `${base}/claim/checkout` : phase === "paid" ? `${base}/claim/processing`
     : phase === "completed" ? `${base}/claim/review/result` : phase === "waiting" ? `${base}/claim/review/waiting` : `${base}/review-report`;
@@ -71,29 +77,36 @@ function reportState(caseId: string): FullReviewState {
   }
   if (caseId === OTHER_CASE_ID) phase = "ready";
   const hasReport = !["free", "upload", "listing", "insufficient", "processing", "zero"].includes(phase);
-  const ready = ["strict", "ready", "payment-unverified", "payment", "confirming", "paid", "completed", "waiting"].includes(phase);
+  const ready = ["strict", "ready", "payment-unverified", "payment", "confirming", "paid", "completed", "send", "waiting"].includes(phase);
   return {
     caseId, stage: "full_review", analysisInputId: RUN_ID, analysisInputRevision: 3,
     status: ready ? "ready" : phase === "confirmation" ? "needs_confirmation" : phase === "extracting" || phase === "strict" ? "extracting" : "report_required",
-    ready, checkoutAvailable: phase === "ready", locked: ["payment-unverified", "payment", "confirming", "paid", "completed", "waiting"].includes(phase), canReuseReport: false,
+    ready, checkoutAvailable: phase === "ready", locked: ["payment-unverified", "payment", "confirming", "paid", "completed", "send", "waiting"].includes(phase), canReuseReport: false,
     report: hasReport ? { id: REPORT_ID, revision: 1, filename: snapshot().filename ?? "Insurer_valuation_report.pdf" } : null,
     message: phase === "confirmation" ? "Confirm this detail so we can finish your review." : "Your report is saved.",
     issues: phase === "confirmation" ? [{ field: "mileage", code: "REPORT_FACT_CONFLICT", message: "Which mileage should the full review use?", reportValue: 32000, savedValue: 30000 }] : [],
     paymentReadiness: {
-      status: ["ready", "payment-unverified", "payment", "confirming", "paid", "completed", "waiting"].includes(phase) ? "eligible" : phase === "strict" ? "processing" : "not_evaluated",
-      eligible: ["ready", "payment-unverified", "payment", "confirming", "paid", "completed", "waiting"].includes(phase),
+      status: ["ready", "payment-unverified", "payment", "confirming", "paid", "completed", "send", "waiting"].includes(phase) ? "eligible" : phase === "strict" ? "processing" : "not_evaluated",
+      eligible: ["ready", "payment-unverified", "payment", "confirming", "paid", "completed", "send", "waiting"].includes(phase),
       reviewId: "88888888-8888-4888-8888-888888888888", version: "1", digest: "a".repeat(64),
     },
   };
 }
+const responseCache = new Map<string, ReturnType<typeof responseClaim>>();
+function savedResponseClaim(phase: Parameters<typeof responseClaim>[0]) {
+  const key = `${phase}:${snapshot().changed}`;
+  if (!responseCache.has(key)) responseCache.set(key, responseClaim(phase));
+  return responseCache.get(key)!;
+}
 function claim(caseId: string) {
   const phase = snapshot().phase;
+  if (isResponseScenario(phase)) return { ...responsePayload(savedResponseClaim(phase)), caseId };
   if (phase === "payment-unverified") return {
     caseId, state: "secure_required", contactEmail: "preview@example.com", commerce: null, workflow: null,
   };
   const progress = completedEducationSteps();
   if (phase === "waiting") progress.send = { completedAt: NOW, viewedAt: NOW, skippedAt: null };
-  const value = claimProjection({ journey: phase === "payment" || phase === "confirming" ? "checkout" : phase === "paid" ? "processing" : phase === "waiting" ? "awaiting_insurer_response" : "guide_result", progress, fulfillmentState: phase === "paid" ? "finalizing" : undefined });
+  const value = claimProjection({ journey: phase === "payment" || phase === "confirming" ? "checkout" : phase === "paid" ? "processing" : phase === "waiting" ? "awaiting_insurer_response" : "guide_result", progress, withDraft: phase === "send", fulfillmentState: phase === "paid" ? "finalizing" : undefined });
   if (phase === "confirming") return {
     ...value, caseId,
     commerce: { ...value.commerce, checkoutAvailable: false, paymentStatus: "pending", orderStatus: "pending", nextTask: "checkout_confirmation" },
@@ -127,6 +140,7 @@ export function installPreviewFetch() {
     if (url.pathname.endsWith("/full-review/confirmation") && method === "PATCH") { setPhase("strict", true); return Response.json(reportState(caseId)); }
     if (url.pathname.endsWith("/full-review") && method === "GET") return Response.json(reportState(caseId));
     if (url.pathname.endsWith("/post-continue") && method === "POST") { setPhase("payment"); return Response.json(claim(caseId)); }
+    if (url.pathname.endsWith("/follow-up") && method === "GET") { const phase = snapshot().phase; return Response.json({ followUp: isResponseScenario(phase) ? savedResponseClaim(phase).followUp : null }); }
     if (url.pathname.endsWith("/claim") && method === "GET") return Response.json(claim(caseId));
     if (url.pathname.endsWith("/claim/access-link") && method === "POST") return Response.json({
       state: "secure_required", caseId, contactEmail: "preview@example.com",
@@ -179,15 +193,16 @@ export const previewAuth: AuthService = {
 export function previewCases(): AppraisalCase[] {
   const phase = snapshot().phase;
   if (phase === "zero") return [];
-  const base: AppraisalCase = { id: CASE_ID, userId: phase === "payment-unverified" ? GUEST_USER_ID : USER_ID, serviceType: "total_loss", status: "check_complete", createdAt: NOW, updatedAt: NOW, lastActivityAt: NOW, caseStage: "analysis_complete", analysisStatus: "completed", vehicleLabel: "2026 Hyundai Kona SE", hasFullReviewReport: !["free", "upload", "listing", "insufficient", "processing"].includes(phase), hasTotalLossClaimWorkflow: ["payment-unverified", "payment", "confirming", "paid", "completed", "waiting"].includes(phase), workspaceStatus: phase === "waiting" ? "awaiting_insurer_response" : phase === "completed" ? "report_ready" : undefined };
+  const base: AppraisalCase = { id: CASE_ID, userId: phase === "payment-unverified" ? GUEST_USER_ID : USER_ID, serviceType: "total_loss", status: "check_complete", createdAt: NOW, updatedAt: NOW, lastActivityAt: NOW, caseStage: "analysis_complete", analysisStatus: "completed", vehicleLabel: "2026 Hyundai Kona SE", hasFullReviewReport: !["free", "upload", "listing", "insufficient", "processing"].includes(phase), hasTotalLossClaimWorkflow: isResponseScenario(phase) || ["payment-unverified", "payment", "confirming", "paid", "completed", "send", "waiting"].includes(phase), workspaceStatus: phase === "waiting" ? "awaiting_insurer_response" : phase === "completed" ? "report_ready" : undefined };
   return [{ ...base, ...(phase === "intake" ? { status: "draft" as const, hasFullReviewReport: false, analysisStatus: null, caseStage: undefined } : {}) }, { ...base, id: OTHER_CASE_ID, vehicleLabel: "2024 Hyundai Elantra Limited", lastActivityAt: "2026-09-12T12:00:00Z", hasFullReviewReport: true, hasTotalLossClaimWorkflow: false, workspaceStatus: "review_prepared" }];
 }
+const previewDraft = (userId: string): AppraisalCase => ({ id: CASE_ID, userId, serviceType: "total_loss", status: "draft", createdAt: NOW, updatedAt: NOW, lastActivityAt: NOW });
 const unexpectedWrite = async () => { record("BLOCKED", "case-write"); throw new Error("Case writes are disabled in this preview."); };
 export const previewCaseService: AppraisalCaseService = {
   getWorkspaceRole: async () => "customer", listAppraisalCases: async () => previewCases(),
   getAppraisalCase: async ({ caseId }) => previewCases().find(item => item.id === caseId) ?? null,
   getRecentDraftAppraisalCase: async () => null,
-  createAppraisalCase: unexpectedWrite, createOrGetAppraisalCase: unexpectedWrite, getOrCreateTotalLossDraft: unexpectedWrite, touchAppraisalCase: unexpectedWrite,
+  createAppraisalCase: unexpectedWrite, createOrGetAppraisalCase: unexpectedWrite, getOrCreateTotalLossDraft: async ({ userId }) => previewDraft(userId), touchAppraisalCase: unexpectedWrite,
 };
 const savedDetails: TotalLossCaseDetails = {
   caseId: CASE_ID, intakeMode: "manual", vin: null, vehicleYear: 2026,
@@ -199,7 +214,7 @@ const savedDetails: TotalLossCaseDetails = {
 };
 export const previewDetails = {
   appraisalCaseService: previewCaseService,
-  totalLossDetailsService: { getDetails: async () => snapshot().phase === "intake" ? savedDetails : { ...savedDetails, intakeMode: "report" } },
+  totalLossDetailsService: { getDetails: async () => snapshot().phase === "zero" ? null : snapshot().phase === "intake" ? savedDetails : { ...savedDetails, intakeMode: "report" } },
   totalLossIdentityService: { getContact: async () => null },
   totalLossReportStorageService: {},
   vehicleLookupService: {

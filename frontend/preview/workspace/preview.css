@@ -23,3 +23,25 @@ html:has([data-free-valuation-processing]) .workspace-preview-note :is(a, button
 .payment-preview :is(input, select) { display: block; width: 100%; min-width: 0; min-height: 48px; padding: 12px; border: 1px solid #bfc4c5; border-radius: 4px; background: white; color: var(--ink); font-size: 16px; box-shadow: none; }
 .payment-preview :is(input, select):focus { border-color: var(--brand); }
 .payment-preview > div { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.preview-launcher { max-width: 1180px; }
+.preview-launcher header { max-width: 760px; }
+.preview-eyebrow { color: #52667a; font-size: 11px; font-weight: 600; letter-spacing: .12em; }
+.preview-launcher h1 { margin-top: 12px; font-size: clamp(30px, 4vw, 44px); line-height: 1.15; }
+.preview-launcher .preview-disclosure { font-size: 12px; }
+.preview-filters { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-top: 32px; }
+.preview-filters label { display: grid; gap: 8px; color: #34465c; font-size: 12px; font-weight: 600; }
+.preview-filters :is(input, select) { width: 100%; min-width: 0; height: 46px; border: 1px solid #cdd7e4; border-radius: 8px; padding: 10px 14px; background: white; color: #1a2942; font-size: 16px; font-weight: 400; }
+.preview-launcher :is(a, button, input, select):focus-visible { outline: 2px solid #155eef; outline-offset: 4px; }
+.preview-launcher .preview-count { font-size: 12px; }
+.preview-category { margin-top: 36px; padding-top: 28px; border-top: 1px solid #dce3ef; scroll-margin-top: 20px; }
+.preview-category-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+.preview-category h2, .preview-empty h2 { font-size: 22px; letter-spacing: -.025em; color: #1a2942; }
+.preview-category-heading > span { font-size: 11px; color: #59667b; }
+.preview-category > p { margin-top: 6px; font-size: 13px; }
+.preview-category nav { margin-top: 18px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.preview-category nav a { min-width: 0; min-height: 114px; overflow-wrap: anywhere; }
+.preview-empty { padding: 40px 0; }
+.preview-empty button { min-height: 44px; margin-top: 12px; color: #155eef; text-decoration: underline; cursor: pointer; }
+@media (max-width: 800px) { .preview-category nav { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .preview-launcher { padding: 32px 18px 100px; } .preview-filters, .preview-category nav { grid-template-columns: minmax(0, 1fr); } }

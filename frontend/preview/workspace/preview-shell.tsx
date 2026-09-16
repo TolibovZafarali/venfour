@@ -1,8 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router";
 import { FreeValuationProcessingProvider } from "@/features/analyses/components/free-valuation-processing";
 import { AccountControl, SignInDialogProvider, useAuth } from "@/features/auth";
+import { useSignInDialog } from "@/features/auth/sign-in-dialog-context";
 import { resetScenario, scenarioPath, snapshot } from "./state";
 import { continueEntryPreview, entryPreviewHref, entryPreviewMode } from "./entry-preview";
 
@@ -18,6 +19,7 @@ export function PreviewShell() {
   // Keep the star field mounted while the next route appears beneath its exit.
   return <>
     <SignInDialogProvider>
+      <PreviewSignIn />
       <FreeValuationProcessingProvider accountControl={<AccountControl />}>
         <div className="contents" onClickCapture={(event) => {
           if (import.meta.env.VITE_WORKSPACE_STRIPE_SANDBOX && event.target instanceof Element
@@ -59,7 +61,16 @@ export function PreviewShell() {
         resetScenario(confirmingPayment ? "paid" : "completed");
         void queryClient.invalidateQueries();
       }}>{confirmingPayment ? "Continue to report preparation" : "Continue to completed report"} <span aria-hidden>→</span></button> : null}
-      <a href="/_local/workspace">All states</a>
+      <a href="/_local/workspace">All screens</a>
     </aside>
   </>;
+}
+
+function PreviewSignIn() {
+  const { openSignIn } = useSignInDialog();
+  const { search } = useLocation();
+  useEffect(() => {
+    if (new URLSearchParams(search).has("previewSignIn")) openSignIn();
+  }, [openSignIn, search]);
+  return null;
 }
