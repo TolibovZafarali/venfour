@@ -85,7 +85,7 @@ function PaymentForm({
           <div>
             <h3 className="checkout-field-heading">Cardholder name and billing address</h3>
             <BillingAddressElement
-              options={{ display: { name: "full" }, fields: { phone: "never" } }}
+              options={{ display: { name: "full" } }}
               onReady={() => setBillingReady(true)}
               onLoadError={() => {
                 setBillingReady(false);
@@ -93,10 +93,10 @@ function PaymentForm({
               }}
             />
           </div>
-          <div>
+          <div className="checkout-card-fields">
             <h3 className="checkout-field-heading">Card details</h3>
             <PaymentElement
-              options={{ layout: "accordion", fields: { billingDetails: "never" }, wallets: { link: "never", applePay: "never", googlePay: "never" } }}
+              options={{ layout: { type: "tabs" }, fields: { billingDetails: "never" }, wallets: { link: "never", applePay: "never", googlePay: "never" } }}
               onReady={() => setReady(true)}
               onLoadError={() => {
                 setReady(false);
@@ -169,7 +169,7 @@ export function EmbeddedPayment({
   if (!checkout?.clientSecret || !checkout.publishableKey || !checkout.checkoutSessionId) {
     return <p className="flex items-center gap-2 py-6 text-sm text-copy" role="status"><LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />Preparing secure payment…</p>;
   }
-  // Provider frames need the resolved document color rather than a CSS reference.
+  // Stripe's frames need a resolved color from the app theme.
   const accentColor = getComputedStyle(document.documentElement).getPropertyValue("--primary").trim() || "#2563eb";
   return (
     <CheckoutElementsProvider
@@ -177,23 +177,25 @@ export function EmbeddedPayment({
       stripe={stripeFor(checkout.publishableKey)}
       options={{
         clientSecret: checkout.clientSecret,
+        defaultValues: { billingAddress: { address: { country: "US" } } },
         elementsOptions: {
           syncAddressCheckbox: "none",
           appearance: {
             theme: "stripe",
             variables: {
-              colorPrimary: accentColor, colorText: "#1a1a1a", colorTextSecondary: "#626262",
-              colorDanger: "#b91c1c", colorBackground: "#ffffff", borderRadius: "4px",
+              colorPrimary: accentColor, colorText: "#171717", colorTextSecondary: "#525252",
+              colorDanger: "#404040", colorSuccess: "#171717", colorWarning: "#525252",
+              colorTextPlaceholder: "#737373", colorBackground: "#ffffff", borderRadius: "4px",
               fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif",
               fontSizeBase: "16px", fontSizeSm: "13px", spacingUnit: "4px", gridRowSpacing: "20px",
             },
             rules: {
               ".Input": { border: "1px solid #bfbfbf", boxShadow: "none", padding: "12px" },
-              ".Input:focus": { borderColor: accentColor, boxShadow: "none" },
-              ".Input--invalid": { borderColor: "#b91c1c" },
-              ".Input--invalid:focus": { borderColor: "#b91c1c", boxShadow: "none" },
-              ".Label": { marginBottom: "8px", color: "#626262", fontWeight: "400" },
-              ".Block": { borderColor: "#dedede", boxShadow: "none", borderRadius: "4px" },
+              ".Input:focus": { borderColor: accentColor, boxShadow: `0 0 0 1px ${accentColor}` },
+              ".Input--invalid": { borderColor: "#404040" },
+              ".Input--invalid:focus": { borderColor: "#404040", boxShadow: "0 0 0 1px #404040" },
+              ".Label": { marginBottom: "8px", color: "#525252", fontWeight: "400" },
+              ".Block": { borderColor: "#e5e5e5", boxShadow: "none", borderRadius: "4px" },
             },
           },
         },

@@ -8,7 +8,7 @@ npm --prefix frontend run preview:workspace
 
 Open [the local launcher](http://127.0.0.1:4186/_local/workspace). Stop the server with Ctrl+C in its terminal. The server binds only to `127.0.0.1:4186` and does not load environment files.
 
-The preview uses the production routes and components with fictional, browser-local services. Fetch calls are intercepted, external connections are blocked by a local content-security policy, and payment fields are simulated. No real charge, report extraction, market search, email, or hosted database write occurs.
+By default, the preview uses the production routes and components with fictional, browser-local services. Fetch calls are intercepted, external connections are blocked by a local content-security policy, and payment fields are simulated. No real charge, report extraction, market search, email, or hosted database write occurs.
 
 Choose **Entering the app** to preview the real workspace entry route with delayed local authentication. **Fast** resolves in 120 ms, **Slow** in 2.5 seconds, and **Hold loading** waits for **Continue**. **New visitor** shows the initial intake choices during the same slow setup. **Replay** restarts the selected experience. The glass header stays visible; the small indicator appears only after 300 ms, and saved content appears as soon as it is available.
 
@@ -21,3 +21,15 @@ Choose [**Payment · unverified account**](http://127.0.0.1:4186/_local/workspac
 Completed review is a fixed saved-state preview: its reading checkpoints are already complete and its journey remains at the result stage. Navigating between sections demonstrates the real page transitions, but does not advance the progress line. In the application, the line advances when a new checkpoint is saved; revisiting completed sections does not move it backward.
 
 See [the visual review and verification notes](../../../output/persistent-workspace/REVIEW.md).
+
+## Stripe test fields on the existing checkout page
+
+To show real Stripe Address and Payment Elements within the existing checkout page, provide an existing, open $199 USD test-mode Checkout Session created through the backend gateway. Store only its `publishableKey`, `checkoutSessionId`, and `clientSecret` in an ignored local JSON file, then start:
+
+```sh
+VENFOUR_WORKSPACE_STRIPE_SESSION_FILE=/absolute/path/to/checkout.json npm --prefix frontend run preview:workspace
+```
+
+Open [Payment](http://127.0.0.1:4186/_local/workspace?state=payment), or use **Payment · unverified account** and the demo verification code above. This opt-in mode removes the Stripe mocks and permits Stripe's scripts and frames. The Address Element defaults to United States, supports country selection and autocomplete, and shares the production Checkout Elements provider with the Payment Element. The existing account section and order summary remain on the page. Payment submissions are intercepted before confirmation; account verification forms still work. Only test-mode keys and matching test Session identifiers are accepted, and no secret API key is loaded or served.
+
+The Session expires on Stripe's normal schedule; replace the JSON with a fresh test Session and restart if necessary. Stop with Ctrl+C. Restart without the variable to restore the offline simulated fields.

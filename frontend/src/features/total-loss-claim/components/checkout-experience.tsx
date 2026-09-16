@@ -1,7 +1,4 @@
-import {
-  LockKeyhole,
-  LoaderCircle,
-} from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 
@@ -61,11 +58,6 @@ export function CheckoutScreen({
   return (
     <div className="checkout-page">
     <ClaimWorkflowFrame>
-      <div className="checkout-introduction">
-        <p className="checkout-eyebrow"><LockKeyhole size={13} aria-hidden />Secure checkout</p>
-        <h1>Complete your purchase</h1>
-        <p>An independent review of your insurer’s vehicle valuation.</p>
-      </div>
       {canceled ? <p className="checkout-notice" role="status">Checkout was canceled. Your claim and purchase progress are saved.</p> : null}
       <div className="checkout-columns">
         <div className="checkout-form-column">
@@ -99,16 +91,18 @@ export function CheckoutScreen({
             </div>
           </section>
         </div>
-        <aside aria-label="Purchase summary" className="checkout-summary">
-          <h2 className="checkout-section-heading">Order summary</h2>
-          <div className="checkout-order-item"><h3>Valuation Evidence Review</h3><span>{summaryPrice}</span></div>
-          <ul className="checkout-inclusions">
-            {["Review of the insurer’s valuation and relevant market evidence", "Venfour Total-Loss Valuation Evidence Package", "Guided reconsideration request preparation when supported"].map((item) => <li key={item}>{item}</li>)}
-          </ul>
-          <dl className="checkout-summary-total"><div><dt>Total</dt><dd>{summaryPrice}</dd></div></dl>
-          <p className="checkout-payment-terms">{currency ? `${currency.toUpperCase()} · ` : ""}One-time payment · No subscription</p>
-          <div className="checkout-policy"><h3>Fair-result policy</h3><p>If our completed review does not identify reasonable support for a valuation dispute, we’ll explain the result and refund the purchase under our fair-result policy.</p><p className="checkout-disclaimer">Payment does not guarantee a higher insurance settlement.</p></div>
-        </aside>
+        <div className="checkout-summary-rail">
+          <aside aria-label="Purchase summary" className="checkout-summary">
+            <h2 className="checkout-section-heading">Order summary</h2>
+            <div className="checkout-order-item"><h3>Valuation Evidence Review</h3><span>{summaryPrice}</span></div>
+            <ul className="checkout-inclusions">
+              {["Review of the insurer’s valuation and relevant market evidence", "Venfour Total-Loss Valuation Evidence Package", "Guided reconsideration request preparation when supported"].map((item) => <li key={item}>{item}</li>)}
+            </ul>
+            <dl className="checkout-summary-total"><div><dt>Total</dt><dd>{summaryPrice}</dd></div></dl>
+            <p className="checkout-payment-terms">{currency ? `${currency.toUpperCase()} · ` : ""}One-time payment · No subscription</p>
+            <div className="checkout-policy"><h3>Fair-result policy</h3><p>If our completed review does not identify reasonable support for a valuation dispute, we’ll explain the result and refund the purchase under our fair-result policy.</p><p className="checkout-disclaimer">Payment does not guarantee a higher insurance settlement.</p></div>
+          </aside>
+        </div>
       </div>
     </ClaimWorkflowFrame>
     </div>

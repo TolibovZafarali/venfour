@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,6 +10,7 @@ const payment = vi.hoisted(() => ({
   loadStripe: vi.fn(async () => ({})),
   billingReady: true,
   billingOptions: vi.fn(),
+  providerOptions: vi.fn(),
   paymentOptions: vi.fn(),
   checkoutType: "success" as "loading" | "success",
 }));
@@ -18,7 +19,10 @@ vi.mock("@stripe/stripe-js/pure", () => ({ loadStripe: payment.loadStripe }));
 vi.mock("@stripe/react-stripe-js/checkout", async () => {
   const { useEffect } = await import("react");
   return {
-    CheckoutElementsProvider: ({ children }: { children: ReactNode }) => children,
+    CheckoutElementsProvider: ({ children, options }: { children: ReactNode; options: unknown }) => {
+      payment.providerOptions(options);
+      return <div data-testid="stripe-checkout-elements">{children}</div>;
+    },
     BillingAddressElement: ({ onReady, onLoadError, options }: { onReady: () => void; onLoadError: () => void; options: unknown }) => {
       payment.billingOptions(options);
       useEffect(() => { if (payment.billingReady) onReady(); }, [onReady]);
@@ -58,6 +62,7 @@ describe("embedded payment confirmation", () => {
     payment.checkoutType = "success";
     payment.billingReady = true;
     payment.billingOptions.mockClear();
+    payment.providerOptions.mockClear();
     payment.paymentOptions.mockClear();
     payment.confirm.mockReset();
     payment.initialize.mockReset();
@@ -72,6 +77,7 @@ describe("embedded payment confirmation", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    document.documentElement.style.removeProperty("--primary");
   });
 
   const loadingPayment = () => (
@@ -83,13 +89,45 @@ describe("embedded payment confirmation", () => {
     />
   );
 
-  it("collects name and billing with Stripe without asking for email, phone, or shipping", async () => {
+  it("shares one Stripe checkout provider for billing and payment, with an editable U.S. country default", async () => {
     const view = render(loadingPayment());
     expect(await screen.findByText("Secure billing fields")).toBeVisible();
-    expect(payment.billingOptions).toHaveBeenCalledWith({ display: { name: "full" }, fields: { phone: "never" } });
-    expect(payment.paymentOptions).toHaveBeenCalledWith(expect.objectContaining({ fields: { billingDetails: "never" } }));
+    expect(payment.billingOptions).toHaveBeenCalledWith({ display: { name: "full" } });
+    expect(payment.paymentOptions).toHaveBeenCalledWith(expect.objectContaining({
+      fields: { billingDetails: "never" },
+      layout: { type: "tabs" },
+    }));
+    const [provider] = screen.getAllByTestId("stripe-checkout-elements");
+    expect(screen.getAllByTestId("stripe-checkout-elements")).toHaveLength(1);
+    expect(within(provider).getByText("Secure billing fields")).toBeVisible();
+    expect(within(provider).getByText("Secure payment fields")).toBeVisible();
+    expect(payment.providerOptions).toHaveBeenCalledWith(expect.objectContaining({
+      defaultValues: { billingAddress: { address: { country: "US" } } },
+      elementsOptions: expect.objectContaining({ syncAddressCheckbox: "none" }),
+    }));
     expect(view.container.querySelector("input")).toBeNull();
     expect(payment.confirm).not.toHaveBeenCalled();
+  });
+
+  it("uses the app primary color for Stripe accents and focus with neutral supporting fields", async () => {
+    document.documentElement.style.setProperty("--primary", "#1d4ed8");
+    render(loadingPayment());
+    await screen.findByText("Secure billing fields");
+    expect(payment.providerOptions).toHaveBeenCalledWith(expect.objectContaining({
+      elementsOptions: expect.objectContaining({
+        appearance: expect.objectContaining({
+          variables: expect.objectContaining({
+            colorPrimary: "#1d4ed8",
+            colorText: "#171717",
+            colorDanger: "#404040",
+            colorBackground: "#ffffff",
+          }),
+          rules: expect.objectContaining({
+            ".Input:focus": { borderColor: "#1d4ed8", boxShadow: "0 0 0 1px #1d4ed8" },
+          }),
+        }),
+      }),
+    }));
   });
 
   it("blocks confirmation until both Elements are ready and after a billing load failure", async () => {

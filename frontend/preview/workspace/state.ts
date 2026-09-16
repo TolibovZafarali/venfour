@@ -21,7 +21,7 @@ export const scenarios = [
   ["strict", "Strict review", "Review of saved report and market evidence."],
   ["ready", "Ready for payment", "Review complete; explicit continuation."],
   ["payment-unverified", "Payment · unverified account", "Guest checkout before email verification, with no payment details entered."],
-  ["payment", "Payment", "Simulated fields and example price; no charge."],
+  ["payment", "Payment", import.meta.env.VITE_WORKSPACE_STRIPE_SANDBOX ? "Stripe test fields; payment submission disabled." : "Simulated fields and example price; no charge."],
   ["confirming", "Payment processing", "Payment confirmation at checkout, followed by report preparation."],
   ["paid", "Preparing valuation report", "Full-screen stars while the paid report is checked and prepared."],
   ["completed", "Completed review", "Existing review, evidence, and section navigation."],
@@ -112,6 +112,7 @@ function freeResult() {
   } };
 }
 export function installPreviewFetch() {
+  const localFetch = window.fetch.bind(window);
   window.fetch = async (input, init) => {
     const url = new URL(input instanceof Request ? input.url : String(input), location.origin);
     const method = init?.method ?? (input instanceof Request ? input.method : "GET");
@@ -138,6 +139,7 @@ export function installPreviewFetch() {
     if (url.pathname.endsWith("/checkout-quote") && method === "GET") return Response.json({ amountMinorUnits: 19900, availability: "available", currency: "USD" });
     if (url.pathname.endsWith("/checkout-sessions") && method === "POST") {
       if (snapshot().phase === "payment-unverified") return Response.json({ message: "Verify the preview account before payment." }, { status: 403 });
+      if (import.meta.env.VITE_WORKSPACE_STRIPE_SANDBOX) return localFetch("/_local/stripe-checkout", { cache: "no-store" });
       return Response.json({ checkoutStatus: "open", checkoutUrl: null, checkoutSessionId: "cs_test_workspace_preview", clientSecret: "cs_test_workspace_preview_secret_fixture", publishableKey: "pk_test_visual_fixture", uiMode: "elements", entitlementStatus: null, orderStatus: "pending", state: "checkout_ready" });
     }
     throw new Error(`Unimplemented preview request: ${method} ${url.pathname}`);

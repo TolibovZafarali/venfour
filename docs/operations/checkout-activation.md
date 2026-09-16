@@ -52,6 +52,28 @@ confirmation. The Payment Element suppresses duplicate billing fields. No shippi
 address or phone number is requested, and Venfour does not read or store card or
 billing-field values in application state.
 
+`BillingAddressElement` from `@stripe/react-stripe-js/checkout` is the billing-mode
+Address Element for this Checkout Sessions integration. It and `PaymentElement`
+mount under one `CheckoutElementsProvider`, so Stripe combines the completed
+billing address with payment details and validates both through the existing
+`checkout.confirm` call. The provider defaults only the billing country to `US`;
+the country stays visible and editable, and Stripe adapts the remaining address
+fields when it changes. No country restriction or duplicate address form is added.
+Phone collection remains disabled on the server's Checkout Session. Do not pass
+the standalone Address Element's `fields` option to `BillingAddressElement`:
+the hosted Checkout SDK rejects that option even though the installed type
+definitions currently accept it.
+
+Stripe automatically enables address autocomplete for supported countries when
+these Elements share the provider. It uses Stripe's own Google Maps key; no
+separate Google integration, application key, or Dashboard toggle is required.
+Both Elements share neutral surfaces and the app's resolved primary blue for
+active controls and input focus through the Appearance API. Checkout actions
+and links inherit the shared app theme. The local workspace preview defaults to
+simulated fields; its opt-in Stripe sandbox mode uses the actual hosted fields
+for autocomplete checks with payment submission disabled.
+See [Stripe's Checkout address integration](https://docs.stripe.com/payments/advanced/collect-addresses?payment-ui=embedded-components).
+
 The service uses the frozen purchaser email from the verified account/claim
 authorization for both `customer_email` and `payment_intent_data.receipt_email`.
 It never accepts a replacement email or price from the browser. Existing minimal

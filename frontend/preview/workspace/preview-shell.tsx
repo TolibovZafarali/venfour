@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router";
 import { FreeValuationProcessingProvider } from "@/features/analyses/components/free-valuation-processing";
 import { AccountControl, SignInDialogProvider, useAuth } from "@/features/auth";
@@ -12,12 +13,29 @@ export function PreviewShell() {
   const confirmingPayment = pathname.endsWith("/claim/checkout") && snapshot().phase === "confirming";
   const preparingReport = pathname.endsWith("/claim/processing") && snapshot().phase === "paid";
   const queryClient = useQueryClient();
+  const [paymentBlocked, setPaymentBlocked] = useState(false);
 
   // Keep the star field mounted while the next route appears beneath its exit.
   return <>
     <SignInDialogProvider>
       <FreeValuationProcessingProvider accountControl={<AccountControl />}>
-        <Outlet />
+        <div className="contents" onClickCapture={(event) => {
+          if (import.meta.env.VITE_WORKSPACE_STRIPE_SANDBOX && event.target instanceof Element
+            && event.target.closest("button.checkout-submit[type=submit]")) {
+            event.preventDefault();
+            event.stopPropagation();
+            setPaymentBlocked(true);
+          }
+        }} onSubmitCapture={(event) => {
+          if (import.meta.env.VITE_WORKSPACE_STRIPE_SANDBOX && event.target instanceof HTMLFormElement
+            && event.target.querySelector(".checkout-field-groups")) {
+            event.preventDefault();
+            event.stopPropagation();
+            setPaymentBlocked(true);
+          }
+        }}>
+          <Outlet />
+        </div>
       </FreeValuationProcessingProvider>
     </SignInDialogProvider>
     {entryPreviewMode ? <nav className="entry-preview-controls" aria-label="App entry preview controls">
@@ -31,6 +49,7 @@ export function PreviewShell() {
     </nav> : null}
     <aside className="workspace-preview-note" aria-label="Preview notice">
       <span>Local preview · Fictional data</span>
+      {import.meta.env.VITE_WORKSPACE_STRIPE_SANDBOX ? <span role="status">{paymentBlocked ? "Payment submission is disabled in this preview." : "Stripe test mode · Payments disabled"}</span> : null}
       {snapshot().phase === "payment-unverified" && auth.status === "signedIn" && auth.identity === "anonymous" ? <span>Demo code: 123-456</span> : null}
       {loading ? <Link to={scenarioPath("free")} onClick={() => {
         resetScenario("free");
