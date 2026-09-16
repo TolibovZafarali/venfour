@@ -619,3 +619,31 @@ describe("production Worker boundary", () => {
     expect(invalidMethod.status).toBe(405);
   });
 });
+
+
+describe("partner domain and readable referral redirects", () => {
+  const production = () => ({ ...createEnv(), STAGING_HOSTNAME: undefined, API_ORIGIN: "https://api.production.example", DEPLOYMENT_ENVIRONMENT: "production" } as Env);
+  it.each(["/", "/sign-in", "/earnings", "/invitations/saved"])("serves private partner page %s", async path => {
+    const response = await handleRequest(new Request(`https://partners.venfour.com${path}`), production());
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-robots-tag")).toContain("noindex");
+  });
+  it("keeps partner callbacks on their issuing origin and rejects cross-origin API calls", async () => {
+    const callback = await handleRequest(new Request("https://partners.venfour.com/auth/callback?code=example"), production());
+    expect(callback.status).toBe(200); expect(callback.headers.get("location")).toBeNull();
+    expect(callback.headers.get("referrer-policy")).toBe("no-referrer");
+    const fetch = vi.fn(async () => new Response('{}'));
+    const response = await handleRequest(new Request("https://partners.venfour.com/api/partners/operations", { method: "POST", headers: { Origin: "https://app.venfour.com" } }), production(), dependencies(fetch));
+    expect(response.status).toBe(403); expect(fetch).not.toHaveBeenCalled();
+    const sameOrigin = await handleRequest(new Request("https://partners.venfour.com/api/partners/operations", { method: "POST", headers: { Origin: "https://partners.venfour.com" } }), production(), dependencies(fetch));
+    expect(sameOrigin.status).toBe(200); expect(fetch).toHaveBeenCalledOnce();
+  });
+  it.each(["/r/ozark-auto", `/r/${"a".repeat(48)}`, "/admin/partners/ozark-auto"])("routes public %s into the authenticated application without exposing data", async path => {
+    const fetch = vi.fn();
+    const response = await handleRequest(new Request(`https://venfour.com${path}?source=print`), { DEPLOYMENT_ENVIRONMENT: "public-site", ASSETS: { fetch } as unknown as Fetcher });
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe(`https://app.venfour.com${path}?source=print`);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});

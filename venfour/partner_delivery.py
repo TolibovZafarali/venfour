@@ -59,6 +59,7 @@ def _email(value: Any, *, display_name: bool = False) -> str:
 class PartnerDeliveryConfiguration:
     provider: str = "disabled"
     public_app_origin: str = ""
+    partner_app_origin: str = ""
     sender: str = ""
     reply_to: str = ""
     resend_api_key: str = field(default="", repr=False)
@@ -72,6 +73,7 @@ class PartnerDeliveryConfiguration:
             provider=environment.get("VENFOUR_PARTNER_EMAIL_PROVIDER", environment.get("VENFOUR_EMAIL_PROVIDER", "disabled")).strip().lower(),
             delivery_mode=environment.get("VENFOUR_EMAIL_MODE", "disabled") if "VENFOUR_EMAIL_PROVIDER" in environment else "live",
             test_recipients=tuple(x.strip().lower() for x in environment.get("VENFOUR_EMAIL_TEST_RECIPIENTS", "").split(",") if x.strip()),
+            partner_app_origin=environment.get("VENFOUR_PARTNER_APP_ORIGIN", "").strip(),
             public_app_origin=environment.get("VENFOUR_PUBLIC_APP_ORIGIN", "").strip(),
             sender=environment.get("VENFOUR_PARTNER_EMAIL_FROM", environment.get("VENFOUR_EMAIL_FROM", "")).strip(),
             reply_to=environment.get("VENFOUR_PARTNER_EMAIL_REPLY_TO", environment.get("VENFOUR_EMAIL_REPLY_TO", "")).strip(),
@@ -88,14 +90,14 @@ class PartnerDeliveryConfiguration:
                 raise ValueError("Unknown delivery mode")
             if self.provider not in {"resend", "mailpit"}:
                 raise ValueError("Unknown provider")
-            _origin(self.public_app_origin)
+            _origin(self.partner_app_origin or self.public_app_origin)
             _email(self.sender, display_name=True)
             _email(self.reply_to, display_name=True)
             if self.provider == "resend" and not self.resend_api_key:
                 raise ValueError("Missing sender credential")
             if self.provider == "mailpit":
                 _origin(self.mailpit_origin, local_only=True)
-                _origin(self.public_app_origin, local_only=True)
+                _origin(self.partner_app_origin or self.public_app_origin, local_only=True)
         except (ValueError, TypeError):
             return "PARTNER_EMAIL_CONFIGURATION_REQUIRED"
         return None
@@ -235,12 +237,13 @@ class PartnerDeliveryService:
 
     def _email_payload(self, payload: Mapping[str, Any], job_id: str, provider: str) -> dict[str, Any]:
         recipient = _email(payload.get("recipient_email"))
-        origin = _origin(self._configuration.public_app_origin)
+        origin = _origin(self._configuration.partner_app_origin or self._configuration.public_app_origin)
+        workspace = "" if origin == "https://partners.venfour.com" else "/partners"
         kind = payload.get("kind")
         attachment = None
         if kind == "invitation":
             invitation_id = canonical_uuid(payload.get("invitation_id"))
-            action_url = f"{origin}/partners/invitations/{invitation_id}"
+            action_url = f"{origin}{workspace}/invitations/{invitation_id}"
         elif kind == "agreement_copy":
             canonical_uuid(payload.get("agreement_id"))
             path = self._artifact_path(payload)
@@ -249,7 +252,7 @@ class PartnerDeliveryService:
                 raise _DeliveryError("PARTNER_DOCUMENT_INTEGRITY_FAILED", requires_review=True)
             attachment = {"filename": PARTNER_DOCUMENT_FILENAME,
                           "content": base64.b64encode(content).decode("ascii")}
-            action_url = f"{origin}/partners"
+            action_url = origin + (workspace or "/")
         else:
             raise _DeliveryError("PARTNER_EMAIL_KIND_INVALID", requires_review=True)
         rendered = render_email("partner_" + kind, action_url=action_url, reply_to=self._configuration.reply_to,

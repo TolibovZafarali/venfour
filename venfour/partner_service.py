@@ -21,15 +21,15 @@ class PartnerError(Exception):
 
 
 STAFF_ACTIONS = frozenset({
-    "access", "staff_list", "staff_get", "staff_create", "staff_edit",
+    "staff_resolve", "slug_update", "access", "staff_list", "staff_get", "staff_create", "staff_edit",
     "template_list", "template_save", "template_publish", "invite", "resend",
     "revoke", "countersign", "document_retry", "email_retry", "staff_agreement_document",
-    "referral_summary", "referral_list", "link_state",
+    "referral_summary", "referral_list", "link_state", "earnings", "outcome_queue", "outcome_get", "outcome_decide",
 })
 PARTNER_ACTIONS = frozenset({
-    "access", "partner_list", "partner_get", "invitation_get", "invitation_accept",
+    "partner_resolve", "access", "partner_list", "partner_get", "invitation_get", "invitation_accept",
     "profile_save", "agreement_prepare", "sign", "agreement_document",
-    "referral_summary", "referral_list",
+    "referral_summary", "referral_list", "earnings",
 })
 _REFERRAL_ACTIONS = frozenset({"referral_summary", "referral_list", "link_state"})
 _OBJECT_PATH = re.compile(
@@ -60,14 +60,30 @@ def _timestamp(value: Any) -> bool:
         return False
 
 
+def _valid_slug(value: Any) -> bool:
+    return (isinstance(value, str) and 3 <= len(value) <= 63
+            and re.fullmatch(r"[a-z][a-z0-9]*(-[a-z0-9]+)*", value) is not None
+            and re.fullmatch(r"[a-f0-9]{48}", value) is None
+            and value not in {"admin", "api", "auth", "businesses", "earnings", "help", "invitations", "partners", "sign-in", "start", "support", "venfour", "www"})
+
+
+def _slug_payload(action: str, payload: Mapping[str, Any]) -> None:
+    fields = {"slug"} if action != "slug_update" else {"slug", "partner_id", "expected_revision", "request_id"}
+    valid = set(payload) == fields and _valid_slug(payload.get("slug"))
+    if action == "slug_update":
+        valid = valid and _uuid(payload.get("partner_id")) and _uuid(payload.get("request_id")) and _integer(payload.get("expected_revision"), 1, 999999999)
+    if not valid:
+        raise PartnerError(400, "INVALID_PARTNER_REQUEST", "Check the business link name and revision.")
+
+
 def _referral_payload(action: str, payload: Mapping[str, Any]) -> None:
     fields = {"partner_id"}
-    if action == "referral_list":
+    if action in {"referral_list", "earnings"}:
         fields |= {"page", "page_size"}
     elif action == "link_state":
         fields |= {"expected_revision", "enabled", "request_id"}
     valid = set(payload) <= fields and _uuid(payload.get("partner_id"))
-    if action == "referral_list":
+    if action in {"referral_list", "earnings"}:
         valid = valid and _integer(payload.get("page", 1), 1, 100000) and _integer(payload.get("page_size", 50), 1, 100)
     elif action == "link_state":
         valid = valid and _uuid(payload.get("request_id")) and _integer(payload.get("expected_revision"), 1) and type(payload.get("enabled")) is bool
@@ -101,7 +117,8 @@ def _referral_response(action: str, result: Any) -> Any:
                  and all(_integer(value) for value in summary.values()))
         if link is not None:
             valid = (valid and isinstance(link, Mapping)
-                     and set(link) == {"id", "code", "status", "revision", "created_at"}
+                     and set(link) in ({"id", "code", "status", "revision", "created_at"}, {"id", "code", "slug", "status", "revision", "created_at"})
+                     and ("slug" not in link or _valid_slug(link["slug"]))
                      and _uuid(link.get("id")) and isinstance(link.get("code"), str)
                      and re.fullmatch(r"[0-9a-f]{48}", link["code"]) is not None
                      and isinstance(link.get("status"), str) and link["status"] in {"active", "paused"}
@@ -139,11 +156,56 @@ class PartnerGateway(SupabaseHttpGateway):
             raise PartnerError(403, "PARTNER_ACCESS_DENIED", "You do not have access to this partner record.")
         if code in {"P0002", "02000"}:
             raise PartnerError(404, "PARTNER_NOT_FOUND", "This partner record or invitation is unavailable.")
+        if code == "23505" and action == "slug_update":
+            raise PartnerError(409, "PARTNER_LINK_RESERVED", "This link name is already reserved. Choose another name.")
         if code in {"40001", "55000", "23505"}:
             raise PartnerError(409, "PARTNER_CONFLICT", "This record changed or the invitation is no longer valid. Refresh and review it again.")
         if code in {"22023", "22P02", "23514", "23502"}:
             raise PartnerError(400, "INVALID_PARTNER_REQUEST", "Check the required details and confirmations.")
         raise PartnerError(503, "PARTNER_UNAVAILABLE", "Partner services are temporarily unavailable.")
+
+    def download_outcome_evidence(self, locator):
+        from urllib.parse import quote
+        bucket, path = locator.get('bucket'), locator.get('path')
+        if not isinstance(bucket, str) or not re.fullmatch('[a-z0-9][a-z0-9_-]{0,62}', bucket) or not isinstance(path, str) or any(p in {'', '.', '..'} for p in path.split('/')):
+            raise PartnerError(503, "OUTCOME_EVIDENCE_UNAVAILABLE", "Invalid evidence location.")
+        url = f"{self._configuration.url}/storage/v1/object/authenticated/{quote(bucket, safe='')}/{quote(path, safe='/')}"
+        chunks, size = [], 0
+        try:
+            with self._client.stream('GET', url, headers=self._admin_headers()) as response:
+                if not response.is_success:
+                    raise PartnerError(503, "OUTCOME_EVIDENCE_UNAVAILABLE", "Evidence could not be loaded.")
+                for chunk in response.iter_bytes():
+                    size += len(chunk)
+                    if size > 52_428_800:
+                        raise PartnerError(503, "OUTCOME_EVIDENCE_UNAVAILABLE", "Evidence is too large.")
+                    chunks.append(chunk)
+        except httpx.HTTPError as exc:
+            raise PartnerError(503, "OUTCOME_EVIDENCE_UNAVAILABLE", "Evidence could not be loaded.") from exc
+        content = b''.join(chunks)
+        if not content or size != locator['size'] or hashlib.sha256(content).hexdigest() != locator['digest']:
+            raise PartnerError(503, "OUTCOME_EVIDENCE_UNAVAILABLE", "Evidence integrity could not be verified.")
+        return content
+
+    def outcome_worker(self, payload):
+        try:
+            response = self._client.post(f"{self._configuration.url}/rest/v1/rpc/referral_outcome_worker",
+                headers=self._admin_headers(json_body=True), json={"p_payload": payload})
+            if response.is_success:
+                return response.json()
+            code = response.json().get('code')
+        except (httpx.HTTPError, ValueError, AttributeError) as exc:
+            raise PartnerError(503, "OUTCOME_UNAVAILABLE", "Review could not be saved. Retry the same decision.") from exc
+        if code == '42501':
+            raise PartnerError(403, "PARTNER_ACCESS_DENIED", "Current manager access is required.")
+        if code in {'40001', '55000', '23505'}:
+            raise PartnerError(409, "OUTCOME_CHANGED", "Review changed. Reload the evidence before deciding.")
+        if code in {'22023', '23514', '23502', '22P02'}:
+            raise PartnerError(400, "INVALID_OUTCOME_REVIEW", "Check the review evidence and decision.")
+        raise PartnerError(503, "OUTCOME_UNAVAILABLE", "Review could not be saved. Retry the same decision.")
+
+    def commission_worker(self, action: str, payload: Mapping[str, Any]) -> Any:
+        return self._rpc("referral_commission_worker", {"p_action": action, "p_payload": dict(payload)})
 
     def worker(self, action: str, payload: Mapping[str, Any]) -> Any:
         return self._rpc("referral_partner_worker", {"p_action": action, "p_payload": dict(payload)})
@@ -210,7 +272,14 @@ class PartnerService:
     def operation(self, action: str, payload: Mapping[str, Any], token: str, *, staff: bool) -> Any:
         if action not in (STAFF_ACTIONS if staff else PARTNER_ACTIONS):
             raise PartnerError(400, "INVALID_PARTNER_REQUEST", "This partner action is unavailable.")
-        if action in _REFERRAL_ACTIONS:
+        if action in {"staff_resolve", "partner_resolve", "slug_update"}:
+            _slug_payload(action, payload)
+        if action in {"outcome_queue", "outcome_get", "outcome_decide"}:
+            from venfour.partner_outcomes import validate_request, decide
+            validate_request(action, payload)
+            if action == "outcome_decide":
+                return decide(self.gateway, payload, token)
+        if action in _REFERRAL_ACTIONS or action == "earnings":
             _referral_payload(action, payload)
         if action in {"invite", "resend", "email_retry"} and not self.email_configured:
             # Check current authorization even when sending is disabled.
@@ -218,13 +287,27 @@ class PartnerService:
             if not isinstance(access, Mapping) or not access.get("is_partner_manager"):
                 raise PartnerError(403, "PARTNER_ACCESS_DENIED", "Partner manager access is required.")
             raise PartnerError(503, "PARTNER_EMAIL_UNCONFIGURED", "Partner email sending is not configured.")
-        database_action = f"staff_{action}" if staff and action in {"referral_summary", "referral_list"} else action
+        database_action = f"staff_{action}" if staff and action in {"referral_summary", "referral_list", "earnings"} else action
         result = self.gateway.operation(database_action, payload, token)
+        if action == "earnings":
+            from venfour.partner_earnings import validate_earnings
+            try:
+                return validate_earnings(result)
+            except (ValueError, TypeError, KeyError) as exc:
+                raise PartnerError(503, "PARTNER_UNAVAILABLE", "Earnings are temporarily unavailable.") from exc
         if action in _REFERRAL_ACTIONS:
             return _referral_response(action, result)
         if action == "access" and isinstance(result, Mapping):
             result = {**result, "email_configured": self.email_configured}
         return result
+
+    def outcome_document(self, payload, token):
+        if set(payload) != {"partner_id", "attribution_id", "document_id"} or not all(_uuid(v) for v in payload.values()):
+            raise PartnerError(400, "INVALID_OUTCOME_REVIEW", "Invalid evidence reference.")
+        locator = self.gateway.operation("outcome_document", payload, token)
+        if not isinstance(locator, dict) or locator.get('media_type') not in {'application/pdf', 'image/png', 'image/jpeg'}:
+            raise PartnerError(404, "OUTCOME_EVIDENCE_UNAVAILABLE", "Retained evidence is unavailable.")
+        return self.gateway.download_outcome_evidence(locator), locator['media_type']
 
     def document(self, agreement_id: str, token: str, *, staff: bool) -> bytes:
         try:

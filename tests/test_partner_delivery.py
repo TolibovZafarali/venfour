@@ -206,6 +206,19 @@ class PartnerDeliveryTests(unittest.TestCase):
         self.addCleanup(client.close)
         return PartnerDeliveryService(gateway, config or configuration(), http_client=client, now=lambda: NOW)
 
+    def test_partner_domain_invitation_links_and_mailpit_guard(self):
+        requests = []
+        def handler(request):
+            requests.append(request)
+            return httpx.Response(200, json={"id": "provider-id"})
+        gateway = MemoryDeliveryGateway(email=email_job())
+        config = configuration(partner_app_origin="https://partners.venfour.com")
+        self.assertEqual(self.service(gateway, handler, config).dispatch()["sent"], 1)
+        body = requests[0].content.decode()
+        self.assertIn(f"https://partners.venfour.com/invitations/{INVITATION_ID}", body)
+        self.assertNotIn("https://partners.venfour.com/partners/", body)
+        self.assertFalse(configuration("mailpit", partner_app_origin="https://partners.venfour.com").configured)
+
     def test_disabled_sender_still_renders_and_seals_document(self):
         gateway = MemoryDeliveryGateway(document=document_job(), email=email_job())
         result = self.service(gateway, config=PartnerDeliveryConfiguration()).dispatch()

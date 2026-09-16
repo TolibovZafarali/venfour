@@ -62,6 +62,10 @@
         {
           "pattern": "app.venfour.com",
           "custom_domain": true
+        },
+        {
+          "pattern": "partners.venfour.com",
+          "custom_domain": true
         }
       ],
       "vars": {

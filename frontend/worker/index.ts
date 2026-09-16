@@ -36,7 +36,8 @@ const STAGING_PROXY_HEADER_NAME = "X-Venfour-Staging-Proxy";
 const STRIPE_WEBHOOK_PATH = "/webhooks/stripe";
 const PUBLIC_ORIGIN = "https://venfour.com";
 const APP_ORIGIN = "https://app.venfour.com";
-const PRODUCTION_ORIGINS = new Set([PUBLIC_ORIGIN, APP_ORIGIN, "https://www.venfour.com"]);
+const PARTNER_ORIGIN = "https://partners.venfour.com";
+const PRODUCTION_ORIGINS = new Set([PUBLIC_ORIGIN, APP_ORIGIN, PARTNER_ORIGIN, "https://www.venfour.com"]);
 const PUBLIC_PATHS = new Set(["/", "/contact", "/cookies", "/methodology", "/privacy", "/terms", "/refund-policy", "/referral-partners"]);
 
 const CONTENT_SECURITY_POLICY = [
@@ -330,7 +331,7 @@ function productionRequestOriginAllowed(request: Request, url: URL) {
 
 async function handleProductionRequest(request: Request, env: Env, configuration: RuntimeConfiguration, dependencies: WorkerDependencies) {
   const url = new URL(request.url);
-  if (url.origin !== APP_ORIGIN) {
+  if (![APP_ORIGIN, PARTNER_ORIGIN].includes(url.origin)) {
     return jsonResponse(421, "PRODUCTION_HOST_REQUIRED", "This request is not addressed to the production application host.");
   }
   if (url.pathname === STRIPE_WEBHOOK_PATH) {
@@ -362,6 +363,7 @@ async function handleProductionRequest(request: Request, env: Env, configuration
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     }), "public, max-age=3600, must-revalidate");
   }
+  if (url.origin === PARTNER_ORIGIN && url.pathname.startsWith("/r/")) return redirectToOrigin(url, APP_ORIGIN);
   const publicPage = PUBLIC_PATHS.has(url.pathname.replace(/\/+$/, "") || "/");
   if (publicPage && url.pathname !== "/") return redirectToOrigin(url, PUBLIC_ORIGIN);
   return serveAsset(request, env);
@@ -421,6 +423,7 @@ async function handlePublicSiteRequest(request: Request, env: Env) {
     return jsonResponse(405, "METHOD_NOT_ALLOWED", "This website accepts GET and HEAD requests only.");
   }
   if (url.protocol === "http:" || url.hostname === "www.venfour.com") return redirectToOrigin(url, PUBLIC_ORIGIN);
+  if (/^\/r\/[a-z0-9-]{3,256}\/?$/.test(url.pathname) || /^\/admin\/partners\/[a-z0-9-]{3,63}(?:\/|$)/.test(url.pathname)) return redirectToOrigin(url, APP_ORIGIN);
   if (url.pathname === "/robots.txt") {
     return securedResponse(new Response("User-agent: *\nAllow: /\n", {
       headers: { "Content-Type": "text/plain; charset=utf-8" },

@@ -72,13 +72,19 @@ function BusinessApproval({ preview }: { preview: BusinessPreviewRuntime }) {
   const detail = useReferralQuery('partner', 'partner_get', { partner_id: preview.business.partnerId }, parsePartnerDetail, owned);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  if (detail.data?.partner.status !== 'awaiting_approval') return null;
+  const active = detail.data?.partner.status === 'active';
+  if (!active && detail.data?.partner.status !== 'awaiting_approval') return null;
   const approve = async () => {
     setPending(true); setError(null);
-    try { await preview.approve(); await client.invalidateQueries({ queryKey: referralQueryRoot }); }
+    try { if (active) await preview.service.operation('partner', preview.session.access_token, 'simulate_commission', { partner_id: preview.business.partnerId, request_id: crypto.randomUUID() }); else await preview.approve(); await client.invalidateQueries({ queryKey: referralQueryRoot }); }
     catch (failure) { setError(failure); }
     finally { setPending(false); }
   };
+  if (active) return <aside className="business-preview-approval" aria-label="Synthetic earnings controls">
+    <div><strong>Preview earnings growth</strong><p>Add one fictional verified case. This changes local demo balances only; no money is earned or paid.</p></div>
+    <Button variant="outline" disabled={pending} onClick={() => void approve()}>{pending ? 'Adding example…' : 'Simulate a verified case'}</Button>
+    <PartnerError error={error} />
+  </aside>;
   return <aside className="business-preview-approval" aria-label="Synthetic approval controls">
     <div><strong>Preview the next step</strong><p>In the real process, Venfour reviews and countersigns. This control simulates that step for your fictional business.</p></div>
     <Button variant="outline" disabled={pending} onClick={() => void approve()}>{pending ? 'Simulating approval…' : 'Simulate Venfour approval'}</Button>

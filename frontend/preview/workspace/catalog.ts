@@ -51,6 +51,7 @@ export const categories: Category[] = [
     ...[["", "Overview"], ["cases", "Cases"], ["customers", "Customers"], ["reports", "Reports"], ["processing", "Processing"], ["payments", "Payments"], ["payment-approvals", "Payment approvals"], ["communications", "Communications"], ["activity", "Activity"], ["referral-partners", "Referral partners"], ["referral-partners/templates", "Agreement templates"]].map(([id, title]) => screen(`admin-${id || "overview"}`, title, `/admin${id ? `/${id}` : ""}?state=populated`, "Shared staff page with local demonstration records.")),
     screen("admin-case", "Case detail", "/admin/cases/00000010-3333-4333-8333-333333333333?state=populated", "Customer, report, analysis, and operation history."),
     screen("admin-customer", "Customer detail", "/admin/customers/00000020-2222-4222-8222-222222222222?state=populated", "A fictional customer's profile and cases."),
+    screen("admin-outcome", "Partner case verification", "/admin/referral-partners/00061004-7000-4000-8000-000000000001/outcomes/00076999-7000-4000-8000-000000000001?state=populated", "Retained evidence, manager decisions, and fictional commission posting."),
     screen("admin-partner", "Business partner detail", "/admin/referral-partners/00061004-7000-4000-8000-000000000001?state=populated", "Agreement, referral link, and referral activity."),
   ] },
   { id: "business", title: "Businesses", description: "Invitation, company setup, approval, and the business workspace.", screens: [

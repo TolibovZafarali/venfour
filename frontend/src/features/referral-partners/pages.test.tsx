@@ -31,6 +31,76 @@ const failure = (status: number) => HttpResponse.json({ error: { code: "REFERRAL
 beforeEach(() => sessionStorage.clear());
 
 describe("referral onboarding", () => {
+  test.each(["ready", "queued", "failed"] as const)("shows the active workspace with a %s agreement document", async (documentStatus) => {
+    const user = userEvent.setup();
+    const current = detail();
+    current.partner.status = "active";
+    current.partner.current_agreement_id = AGREEMENT;
+    current.agreements[0].status = "countersigned";
+    current.agreements[0].document_status = documentStatus;
+    current.agreements[0].manager_signature = { typed_legal_name: "Venfour Representative", signed_at: "2026-09-16T12:30:00Z" };
+    current.agreements.unshift({ ...agreement(), id: "55555555-5555-4555-8555-555555555555", status: "superseded", snapshot: { ...agreement().snapshot, title: "Previous agreement" } });
+    server.use(
+      http.get("*/api/v1/partners/access", () => HttpResponse.json({ is_partner: true, is_partner_manager: false })),
+      http.post("*/api/v1/partners/operations", async ({ request }) => {
+        const { action } = await request.json() as { action: string };
+        if (action === "earnings") return HttpResponse.json({ availability: "not_enabled", currency: "USD", period: "2026-09", as_of: "2026-09-16T12:00:00Z", summary: null, items: [], total: 0, page: 1, page_size: 25 });
+        if (action === "referral_summary") return HttpResponse.json({ link: null, summary: { submitted_count: 0, purchased_count: 0, refunded_count: 0, under_review_count: 0 } });
+        if (action === "referral_list") return HttpResponse.json({ items: [], total: 0, page: 1, page_size: 25 });
+        return HttpResponse.json(current);
+      }),
+    );
+    renderTestApp([`/partners/${PARTNER}`], { authService: authService() });
+    expect(await screen.findByRole("heading", { name: "You’re ready to refer customers." })).toBeVisible();
+    expect(screen.getByText("Partnership active")).toBeVisible();
+    expect(screen.queryByLabelText("Partnership setup progress")).not.toBeInTheDocument();
+    const completed = screen.getByRole("region", { name: "Your agreement" });
+    if (documentStatus === "ready") expect(within(completed).getByRole("button", { name: "Download signed PDF" })).toBeVisible();
+    else {
+      expect(within(completed).queryByRole("button", { name: "Download signed PDF" })).not.toBeInTheDocument();
+      expect(within(completed).getByText(documentStatus === "failed" ? /PDF could not be prepared/ : /PDF is being prepared/)).toBeVisible();
+    }
+    await user.click(within(completed).getByText("Read completed agreement", { selector: "summary" }));
+    expect(within(completed).getByRole("heading", { name: "Business referral agreement" })).toBeVisible();
+    expect(within(completed).getByRole("heading", { name: "Previous agreement" })).not.toBeVisible();
+    expect(within(completed).getByText("Agreement history", { selector: "summary" }).closest("details")).not.toHaveAttribute("open");
+  });
+
+  test("shows the saved signature receipt and opens only the current signed agreement while approval is pending", async () => {
+    const user = userEvent.setup();
+    const current = detail();
+    current.partner.status = "awaiting_approval";
+    current.partner.current_agreement_id = AGREEMENT;
+    current.partner.legal_business_name = "Updated business profile";
+    current.agreements[0].status = "partner_signed";
+    current.agreements[0].partner_signature = { typed_legal_name: "Partner Person", typed_title: "Owner", verified_email: "partner@example.test", signed_at: "2026-09-16T12:30:00Z" };
+    current.agreements.unshift({ ...agreement(), id: "55555555-5555-4555-8555-555555555555", status: "superseded", snapshot: { ...agreement().snapshot, title: "Previous agreement", legal_business_name: "Previous business name" } });
+    server.use(http.post("*/api/v1/partners/operations", () => HttpResponse.json(current)));
+    renderTestApp([`/partners/${PARTNER}`], { authService: authService() });
+    await screen.findByRole("heading", { name: "Your agreement is with Venfour." });
+    const receipt = within(screen.getByRole("region", { name: "Signature saved" }));
+    expect(receipt.getByText("Example Business LLC")).toBeVisible();
+    expect(receipt.getByText("Partner Person")).toBeVisible();
+    expect(receipt.getByText("Owner")).toBeVisible();
+    expect(receipt.getByText("partner@example.test")).toBeVisible();
+    expect(receipt.getByText("Awaiting Venfour countersignature")).toBeVisible();
+    expect(receipt.queryByText("Updated business profile")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Venfour approval, step 3, current")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Download signed PDF" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Agree and sign" })).not.toBeInTheDocument();
+    const action = screen.getByRole("button", { name: "View your signed agreement" });
+    const disclosure = document.getElementById(action.getAttribute("aria-controls")!)!;
+    expect(disclosure).not.toHaveAttribute("open");
+    await user.click(action);
+    expect(disclosure).toHaveAttribute("open");
+    expect(screen.getByRole("heading", { name: "Your signed agreement" })).toHaveFocus();
+    expect(within(disclosure).getByRole("heading", { name: "Business referral agreement" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Previous agreement" })).not.toBeVisible();
+    expect(within(disclosure).queryByRole("heading", { name: "Previous agreement" })).not.toBeInTheDocument();
+    await user.click(screen.getByText("Agreement history", { selector: "summary" }));
+    expect(screen.getByText(/^Previous agreement · Superseded/, { selector: "summary" }).closest("details")).not.toHaveAttribute("open");
+  });
+
   test("shows sign-in fields immediately and returns to the exact invitation after email verification", async () => {
     const user = userEvent.setup();
     const service = authService(null);
@@ -52,7 +122,7 @@ describe("referral onboarding", () => {
     await user.click(signIn.getByRole("button", { name: "Continue with Email" }));
     await user.type(await screen.findByRole("textbox", { name: "Sign-in code" }), "123456");
     await user.click(screen.getByRole("button", { name: "Verify and sign in" }));
-    await screen.findByRole("heading", { name: "You’re invited to partner with Venfour" });
+    await screen.findByRole("heading", { name: "Welcome to Venfour." });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(app.router.state.location).toMatchObject({ pathname: path, search: "?from=invitation", hash: "#onboarding" });
     expect(getInvitation).toHaveBeenCalled();
@@ -115,21 +185,114 @@ describe("referral onboarding", () => {
     expect(sessionStorage.getItem(`${referralDraftPrefix}${USER}.profile.${PARTNER}`)).toBeNull();
   });
 
-  test("prepares the latest published agreement using the partner operation contract", async () => {
+  test("saves business details before preparing the agreement with the returned revision", async () => {
     const user = userEvent.setup();
     let preparation: Record<string, unknown> | undefined;
+    const writes: string[] = [];
     let current = detail(false);
     server.use(http.post("*/api/v1/partners/operations", async ({ request }) => {
       const { action, payload } = await request.json() as { action: string; payload: Record<string, unknown> };
-      if (action === "agreement_prepare") { preparation = payload; current = { ...current, partner: { ...current.partner, revision: 4 }, agreements: [agreement()] }; }
+      if (action === "profile_save") { writes.push(action); current = { ...current, partner: { ...current.partner, revision: 4 } }; }
+      if (action === "agreement_prepare") { writes.push(action); preparation = payload; current = { ...current, partner: { ...current.partner, revision: 5 }, agreements: [agreement()] }; }
       return HttpResponse.json(current);
     }));
     renderTestApp([`/partners/${PARTNER}`], { authService: authService() });
-    await user.click(await screen.findByRole("button", { name: "Review agreement" }));
-    await waitFor(() => expect(preparation).toMatchObject({ partner_id: PARTNER, expected_revision: 3 }));
+    await user.click(await screen.findByRole("button", { name: "Save and review agreement" }));
+    await waitFor(() => expect(preparation).toMatchObject({ partner_id: PARTNER, expected_revision: 4 }));
+    expect(writes).toEqual(["profile_save", "agreement_prepare"]);
     expect(preparation).not.toHaveProperty("template_id");
     await screen.findByRole("heading", { name: "Sign your agreement" });
     expect(screen.queryByText("The saved record changed while this form was open. Your entries are preserved.")).not.toBeInTheDocument();
+  });
+
+  test("shows required-field errors and focuses the first missing field without saving", async () => {
+    const user = userEvent.setup();
+    const current = detail(false);
+    current.partner = { ...current.partner, contact_name: "", address_line1: "" };
+    const writes = vi.fn();
+    server.use(http.post("*/api/v1/partners/operations", async ({ request }) => {
+      const { action } = await request.json() as { action: string };
+      if (action !== "partner_get") writes(action);
+      return HttpResponse.json(current);
+    }));
+    renderTestApp([`/partners/${PARTNER}`], { authService: authService() });
+    await user.click(await screen.findByRole("button", { name: "Save and review agreement" }));
+    expect(screen.getByRole("textbox", { name: "Street address *" })).toHaveFocus();
+    expect(screen.getByRole("textbox", { name: "Full name *" })).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText("Enter street address.")).toBeVisible();
+    expect(writes).not.toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: "Agreement history" })).not.toBeInTheDocument();
+  });
+
+  test("keeps entered details after a save failure and never prepares an unsaved profile", async () => {
+    const user = userEvent.setup();
+    const writes: string[] = [];
+    server.use(http.post("*/api/v1/partners/operations", async ({ request }) => {
+      const { action } = await request.json() as { action: string };
+      if (action === "partner_get") return HttpResponse.json(detail(false));
+      writes.push(action);
+      return failure(503);
+    }));
+    renderTestApp([`/partners/${PARTNER}`], { authService: authService() });
+    const name = await screen.findByRole("textbox", { name: "Legal business name *" });
+    await user.clear(name); await user.type(name, "Updated Business LLC");
+    await user.click(screen.getByRole("button", { name: "Save and review agreement" }));
+    await screen.findByRole("alert");
+    expect(name).toHaveValue("Updated Business LLC");
+    expect(writes).toEqual(["profile_save"]);
+    expect(screen.getByRole("button", { name: "Save and review agreement" })).toBeEnabled();
+  });
+
+  test("retries failed preparation using the saved revision and the same request without saving again", async () => {
+    const user = userEvent.setup();
+    let current = detail(false);
+    let saves = 0;
+    const preparations: Record<string, unknown>[] = [];
+    server.use(http.post("*/api/v1/partners/operations", async ({ request }) => {
+      const { action, payload } = await request.json() as { action: string; payload: Record<string, unknown> };
+      if (action === "profile_save") { saves++; current = { ...current, partner: { ...current.partner, revision: 4 } }; }
+      if (action === "agreement_prepare") {
+        preparations.push(payload);
+        if (preparations.length === 1) return failure(503);
+        current = { ...current, partner: { ...current.partner, revision: 5 }, agreements: [agreement()] };
+      }
+      return HttpResponse.json(current);
+    }));
+    renderTestApp([`/partners/${PARTNER}`], { authService: authService() });
+    await user.click(await screen.findByRole("button", { name: "Save and review agreement" }));
+    await screen.findByRole("alert");
+    expect(screen.getByText(/Your business details are saved/)).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Legal business name *" })).toHaveValue("Example Business LLC");
+    await user.click(screen.getByRole("button", { name: "Save and review agreement" }));
+    await screen.findByRole("heading", { name: "Sign your agreement" });
+    expect(saves).toBe(1);
+    expect(preparations).toHaveLength(2);
+    expect(preparations[1]).toEqual(preparations[0]);
+    expect(preparations[1]).toMatchObject({ partner_id: PARTNER, expected_revision: 4 });
+    expect(screen.queryByRole("textbox", { name: "Legal business name *" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Edit business details" }));
+    expect(await screen.findByRole("textbox", { name: "Legal business name *" })).toHaveValue("Example Business LLC");
+    await user.click(screen.getByRole("button", { name: "Back to agreement" }));
+    await screen.findByRole("heading", { name: "Sign your agreement" });
+  });
+
+  test("requires reconciling a changed profile before continuing with the latest revision", async () => {
+    const user = userEvent.setup();
+    const profile = { legal_business_name: "Previous LLC", address_line1: "100 Main Street", address_line2: "", city: "Columbia", state: "MO", postal_code: "65201", country: "US", contact_name: "Partner Person", contact_title: "Owner" };
+    sessionStorage.setItem(`${referralDraftPrefix}${USER}.profile.${PARTNER}`, JSON.stringify({ version: 1, value: { ...profile, legal_business_name: "Authored LLC", baseline: profile, expected_revision: 2 } }));
+    let savePayload: Record<string, unknown> | undefined;
+    server.use(http.post("*/api/v1/partners/operations", async ({ request }) => {
+      const { action, payload } = await request.json() as { action: string; payload: Record<string, unknown> };
+      if (action === "profile_save") { savePayload = payload; return failure(503); }
+      return HttpResponse.json(detail(false));
+    }));
+    renderTestApp([`/partners/${PARTNER}`], { authService: authService() });
+    expect(await screen.findByRole("button", { name: "Save and review agreement" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Keep my entries and use the latest record version" }));
+    expect(screen.getByRole("textbox", { name: "Legal business name *" })).toHaveValue("Authored LLC");
+    await user.click(screen.getByRole("button", { name: "Save and review agreement" }));
+    await screen.findByRole("alert");
+    expect(savePayload).toMatchObject({ expected_revision: 3, legal_business_name: "Authored LLC" });
   });
 
   test("does not reveal invitation details to a mismatched verified account", async () => {
@@ -144,13 +307,23 @@ describe("referral onboarding", () => {
     const current = detail();
     current.partner = { ...current.partner, status: "active", current_agreement_id: AGREEMENT, commission_amount_minor_units: 4000 };
     current.agreements[0] = { ...agreement(), status: "countersigned", document_status: "queued", partner_signature: { typed_legal_name: "Partner Person", signed_at: "2026-09-08T00:00:00Z" }, manager_signature: { typed_legal_name: "Manager Person", signed_at: "2026-09-08T00:01:00Z" } };
-    server.use(http.post("*/api/v1/partners/operations", () => HttpResponse.json(current)));
+    server.use(
+      http.get("*/api/v1/partners/access", () => HttpResponse.json({ is_partner: true, is_partner_manager: false })),
+      http.post("*/api/v1/partners/operations", async ({ request }) => {
+        const { action } = await request.json() as { action: string };
+        if (action === "earnings") return HttpResponse.json({ availability: "not_enabled", currency: "USD", period: "2026-09", as_of: "2026-09-16T12:00:00Z", summary: null, items: [], total: 0, page: 1, page_size: 25 });
+        if (action === "referral_summary") return HttpResponse.json({ link: null, summary: { submitted_count: 0, purchased_count: 0, refunded_count: 0, under_review_count: 0 } });
+        if (action === "referral_list") return HttpResponse.json({ items: [], total: 0, page: 1, page_size: 25 });
+        return HttpResponse.json(current);
+      }),
+    );
     renderTestApp([`/partners/${PARTNER}`], { authService: authService() });
-    const summary = within(await screen.findByRole("region", { name: "Agreed business details" }));
+    await userEvent.setup().click(await screen.findByText("Read completed agreement", { selector: "summary" }));
+    const summary = within(screen.getByRole("article", { name: "Agreement for review" }));
     expect(summary.getByText("$25.00")).toBeVisible();
     expect(summary.queryByText("$40.00")).not.toBeInTheDocument();
-    expect(summary.getByText("partner@example.test")).toBeVisible();
-    expect(screen.getByText(/Your partner onboarding is complete/)).toBeVisible();
+    expect(summary.getByText("partner@example.test", { exact: false })).toBeVisible();
+    expect(screen.getByText("Partnership active")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Agree and sign" })).not.toBeInTheDocument();
   });
 
@@ -179,5 +352,35 @@ describe("referral onboarding", () => {
     await user.type(screen.getByRole("textbox", { name: "Commission per qualifying purchase (USD) *" }), "12.34");
     await user.click(screen.getByRole("button", { name: "Create partner record" }));
     await waitFor(() => expect(creation).toMatchObject({ business_name: "Example Business", contact_email: "partner@example.test", state: "MO", commission_amount_minor_units: 1234 }));
+  });
+});
+
+
+describe("account-based partner routes", () => {
+  test("opens the account's only business directly from the workspace root", async () => {
+    const current = detail(); current.partner.url_slug = "example-business";
+    const requests: string[] = [];
+    server.use(http.post("*/api/v1/partners/operations", async ({ request }) => {
+      const { action, payload } = await request.json() as { action:string; payload:Record<string, unknown> };
+      requests.push(action);
+      if (action === "partner_list") return HttpResponse.json({ items:[current.partner], total:1, page:1, page_size:25 });
+      expect(payload.partner_id).toBe(PARTNER); return HttpResponse.json(current);
+    }));
+    renderTestApp(["/partners"], { authService:authService() });
+    expect(await screen.findByRole("heading", {name:"Review your agreement"})).toBeVisible();
+    expect(requests).toContain("partner_get");
+    expect(screen.getByRole("link",{name:"Earnings"})).toHaveAttribute("href","/partners/earnings");
+  });
+  test("asks multi-business accounts to choose a readable business link", async () => {
+    const first = { ...detail().partner, url_slug:"example-business" };
+    const second = { ...first, id:INVITATION, url_slug:"second-business", business_name:"Second Business" };
+    server.use(http.post("*/api/v1/partners/operations", async ({ request }) => {
+      const { action } = await request.json() as { action:string };
+      expect(action).toBe("partner_list");
+      return HttpResponse.json({ items:[first,second],total:2,page:1,page_size:25 });
+    }));
+    renderTestApp(["/partners/earnings"], { authService:authService() });
+    await screen.findByRole("heading",{name:"Second Business"});
+    expect(screen.getAllByRole("link",{name:"View business and agreement"}).map(link=>link.getAttribute("href"))).toEqual(["/partners/businesses/example-business/earnings","/partners/businesses/second-business/earnings"]);
   });
 });

@@ -1,3 +1,4 @@
+import type { CommissionStatus } from "./service";
 export const formatPartnerMoney = (amount: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount / 100);
 export const formatPartnerDate = (value?: string | null) => value ? new Date(value).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : "—";
 const statusLabels: Record<string, string> = { onboarding: "Onboarding", awaiting_approval: "Awaiting Venfour approval", active: "Active", pending: "Pending", accepted: "Accepted", revoked: "Revoked", expired: "Expired", superseded: "Superseded", prepared: "Ready to sign", partner_signed: "Awaiting countersignature", countersigned: "Signed by both parties", queued: "Queued", sending: "Sending", sent: "Sent", failed: "Needs attention", ready: "Ready", processing: "Preparing", published: "Published", draft: "Draft" };
@@ -5,6 +6,7 @@ export const partnerStatusLabel = (status: string) => statusLabels[status] ?? "P
 export const partnerDeliveryLabel = (status: string) => ({ queued: "Queued", processing: "Sending", completed: "Sent", failed: "Retry pending", review: "Needs review", canceled: "Canceled" })[status] ?? "Pending update";
 
 export const partnerEventLabel = (event: string) => ({
+  "partner.link_updated": "Business link updated",
   "partner.created": "Partner record created",
   "partner.edited": "Proposed partner details updated",
   "partner.profile_saved": "Business profile saved",
@@ -24,3 +26,8 @@ export const partnerEventLabel = (event: string) => ({
   "referral_link.paused": "Referral link paused",
   "referral_link.resumed": "Referral link resumed",
 })[event] ?? "Partner record updated";
+
+export const commissionStatusLabel: Record<CommissionStatus, string> = {
+  not_enabled: 'Not enabled', unverified: 'Awaiting verified outcome', waiting: 'Waiting period',
+  ready: 'Awaiting payout', held: 'On hold', paid: 'Paid', reversed: 'Reversed', recovery_review: 'Payment correction under review',
+};

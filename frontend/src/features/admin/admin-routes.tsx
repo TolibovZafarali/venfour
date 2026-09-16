@@ -1,3 +1,4 @@
+import { AdminOutcomeReviewPage } from "@/features/referral-partners/outcome-review";
 import { AdminCommunicationsPage } from "@/features/admin/communications/page";
 import { AdminPaymentApprovalsPage } from "@/features/admin/payment-approvals/page";
 import type { RouteObject } from "react-router";
@@ -33,6 +34,9 @@ export const adminRoute: RouteObject = {
         { element: <ReferralManagerGate />, children: [
           { path: "referral-partners", element: <AdminReferralPartnersPage /> },
           { path: "referral-partners/templates", element: <AdminAgreementTemplatesPage /> },
+          { path: "referral-partners/:partnerId/outcomes/:attributionId", element: <AdminOutcomeReviewPage /> },
+          { path: "partners/:partnerSlug", element: <AdminReferralPartnerPage /> },
+          { path: "partners/:partnerSlug/outcomes/:attributionId", element: <AdminOutcomeReviewPage /> },
           { path: "referral-partners/:partnerId", element: <AdminReferralPartnerPage /> },
         ] },
         { path: "*", element: <NotFoundPage /> },

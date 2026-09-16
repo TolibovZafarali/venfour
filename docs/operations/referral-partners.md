@@ -2,8 +2,10 @@
 
 This release provides invitation-only business onboarding, website signatures,
 manager countersigning, retained agreement PDFs, transactional copies, stable
-referral links, and purchase attribution. Commission ledgers, earnings balances,
-payout records, and payment transfers remain separate milestones.
+referral links, and purchase attribution. Local earnings work adds a private
+commission register, authenticated balances, and recorded payment/adjustment
+history. Outcome-review integration, program release, and payment transfers are
+not activated by these changes.
 
 ## Access and agreement preparation
 
@@ -272,3 +274,180 @@ fulfillment. It creates random disposable database fixtures, uses an unpublished
 fixture template, and removes only those exact identities in a final cleanup
 transaction. It sends no email and does not call Stripe; the local browser and
 Stripe journey above remains a separate verification step.
+
+## Outcome-based agreement proposal (September 16, 2026)
+
+A new complete agreement is retained as an owner-review draft with a database
+publication/preparation hold. See [the proposed text](../agreements/referral-partner-agreement-draft.md)
+and [owner decisions, local review, and release blockers](../agreements/referral-partner-owner-review.md).
+The $50/$75 verified-outcome rules are isolated from existing fixed-rate purchase
+attribution. The draft does not activate a commission program, payee onboarding, or payment
+transfers. The local earnings implementation below remains subject to its hold. Existing signed agreements and
+customer refund terms are unchanged.
+
+
+## Earnings register and dashboard (local implementation)
+
+Migration `20260916000400_referral_partner_earnings.sql` adds private append-only
+award and adjustment tables. `earnings` accepts `partner_id`, `page`, and
+`page_size` (default 25, maximum 100); manager reads map to `staff_earnings`.
+The authenticated caller must own the business or have current manager access
+for the corresponding staff action. Raw tables, evidence, customer details,
+internal order/case IDs, reviewer IDs and reconciliation references are never
+part of the partner projection. Reads have private/no-store HTTP headers.
+
+The dashboard refreshes every 15 seconds while visible and on window focus.
+Earned this month uses the verification month in America/Chicago and excludes
+reversed awards. Awaiting payout includes all unpaid, unreversed awards,
+including holds; the held amount is stated separately. Paid to date preserves
+actual recorded payments, including payments subsequently flagged for recovery
+review. Each referral has a commission amount and status, or an explicit
+unverified state without a monetary estimate. Errors and disabled agreements
+are not rendered as zero-dollar balances.
+
+`CommissionLedger` in `venfour/partner_earnings.py` reuses the deterministic
+rules in `partner_commissions.py`. Its **service-only** adapter records trusted
+reviewer facts, matches immutable attribution/payment/agreement identity, and
+requires retained sealed evidence from the same case. It serializes writes per
+partner, rejects stale ordinals, fixes the original rate, and rejects conflicting
+replays. Verification timestamps must be current; a concurrency conflict needs
+fresh context and recalculation with the same reviewed outcome. No browser or
+manager HTTP operation can mint an award or mark a payment completed.
+
+Accounting events retain a reviewer, reason, stable request ID and expected
+revision. Holds and reversals preserve original entries. A paid event requires
+a currently eligible entry and a reconciliation reference for an **already
+completed** external payment. This does not initiate a transfer, verify a bank
+transaction, collect payee data, or automate payouts. Authoritative order/refund
+changes immediately place affected awards on hold (or paid awards into recovery
+review). Resolution of goodwill exceptions, paid corrections, offsets, and
+payee holds still needs the separately approved operations workflow; the
+adapter intentionally cannot clear a financial-source hold with a generic
+release event.
+
+Real activation still requires the held policy's release review, hosted validation
+of the manual outcome-review workflow and refund-review procedure, and approved
+payment reconciliation procedures. The existence of
+this register does not independently establish success or remove that hold.
+Existing fixed-rate agreements show earnings tracking as not enabled. They are
+not silently converted to the proposed $50/$75 rules.
+
+The browser-only business preview offers **Simulate a verified case** outside
+the product UI. It adds a fictional referral and award and persists only local
+preview state. Replayed requests do not add duplicate awards; the tenth example
+uses $75 without repricing the first nine. No email, transfer or real agreement
+is created. Use `http://127.0.0.1:4186/_local/businesses?example=active`.
+
+Validation commands:
+
+```sh
+.venv/bin/python -m unittest tests.test_partner_earnings tests.test_partner_commissions tests.test_partner_referral_api tests.test_partner_api
+VENFOUR_EARNINGS_TEST_CONTAINER=venfour-migration-rehearsal-partner-release-hold .venv/bin/python -m unittest tests.test_partner_earnings_database
+npm --prefix frontend test -- src/features/referral-partners preview/workspace/staff/referral-fixtures.test.ts
+```
+
+The database test requires the earnings migration in a dedicated network-isolated
+rehearsal container. It reuses the existing synthetic commerce fixture inside a
+rolled-back transaction; it never calls hosted services or processes real money.
+
+Local validation for this earnings change: 49 Python tests and 39 frontend/preview
+tests passed. The two earnings database scenarios passed 178 assertions including
+the reused commerce setup; the existing onboarding, attribution and proposal-hold
+suites passed another 151 assertions. App/preview TypeScript and scoped lint passed.
+The local browser confirmed a persisted $0-to-$50 increase and mobile layout.
+These are local synthetic checks, not hosted payment or outcome-verification proof.
+
+
+### Manager outcome review (local implementation)
+
+Each business record now has a paginated **Case verification** queue. Open a
+referral to inspect sealed case evidence and record **Needs more evidence**,
+**Not eligible**, or **Approve successful outcome**. The first two retain the
+reviewer's explanation without creating earnings. A later review may append a
+new decision; an approved original cannot be overwritten.
+
+Approval requires retained baseline/final/acceptance documents and a supporting
+service/process/refund review record, equivalent vehicle values, documented
+service and acceptance times, and explicit reviewer confirmations. Refund
+entitlement and business classification are manual evidence-review findings,
+not inferred from the absence of a refund request or from customer-recorded
+resolution. This initial workflow supports reviewer-confirmed unregulated
+businesses only; regulated referrals stay pending until separate compliance
+approval is implemented. It does not upload documents or contact the customer.
+Documents must already be retained through the case's document workflow.
+
+The authenticated manager token obtains fresh review context. Python applies
+`partner_commissions.py`; a private transaction then checks current manager
+access, the source digest, retained documents, policy release, and payment state
+before appending the decision and commission together. Server time and identity
+are authoritative. Stable request IDs recover a lost response; stale source
+snapshots require another review. The evidence endpoint resolves storage on the
+server and verifies byte count and digest before returning a private, noncached
+attachment. Partners have no access to the queue, evidence, facts, or notes.
+Private form notes are not persisted in browser draft storage.
+
+Migration `20260916000500_referral_outcome_review.sql` was applied only to the
+network-isolated rehearsal database. It leaves the proposal hold intact and
+performs no payment. The synthetic preview has one fictional review with four
+sample PDFs and can demonstrate an approval incrementing the business balance.
+Open the **Partner case verification** entry in the all-screens local preview.
+
+Additional verification:
+
+```sh
+.venv/bin/python -m unittest tests.test_partner_outcomes
+npm --prefix frontend test -- src/features/referral-partners/outcome-review.test.tsx
+```
+
+The earnings database suite also tests manager review, private document lookup,
+source conflicts, payment disputes arriving during review, atomic posting,
+immutable history, same-request replay, and permission revocation. These local
+checks do not establish hosted readiness or validate the truth of real evidence.
+
+
+## Readable business links and partner portal
+
+Migration `20260916000600_referral_partner_readable_links.sql` assigns every
+business a readable `url_slug`. Names use lowercase letters, numbers and hyphens;
+duplicates use the city when available, then a number. Managers can change the
+name in **Business link**. Current and retired aliases stay permanently assigned
+to the original business, and old opaque referral codes remain valid. An alias
+resolves into the existing link before the existing draft attribution operation;
+pausing the link covers every alias. Existing drafts are never retrofitted.
+Alias tables are private. Staff and owner resolution check current authorization.
+
+The production URL structure is:
+
+- `https://venfour.com/r/ozark-auto`: public customer entry, redirected to the
+  customer application before intake creates or resumes its owned draft.
+- `https://partners.venfour.com/sign-in`: partner sign-in.
+- `https://partners.venfour.com/`: the signed-in business workspace.
+- `https://partners.venfour.com/earnings`: that business's earnings and referrals.
+- `https://app.venfour.com/admin/partners/ozark-auto`: manager business record.
+  The equivalent `venfour.com/admin/partners/ozark-auto` redirects here.
+
+The account opens its only business directly. Accounts with multiple businesses
+choose from their authorized list, using `/businesses/<slug>` and
+`/businesses/<slug>/earnings`. Legacy UUID routes remain available on their
+issuing origin, including previously sent invitations and authentication callbacks.
+
+The Worker custom-domain configuration is prepared locally. At release, apply
+the migration, deploy the backend and both frontend boundaries, activate the
+partner domain, and verify certificate/DNS, sign-in, callback return location,
+and the same-origin API proxy. Add `https://partners.venfour.com/auth/callback`
+to the Supabase Auth redirect allowlist and the hostname to any configured
+Turnstile widget before live sign-in checks. Set
+`VENFOUR_PARTNER_APP_ORIGIN=https://partners.venfour.com` for newly prepared
+partner emails after the host is available. Without it, the existing mail origin
+and invitation URLs remain in use. Retained, prepared emails keep their original
+URLs and bytes. Mailpit still requires a local origin.
+
+Local design review: `npm --prefix frontend run preview:workspace`, then open
+`http://127.0.0.1:4186/partners?example=active` or the manager's business list at
+`http://127.0.0.1:4186/admin/referral-partners`. Refresh normally to reload;
+stop with Ctrl+C in the preview terminal. Local URLs keep the `/partners`
+prefix. These browser fixtures are synthetic and do not activate production.
+
+Alias database checks use `tests/test_partner_aliases.py` with
+`VENFOUR_EARNINGS_TEST_CONTAINER` pointing only to a dedicated network-isolated
+migration rehearsal containing migration 006. They roll back all fixture changes.

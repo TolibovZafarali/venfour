@@ -6,6 +6,8 @@ import hashlib
 import hmac
 import html
 import io
+import json
+from pathlib import Path
 import re
 from collections.abc import Mapping
 from datetime import datetime
@@ -132,7 +134,13 @@ def render_partner_agreement(payload: Mapping[str, Any]) -> bytes:
         return _render_partner_agreement(payload)
 
 
-def _render_partner_agreement(payload: Mapping[str, Any]) -> bytes:
+def render_partner_agreement_draft(payload: Mapping[str, Any]) -> bytes:
+    """Render an unsigned review copy, clearly distinct from a completed record."""
+    with _RENDER_LOCK:
+        return _render_partner_agreement(payload, draft=True)
+
+
+def _render_partner_agreement(payload: Mapping[str, Any], *, draft: bool = False) -> bytes:
     agreement_id = canonical_uuid(payload.get("agreement_id"))
     partner_id = canonical_uuid(payload.get("partner_id"))
     expected_path = partner_document_path(partner_id, agreement_id)
@@ -144,10 +152,17 @@ def _render_partner_agreement(payload: Mapping[str, Any]) -> bytes:
         raise PartnerDocumentError("The retained agreement is missing")
     if not hmac.compare_digest(hashlib.sha256(canonical_json_bytes(snapshot)).hexdigest(), digest):
         raise PartnerDocumentError("The retained agreement does not match its signed digest")
-    partner_signature = _signature(payload.get("partner_signature"), partner=True)
-    manager_signature = _signature(payload.get("manager_signature"), partner=False)
-    if partner_signature["verified_email"] != snapshot.get("contact_email"):
+    if not draft and snapshot.get("release_hold") is True:
+        raise PartnerDocumentError("An owner-review draft is not a completed agreement")
+    partner_signature = None if draft else _signature(payload.get("partner_signature"), partner=True)
+    manager_signature = None if draft else _signature(payload.get("manager_signature"), partner=False)
+    if partner_signature and partner_signature["verified_email"] != snapshot.get("contact_email"):
         raise PartnerDocumentError("Partner signature does not match the agreement")
+    policy = snapshot.get("commission_policy")
+    if policy is not None:
+        expected = json.loads((Path(__file__).parent / "data/referral_partner_agreement_draft.json").read_text())["commission_policy"]
+        if policy != expected:
+            raise PartnerDocumentError("Unrecognized retained commission policy")
     amount = snapshot.get("commission_amount_minor_units")
     if isinstance(amount, bool) or not isinstance(amount, int) or amount <= 0 or snapshot.get("currency") != "USD":
         raise PartnerDocumentError("Commission terms are invalid")
@@ -182,9 +197,9 @@ def _render_partner_agreement(payload: Mapping[str, Any]) -> bytes:
 
     paragraph("VENFOUR", small)
     paragraph(_text(snapshot.get("title"), maximum=300), title)
-    paragraph("Completed referral partner agreement", body)
+    paragraph("DRAFT - OWNER REVIEW ONLY - NOT SIGNED" if draft else "Completed referral partner agreement", body)
     paragraph(f"Agreement {agreement_id}", small)
-    paragraph(f"Published template version {template_version} | Agreement revision {revision}", small)
+    paragraph(f"Proposal revision {snapshot.get("proposal_revision", "unpublished")}" if draft else f"Published template version {template_version} | Agreement revision {revision}", small)
     paragraph("Business and commission terms", heading)
     for label, key in (
         ("Business", "business_name"), ("Legal business name", "legal_business_name"),
@@ -194,7 +209,13 @@ def _render_partner_agreement(payload: Mapping[str, Any]) -> bytes:
         ("Contact title", "contact_title"), ("Verified contact email", "contact_email"),
     ):
         field(label, snapshot.get(key), optional=key == "address_line2")
-    paragraph(f"Fixed commission per qualifying purchase: USD {amount // 100:,}.{amount % 100:02d}")
+    if policy:
+        paragraph("Commission summary", heading)
+        paragraph("Successful cases 1-9 each America/Chicago calendar month: $50 each. Case 10 onward: $75 each. No retroactive increase. 15 successful cases = $900.")
+        paragraph("Paid total-loss review only. Final accepted vehicle-value increase must be strictly greater than $1,000, supported by insurer documents and verified by Venfour. Exactly $1,000 does not qualify. Customer refund rights remain intact; the complete eligibility and goodwill terms below apply.")
+        paragraph("Payment eligibility: later of verified success or 30 days after payment. Initiate by the 15th of the following eligibility month, or next banking business day. No minimum threshold.")
+    else:
+        paragraph(f"Fixed commission per qualifying purchase: USD {amount // 100:,}.{amount % 100:02d}")
     for section in sections:
         if not isinstance(section, Mapping):
             raise PartnerDocumentError("Agreement section is invalid")
@@ -211,24 +232,27 @@ def _render_partner_agreement(payload: Mapping[str, Any]) -> bytes:
     if snapshot.get("execution_terms"):
         paragraph("Execution terms", heading)
         paragraph(_text(snapshot["execution_terms"]))
-    signatures_start = len(story)
-    paragraph("Electronic signatures", heading)
-    for label, signature, is_partner in (
-        ("For the partner", partner_signature, True),
-        ("For Venfour", manager_signature, False),
-    ):
-        signature_start = signatures_start if is_partner else len(story)
-        paragraph(label, heading)
-        field("Signed by", signature["typed_legal_name"])
-        field("Title", signature["typed_title"])
-        field("Verified email", signature["verified_email"])
-        field("Signed at", signature["signed_at"])
-        paragraph("Electronic records and signatures: agreed", small)
-        paragraph("Authority to sign: confirmed", small)
-        if is_partner:
-            paragraph("Agreement PDF by email: agreed", small)
-        paragraph(f"Authenticated account: {signature['user_id']}", small)
-        story[signature_start:] = [KeepTogether(story[signature_start:])]
+    if draft:
+        paragraph("No signatures - this proposal is not effective and cannot enable referrals.", heading)
+    else:
+        signatures_start = len(story)
+        paragraph("Electronic signatures", heading)
+        for label, signature, is_partner in (
+            ("For the partner", partner_signature, True),
+            ("For Venfour", manager_signature, False),
+        ):
+            signature_start = signatures_start if is_partner else len(story)
+            paragraph(label, heading)
+            field("Signed by", signature["typed_legal_name"])
+            field("Title", signature["typed_title"])
+            field("Verified email", signature["verified_email"])
+            field("Signed at", signature["signed_at"])
+            paragraph("Electronic records and signatures: agreed", small)
+            paragraph("Authority to sign: confirmed", small)
+            if is_partner:
+                paragraph("Agreement PDF by email: agreed", small)
+            paragraph(f"Authenticated account: {signature['user_id']}", small)
+            story[signature_start:] = [KeepTogether(story[signature_start:])]
     story.append(Spacer(1, 14))
     paragraph("Retained agreement content SHA-256", small)
     paragraph(digest, small)
@@ -244,7 +268,7 @@ def _render_partner_agreement(payload: Mapping[str, Any]) -> bytes:
         canvas.line(54, 38, LETTER[0] - 54, 38)
         canvas.setFont(_FONT_NAME, 8)
         canvas.setFillColor(colors.HexColor("#526175"))
-        canvas.drawString(54, 25, "Venfour | Retained agreement")
+        canvas.drawString(54, 25, "Venfour | DRAFT - owner review" if draft else "Venfour | Retained agreement")
         canvas.drawRightString(LETTER[0] - 54, 25, f"Page {doc.page}")
         canvas.restoreState()
 

@@ -1,5 +1,5 @@
-import { applicationHref } from "@/app/site-boundary";
 import { publicSiteOnly } from "@/config/public-site";
+import { PARTNER_ORIGIN, partnerSignInHref } from "@/app/site-boundary";
 import { Link } from "react-router";
 
 import {
@@ -63,7 +63,7 @@ export function ReferralPartnersPage() {
           status. A referral appears in your workspace after the customer submits
           their review details.
         </p>
-        <p><Link to={publicSiteOnly ? "/contact" : applicationHref("/partners")} className={publicTextLinkClassName}>{publicSiteOnly ? "Contact Venfour about partnerships" : "Partner sign in"}</Link></p>
+        <p><Link to={publicSiteOnly ? `${PARTNER_ORIGIN}/sign-in` : partnerSignInHref()} className={publicTextLinkClassName}>Partner sign in</Link></p>
       </PublicPageSection>
 
       <PublicPageSection title="Your agreement and information">

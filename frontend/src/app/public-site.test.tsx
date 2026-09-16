@@ -40,6 +40,11 @@ describe("public-only launch", () => {
     expect(environment.turnstileSiteKey).toBe("");
   });
 
+  it("links partner sign-in to the dedicated portal without mounting authentication", () => {
+    renderTestApp(["/referral-partners"], { authService: null });
+    expect(screen.getByRole("link", { name: "Partner sign in" })).toHaveAttribute("href", "https://partners.venfour.com/sign-in");
+  });
+
   it.each(["/app", "/admin/cases", "/partners", "/start", "/auth/callback", "/total-loss/cases/example/analysis"])("does not mount the application route %s", path => {
     renderTestApp([path], { authService: null });
     expect(screen.getByRole("heading", { name: "Page not found" })).toBeInTheDocument();

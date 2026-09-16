@@ -112,6 +112,17 @@ async def partner_document(request: Request) -> Response:
         return _error(exc)
 
 
+async def outcome_document(request: Request) -> Response:
+    try:
+        service = request.app.state.partner_service
+        if service is None:
+            raise PartnerError(503, "PARTNER_UNAVAILABLE", "Partner services are temporarily unavailable.")
+        content, media_type = await run_in_threadpool(service.outcome_document, dict(request.path_params), _token(request))
+        return _private(Response(content, media_type=media_type, headers={"Content-Disposition": 'attachment; filename="Review-evidence"'}))
+    except Exception as exc:
+        return _error(exc)
+
+
 async def partner_dispatch(request: Request) -> Response:
     try:
         secret = validated_partner_dispatch_secret(request.app.state.partner_dispatch_secret)
@@ -142,4 +153,5 @@ def partner_routes() -> list[Route]:
             Route(f"{prefix}/agreements/{{agreement_id}}/document", partner_document, methods=["GET"]),
         ])
     routes.append(Route("/internal/v1/referral-partners/dispatch", partner_dispatch, methods=["POST"]))
+    routes.append(Route("/api/v1/staff/referral-partners/outcomes/{partner_id}/{attribution_id}/documents/{document_id}", outcome_document, methods=["GET"]))
     return routes

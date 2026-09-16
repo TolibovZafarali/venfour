@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { isPermanentAuthState, useAuth } from "@/features/auth";
 import { ApiError } from "@/lib/api/client";
 
-import { referralPartnerService, type PartnerAudience } from "./service";
+import { referralPartnerService, parsePartnerEarnings, type PartnerAudience } from "./service";
 
 export const referralQueryRoot = ["referralPartners"] as const;
 export const referralDraftPrefix = "venfour.referral-draft.";
@@ -64,11 +64,11 @@ export function useReferralQuery<T>(audience: PartnerAudience, action: string, p
     queryKey: [...referralQueryRoot, userId, audience, action, payload],
     queryFn: async ({ signal }) => parse(await referralPartnerService.operation(audience, token, action, payload, signal)),
     enabled: Boolean(userId && enabled), retry: false, staleTime: 0, gcTime: 0, refetchOnWindowFocus: true,
-    refetchInterval: ["partner_get", "staff_get", "referral_summary", "referral_list"].includes(action) ? 15_000 : false,
+    refetchInterval: ["partner_resolve", "staff_resolve", "partner_get", "staff_get", "referral_summary", "referral_list", "earnings"].includes(action) ? 15_000 : false,
   });
 }
 
-export function useReferralMutation(audience: PartnerAudience) {
+export function useReferralMutation(audience: PartnerAudience, persistRequest = true) {
   const { userId, token } = useReferralIdentity();
   const queryClient = useQueryClient();
   const [pending, setPending] = useState(false);
@@ -84,9 +84,9 @@ export function useReferralMutation(audience: PartnerAudience) {
     const requestKey = `${referralDraftPrefix}${identity}.request.${audience}.${action}.${String(payload.agreement_id ?? payload.partner_id ?? payload.template_id ?? "new")}`;
     if (request.current?.signature !== signature) {
       let existing: { signature?: string; id?: string } | null = null;
-      try { existing = JSON.parse(sessionStorage.getItem(requestKey) ?? "null") as { signature?: string; id?: string } | null; } catch { /* Request identity remains stable in the open form. */ }
+      try { if (persistRequest) existing = JSON.parse(sessionStorage.getItem(requestKey) ?? "null") as { signature?: string; id?: string } | null; } catch { /* Request identity remains stable in the open form. */ }
       request.current = { signature, id: existing?.signature === signature && typeof existing.id === "string" ? existing.id : crypto.randomUUID() };
-      try { sessionStorage.setItem(requestKey, JSON.stringify(request.current)); } catch { /* Retry the same in-memory request if browser storage is unavailable. */ }
+      try { if (persistRequest) sessionStorage.setItem(requestKey, JSON.stringify(request.current)); } catch { /* Retry the same in-memory request if browser storage is unavailable. */ }
     }
     busy.current = true; setPending(true); setError(null);
     try {
@@ -124,4 +124,8 @@ export function useReferralDraft<T extends object>(scope: string, initial: T) {
   }, [key]);
   const clear = useCallback((saved?: T) => { if (saved) setDraft(saved); try { sessionStorage.removeItem(key); } catch { /* Storage is optional. */ } }, [key]);
   return { draft, update, clear };
+}
+
+export function usePartnerEarnings(partnerId: string, audience: PartnerAudience, page = 1, enabled = true) {
+  return useReferralQuery(audience, 'earnings', { partner_id: partnerId, page, page_size: 25 }, parsePartnerEarnings, enabled);
 }

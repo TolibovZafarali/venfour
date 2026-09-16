@@ -28,6 +28,8 @@ function api(options: { summary?: PartnerReferralSummary; list?: PartnerReferral
     const body = await request.json() as { action: string; payload: Record<string, unknown> }; operations.push(body);
     if (!allowed) return HttpResponse.json({}, { status: 403 });
     if (["partner_get", "staff_get"].includes(body.action)) return HttpResponse.json(detail());
+    if (body.action === "outcome_queue") return HttpResponse.json({ items: [], total: 0 });
+    if (body.action === "earnings") return HttpResponse.json({ availability: "not_enabled", currency: "USD", period: "2026-09", as_of: timestamp, summary: null, items: [], total: 0, page: 1, page_size: 25 });
     if (body.action === "referral_summary") return HttpResponse.json(current);
     if (body.action === "referral_list") return HttpResponse.json(options.list ?? list());
     if (body.action === "link_state") {
@@ -122,7 +124,9 @@ describe("partner referral dashboards", () => {
   test("shows an empty list without inventing a referral or purchase", async () => {
     api({ summary: { ...summary(), summary: { submitted_count: 0, purchased_count: 0, refunded_count: 0, under_review_count: 0 } }, list: { items: [], total: 0, page: 1, page_size: 25 } });
     renderTestApp([`/partners/${PARTNER}`], { authService: authService() });
-    expect(await screen.findByText("No submitted referrals yet.")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Next referrals" })).toBeDisabled(); expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(await screen.findByText("Your first referral will appear here.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Next referrals" })).not.toBeInTheDocument(); expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.queryByText("Purchases")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy referral link" })).toBeEnabled();
   });
 });

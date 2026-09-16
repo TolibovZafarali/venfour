@@ -11,7 +11,7 @@ export const businessExamples = {
 } as const;
 export type BusinessExample = keyof typeof businessExamples;
 
-export function createBusinessPreview() {
+export function createBusinessPreviewStorage() {
   const memory = new Map<string, string>();
   const storage = {
     getItem(key: string) {
@@ -27,6 +27,11 @@ export function createBusinessPreview() {
       try { sessionStorage.removeItem(businessPreviewPrefix + key); } catch { /* In-memory state remains available. */ }
     },
   };
+  return storage;
+}
+
+export function createBusinessPreview() {
+  const storage = createBusinessPreviewStorage();
   const requested = new URLSearchParams(location.search).get('example') ?? storage.getItem('example') ?? 'journey';
   const example: BusinessExample = Object.hasOwn(businessExamples, requested) ? requested as BusinessExample : 'journey';
   storage.setItem('example', example);
@@ -36,7 +41,7 @@ export function createBusinessPreview() {
   const partnerSession = { ...session, user };
   const service = createSyntheticReferralPartnerService('populated', { storage, identity });
   const authKey = `signed-in.${identity.id}`;
-  const home = example === 'journey' ? `/partners/invitations/${referralScenarioIds.invitation}` : `/partners/${business.partnerId}`;
+  const home = example === 'journey' ? `/partners/invitations/${referralScenarioIds.invitation}` : "/partners";
 
   return {
     example, business, home, service, storage, session: partnerSession,

@@ -30,7 +30,7 @@ describe("production browser configuration", () => {
 
   it("keeps application, public website, and staging deployments on separate hosts", () => {
     const { env } = JSON.parse(readFileSync(resolve(import.meta.dirname, "../wrangler.jsonc"), "utf8"));
-    expect(env.production.routes).toEqual([{ pattern: "app.venfour.com", custom_domain: true }]);
+    expect(env.production.routes).toEqual([{ pattern: "app.venfour.com", custom_domain: true }, { pattern: "partners.venfour.com", custom_domain: true }]);
     expect(env["public-site"].routes).toEqual([
       { pattern: "venfour.com", custom_domain: true },
       { pattern: "www.venfour.com", custom_domain: true },

@@ -12,9 +12,9 @@ import { AdminCaseOperationsDependenciesProvider } from '@/features/admin/case-o
 import { AdminDiminishedValueDependenciesProvider } from '@/features/admin/diminished-value/dependencies';
 import { referralPartnerService } from '@/features/referral-partners/service';
 import { referralDraftPrefix } from '@/features/referral-partners/hooks';
-import { PartnerDashboardPage, PartnerDetailPage, PartnerInvitationPage, PartnerWorkspace } from '@/features/referral-partners/pages';
+import { PartnerDashboardPage, PartnerBusinessEarningsPage, PartnerDetailPage, PartnerInvitationPage, PartnerWorkspace } from '@/features/referral-partners/pages';
 import { BusinessPreview } from './business-preview';
-import { createBusinessPreview } from './business-fixtures';
+import { createBusinessPreview, createBusinessPreviewStorage } from './business-fixtures';
 
 import { createSyntheticOperationsService } from './operations-fixtures';
 import { createSyntheticReferralPartnerService, resetSyntheticReferralPartners } from './referral-fixtures';
@@ -34,7 +34,7 @@ try { sessionStorage.setItem(modeKey, mode); } catch { /* Keep the selected stat
 
 // This standalone preview replaces the service before rendering the shared application routes.
 const businessPreview = /^(\/partners(?:\/|$)|\/_local\/businesses(?:\/|$)|\/referral-partners$)/.test(location.pathname) ? createBusinessPreview() : null;
-Object.assign(referralPartnerService, businessPreview?.service ?? createSyntheticReferralPartnerService(mode));
+Object.assign(referralPartnerService, businessPreview?.service ?? createSyntheticReferralPartnerService(mode, mode === 'populated' ? { storage: createBusinessPreviewStorage() } : {}));
 
 const result = async <T,>(value: T): Promise<T> => {
   if (mode === 'loading') return new Promise(() => {});
@@ -70,7 +70,7 @@ const dv = {
 };
 
 function resetPartners() {
-  resetSyntheticReferralPartners(mode);
+  resetSyntheticReferralPartners(mode, mode === 'populated' ? createBusinessPreviewStorage() : undefined);
   try {
     const prefix = `${referralDraftPrefix}${session.user.id}.`;
     for (let index = sessionStorage.length - 1; index >= 0; index--) {
@@ -100,6 +100,10 @@ const router = createBrowserRouter(businessPreview ? [{ element: <BusinessPrevie
   { path: '/referral-partners', element: <Navigate to="/partners" replace /> },
   { path: '/partners', element: <PartnerWorkspace />, children: [
     { index: true, element: <PartnerDashboardPage /> },
+    { path: 'sign-in', element: <PartnerDashboardPage /> },
+    { path: 'earnings', element: <PartnerDashboardPage earnings /> },
+    { path: 'businesses/:partnerSlug', element: <PartnerDetailPage /> },
+    { path: 'businesses/:partnerSlug/earnings', element: <PartnerBusinessEarningsPage /> },
     { path: 'invitations/:invitationId', element: <PartnerInvitationPage /> },
     { path: ':partnerId', element: <PartnerDetailPage /> },
   ] },

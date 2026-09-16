@@ -1,25 +1,28 @@
+import { referralHref } from "./urls";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
 import { PartnerError } from "./components";
-import { useReferralAccess, useReferralMutation, useReferralQuery } from "./hooks";
-import { formatPartnerDate } from "./presentation";
+import { useReferralAccess, useReferralMutation, useReferralQuery, usePartnerEarnings } from "./hooks";
+import { formatPartnerDate, formatPartnerMoney, commissionStatusLabel } from "./presentation";
 import { parsePartnerReferralList, parsePartnerReferralSummary, type PartnerAudience, type PartnerReferral } from "./service";
 
 const referralStatus: Record<PartnerReferral["status"], string> = {
   submitted: "Review submitted", purchased: "Purchased", refunded: "Refunded", under_review: "Payment under review",
 };
 
-export function ReferralTracking({ partnerId, audience }: { partnerId: string; audience: PartnerAudience }) {
+export function ReferralTracking({ partnerId, audience, presentation = "card" }: { partnerId: string; audience: PartnerAudience; presentation?: "card" | "dashboard" }) {
+  const dashboard = presentation === "dashboard";
   const access = useReferralAccess(audience);
   const [page, setPage] = useState(1);
   const [copyResult, setCopyResult] = useState<{ url: string; copied: boolean } | null>(null);
   const summary = useReferralQuery(audience, "referral_summary", { partner_id: partnerId }, parsePartnerReferralSummary, access.allowed);
   const referrals = useReferralQuery(audience, "referral_list", { partner_id: partnerId, page, page_size: 25 }, parsePartnerReferralList, access.allowed);
+  const earnings = usePartnerEarnings(partnerId, audience, page, access.allowed && dashboard);
   const mutation = useReferralMutation(audience);
   const link = summary.data?.link;
-  const url = link ? new URL(`/r/${link.code}`, window.location.origin).toString() : "";
+  const url = link ? referralHref(link.slug ?? link.code) : "";
   const copy = async () => {
     try { await navigator.clipboard.writeText(url); setCopyResult({ url, copied: true }); }
     catch { setCopyResult({ url, copied: false }); }
@@ -38,18 +41,18 @@ export function ReferralTracking({ partnerId, audience }: { partnerId: string; a
         <p>Share this link with customers who could benefit from a total-loss valuation review.</p>
         <div className="partner-referral-link-row">
           <label className="partner-field"><span>Your referral link</span><input value={url} readOnly onFocus={(event) => event.currentTarget.select()} /></label>
-          <Button variant="outline" disabled={link.status === "paused"} onClick={() => void copy()}>Copy referral link</Button>
+          <Button variant={dashboard ? "default" : "outline"} disabled={link.status === "paused"} onClick={() => void copy()}>Copy referral link</Button>
         </div>
         {copyResult?.url === url && <p role="status">{copyResult.copied ? "Referral link copied." : "Copying is unavailable. Select the link above and copy it."}</p>}
         <p className="partner-referral-link-status">{link.status === "paused" ? "Paused — this link does not attribute new reviews. Previously attributed reviews remain recorded." : "Active — customers can use this link to start a new review."}</p>
         {audience === "staff" && <Button variant="outline" disabled={mutation.pending} onClick={() => void toggle()}>{mutation.pending ? "Updating link…" : link.status === "paused" ? "Resume referral link" : "Pause referral link"}</Button>}
         <PartnerError error={mutation.error} />
-      </> : <p>A referral link becomes available when the partnership is active.</p>}
+      </> : <p>{dashboard ? "Your referral link is not available yet. Reload this page or contact your Venfour representative." : "A referral link becomes available when the partnership is active."}</p>}
     </section>
     <section className="partner-card" aria-label="Referral activity">
       <h2>Referral activity</h2>
       <p>Reviews appear after the customer submits their intake. Each reference identifies one referred review.</p>
-      {summary.data && !summary.isError && <>
+      {summary.data && !summary.isError && (!dashboard || summary.data.summary.submitted_count > 0) && <>
         <dl className="partner-referral-counts">
           <div><dt>Reviews submitted</dt><dd>{summary.data.summary.submitted_count}</dd></div>
           <div><dt>Purchases</dt><dd>{summary.data.summary.purchased_count}</dd></div>
@@ -59,10 +62,14 @@ export function ReferralTracking({ partnerId, audience }: { partnerId: string; a
         <p>Purchase totals include purchases later refunded or placed under review. Commission eligibility follows your partner agreement.</p>
       </>}
       {referrals.isPending ? <p>Loading referrals…</p> : referrals.isError ? <><PartnerError error={referrals.error} /><Button variant="outline" onClick={() => void referrals.refetch()}>Try loading referrals again</Button></> : <>
-        {referrals.data.items.length ? <div className="partner-table-wrap"><table className="partner-table partner-referral-table"><caption className="sr-only">Submitted referrals and purchase status</caption><thead><tr><th scope="col">Reference</th><th scope="col">Submitted</th><th scope="col">Purchased</th><th scope="col">Status</th></tr></thead><tbody>{referrals.data.items.map((referral) => <tr key={referral.id}>
-          <td className="partner-referral-reference">{referral.id}</td><td>{formatPartnerDate(referral.submitted_at)}</td><td>{formatPartnerDate(referral.purchased_at)}</td><td><span className={`partner-referral-status partner-referral-status-${referral.status}`}>{referralStatus[referral.status]}</span></td>
-        </tr>)}</tbody></table></div> : <p>No submitted referrals yet.</p>}
-        <div className="partner-actions mt-5" aria-label="Referral pages"><Button variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous referrals</Button><span aria-live="polite">Page {page}</span><Button variant="outline" disabled={page * 25 >= referrals.data.total} onClick={() => setPage(page + 1)}>Next referrals</Button></div>
+        {referrals.data.items.length ? <div className="partner-table-wrap" tabIndex={dashboard ? 0 : undefined} role={dashboard ? "region" : undefined} aria-label={dashboard ? "Submitted referral records" : undefined}><table className="partner-table partner-referral-table"><caption className="sr-only">Submitted referrals and purchase status</caption><thead><tr><th scope="col">Reference</th><th scope="col">Submitted</th><th scope="col">Purchased</th><th scope="col">Status</th>{dashboard && <th scope="col">Commission</th>}</tr></thead><tbody>{referrals.data.items.map((referral) => <tr key={referral.id}>
+          <td className="partner-referral-reference">{referral.id}</td><td>{formatPartnerDate(referral.submitted_at)}</td><td>{formatPartnerDate(referral.purchased_at)}</td><td><span className={`partner-referral-status partner-referral-status-${referral.status}`}>{referralStatus[referral.status]}</span></td>{dashboard && <td className="partner-referral-commission">{(() => {
+            const commission = !earnings.isError && earnings.data?.items.find(item => item.reference === referral.id);
+            if (!commission) return <span>{earnings.isPending ? "Loading…" : "Unavailable"}</span>;
+            return <><strong>{commission.amount_minor === null ? "—" : formatPartnerMoney(commission.amount_minor)}</strong><span>{commissionStatusLabel[commission.status]}</span>{commission.status === "waiting" && commission.eligible_at && <small>Waiting until {formatPartnerDate(commission.eligible_at)}</small>}{commission.paid_at && <small>Paid {formatPartnerDate(commission.paid_at)}</small>}</>;
+          })()}</td>}
+        </tr>)}</tbody></table></div> : dashboard ? <div className="partner-dashboard-empty"><h3>{referrals.data.total === 0 ? "Your first referral will appear here." : "No referrals on this page."}</h3><p>{referrals.data.total === 0 ? "Share your link with a customer. Their review will appear here after they submit their intake." : "Go back to see your submitted referrals."}</p></div> : <p>No submitted referrals yet.</p>}
+        {(!dashboard || referrals.data.total > 25 || page > 1) && <div className="partner-actions mt-5" aria-label="Referral pages"><Button variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous referrals</Button><span aria-live="polite">Page {page}</span><Button variant="outline" disabled={page * 25 >= referrals.data.total} onClick={() => setPage(page + 1)}>Next referrals</Button></div>}
       </>}
     </section>
   </div>;

@@ -1,3 +1,9 @@
+import { validPartnerSlug } from '@/features/referral-partners/urls';
+import { seedOutcomeReview, reviewExampleId, evidenceLines } from './outcome-fixtures';
+import type { OutcomeReview } from '@/features/referral-partners/outcome-review-service';
+import { earningsFixture, earningsMonth, seedEarnings } from './earnings-fixtures';
+import type { PartnerCommission } from '@/features/referral-partners/service';
+import proposal from '../../../../venfour/data/referral_partner_agreement_draft.json';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { ApiError } from '@/lib/api/client';
 import {
@@ -7,7 +13,7 @@ import {
   type ReferralPartner, type PartnerReferral, type PartnerReferralLink, type createReferralPartnerService,
 } from '@/features/referral-partners/service';
 
-export const SYNTHETIC_REFERRAL_STORAGE_PREFIX = 'venfour.synthetic-referral.v1.';
+export const SYNTHETIC_REFERRAL_STORAGE_PREFIX = 'venfour.synthetic-referral.v2.';
 type PreviewStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 export interface SyntheticReferralOptions {
   storage?: PreviewStorage | null;
@@ -46,14 +52,28 @@ interface PreviewState {
   pdfs: Record<string, number[]>;
   links: Record<string, PartnerReferralLink>;
   referrals: Record<string, PartnerReferral[]>;
+  earnings?: Record<string, PartnerCommission[]>;
+  aliases?: Record<string, string>;
+  outcomeReviews?: Record<string, OutcomeReview>;
 }
 function addTracking(state: PreviewState, mode: string) {
   const upgrading = !state.links || !state.referrals;
   state.links ??= {}; state.referrals ??= {};
   for (const [index, detail] of state.partners.entries()) {
     const partner = detail.partner;
+    state.aliases ??= {};
+    if (!partner.url_slug) {
+      let base = partner.business_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 48).replace(/^-|-$/g, '');
+      if (!validPartnerSlug(base)) base = `business-${base || 'partner'}`;
+      let candidate = base, serial = 1;
+      if (state.aliases[candidate] && partner.city) { base = `${base.slice(0, 41).replace(/-$/, '')}-${partner.city.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20).replace(/^-|-$/g, '')}`; candidate = base; }
+      while (state.aliases[candidate]) candidate = `${base.slice(0, 53).replace(/-$/, '')}-${++serial}`;
+      partner.url_slug = candidate;
+    }
+    state.aliases[partner.url_slug] = partner.id;
+    if (state.links[partner.id]) state.links[partner.id].slug = partner.url_slug;
     if (partner.status !== 'active' || state.links[partner.id]) continue;
-    state.links[partner.id] = { id: crypto.randomUUID(), code: `${partner.id.replaceAll('-', '')}${'a'.repeat(16)}`, status: 'active', revision: 1, created_at: partner.updated_at };
+    state.links[partner.id] = { id: crypto.randomUUID(), code: `${partner.id.replaceAll('-', '')}${'a'.repeat(16)}`, slug: partner.url_slug, status: 'active', revision: 1, created_at: partner.updated_at };
     state.referrals[partner.id] ??= [];
     if (!upgrading || !partner.id.startsWith('000610')) continue;
     const statuses: PartnerReferral['status'][] = ['submitted', 'purchased', 'refunded', 'under_review', 'submitted', 'purchased'];
@@ -86,6 +106,7 @@ function proposed(payload: Record<string, unknown>, current?: ReferralPartner) {
 }
 function snapshot(partner: ReferralPartner, template: AgreementTemplate): PartnerAgreement['snapshot'] {
   return {
+    ...(template.commission_policy ? { commission_policy: clone(template.commission_policy), synthetic_preview: true, proposal_revision: proposal.proposal_revision } : {}),
     title: template.title, sections: clone(template.sections), template_id: template.id, template_version: template.revision,
     business_name: partner.business_name, legal_business_name: partner.legal_business_name,
     contact_email: partner.contact_email, contact_name: partner.contact_name, contact_title: partner.contact_title,
@@ -104,7 +125,7 @@ async function seed(mode: string, now: number): Promise<PreviewState> {
   const at = (hours: number) => new Date(now + hours * 3_600_000).toISOString();
   const templates: AgreementTemplate[] = mode === 'empty' ? [] : [
     { id: referralScenarioIds.publishedTemplate, revision: 2, title: 'NON-BINDING demonstration partner agreement', sections: clone(demonstrationSections), status: 'published', created_at: at(-72), published_at: at(-60) },
-    { id: referralScenarioIds.draftTemplate, revision: 1, title: 'NON-BINDING demonstration draft', sections: clone(demonstrationSections), status: 'draft', created_at: at(-12) },
+    { id: proposal.id, revision: 1, title: proposal.title, sections: clone(proposal.sections), commission_policy: proposal.commission_policy, release_hold: true, status: 'draft', created_at: at(-12) },
   ];
   const names = ['Prairie Example Collision', 'Riverbend Example Auto', 'Gateway Example Vehicle Care', 'Ozark Example Motor Services', 'Maple Example Body Shop', 'Summit Example Auto Care'];
   const partners: PartnerDetail[] = [];
@@ -127,7 +148,7 @@ async function seed(mode: string, now: number): Promise<PreviewState> {
     const invitation: PartnerInvitation = { id: fixtureId(62001 + index), status: scenario === 0 ? 'pending' : 'accepted', created_at: at(-24), expires_at: at(6 * 24), ...(scenario > 0 ? { accepted_at: at(-20) } : {}) };
     const detail: PartnerDetail = { partner, invitations: [invitation], agreements: [], events: [{ id: fixtureId(67001 + index), event_type: 'partner.created', created_at: partner.created_at }], invitation_deliveries: [{ id: fixtureId(68001 + index), invitation_id: invitation.id, kind: 'email', status: 'completed', attempts: 1, created_at: at(-24), finished_at: at(-24) }] };
     if (scenario > 1) {
-      const frozen = snapshot(partner, templates[0]);
+      const frozen = snapshot(partner, templates[1]);
       const agreement: PartnerAgreement = {
         id: fixtureId(64001 + index), revision: scenario === 2 ? 2 : 3, snapshot: frozen,
         agreement_digest: await digest(frozen), status: scenario === 2 ? 'partner_signed' : 'countersigned',
@@ -186,7 +207,7 @@ async function renderPdf(agreement: PartnerAgreement): Promise<Uint8Array> {
   paragraph(`Business: ${s.legal_business_name ?? s.business_name}`);
   paragraph(`Contact: ${s.contact_name}, ${s.contact_title} | ${s.contact_email}`);
   paragraph(`Address: ${[s.address_line1, s.address_line2, s.city, s.state, s.postal_code, s.country].filter(Boolean).join(', ')}`);
-  paragraph(`Fictional commission per qualifying purchase: USD ${(Number(s.commission_amount_minor_units) / 100).toFixed(2)}`);
+  paragraph(s.commission_policy ? 'Proposed commission: $50 for successful cases 1-9 each month; $75 for case 10 onward. 15 successes = $900. No commission is payable in this demonstration.' : `Fictional commission per qualifying purchase: USD ${(Number(s.commission_amount_minor_units) / 100).toFixed(2)}`);
   for (const section of s.sections) { paragraph(section.heading, true); paragraph(section.body); }
   paragraph(s.signing_statement);
   paragraph('Simulated signatures', true);
@@ -214,16 +235,16 @@ export function createSyntheticReferralPartnerService(mode = 'populated', option
         stored.partners.forEach(parsePartnerDetail); state = addTracking(stored, mode); persist(); return;
       }
     } catch { /* Invalid or old synthetic state is replaced by fresh fixtures. */ }
-    state = await seed(mode, now()); persist();
+    state = await seed(mode, now()); refresh(); persist();
   })();
-  const refresh = () => {
+  function refresh() {
     try {
       const stored = JSON.parse(storage?.getItem(key) ?? 'null') as PreviewState | null;
       if (stored?.version === 1 && Array.isArray(stored.partners) && Array.isArray(stored.templates) && stored.requests && stored.pdfs) {
         stored.partners.forEach(parsePartnerDetail); state = addTracking(stored, mode);
       }
     } catch { /* Retain the open fixture if another tab has an unreadable browser store. */ }
-  };
+  }
   let sequence: Promise<unknown> = ready;
   const serialized = <T,>(run: () => Promise<T>): Promise<T> => { const next = sequence.then(run); sequence = next.catch(() => undefined); return next; };
   const guard = async (audience: PartnerAudience, token: string, signal?: AbortSignal) => {
@@ -234,9 +255,9 @@ export function createSyntheticReferralPartnerService(mode = 'populated', option
     if (mode === 'denied' || (audience === 'staff' && !manager)) throw new ApiError('Synthetic partner permission denied.', 403);
     await ready;
   };
-  const readActions = new Set(['staff_list', 'staff_get', 'template_list', 'partner_list', 'partner_get', 'invitation_get', 'referral_summary', 'referral_list']);
-  const staffActions = new Set(['staff_list', 'staff_get', 'staff_create', 'staff_edit', 'template_list', 'template_save', 'template_publish', 'invite', 'resend', 'revoke', 'countersign', 'document_retry', 'email_retry', 'referral_summary', 'referral_list', 'link_state']);
-  const partnerActions = new Set(['partner_list', 'partner_get', 'invitation_get', 'invitation_accept', 'profile_save', 'agreement_prepare', 'sign', 'referral_summary', 'referral_list']);
+  const readActions = new Set(['staff_resolve', 'partner_resolve', 'staff_list', 'staff_get', 'template_list', 'partner_list', 'partner_get', 'invitation_get', 'referral_summary', 'referral_list', 'earnings', 'outcome_queue', 'outcome_get']);
+  const staffActions = new Set(['staff_resolve', 'slug_update', 'staff_list', 'staff_get', 'staff_create', 'staff_edit', 'template_list', 'template_save', 'template_publish', 'invite', 'resend', 'revoke', 'countersign', 'document_retry', 'email_retry', 'referral_summary', 'referral_list', 'link_state', 'earnings', 'simulate_commission', 'outcome_queue', 'outcome_get', 'outcome_decide']);
+  const partnerActions = new Set(['partner_resolve', 'partner_list', 'partner_get', 'invitation_get', 'invitation_accept', 'profile_save', 'agreement_prepare', 'sign', 'referral_summary', 'referral_list', 'earnings', 'simulate_commission']);
   return {
     async access(audience, token, signal) {
       if (mode === 'denied' || (audience === 'staff' && mode === 'staff-only')) {
@@ -279,7 +300,79 @@ export function createSyntheticReferralPartnerService(mode = 'populated', option
           detail.partner.current_agreement_id = null; detail.partner.status = 'onboarding';
         };
         let response: unknown;
-        if (['referral_summary', 'referral_list', 'link_state'].includes(action)) {
+        if (action === 'staff_resolve' || action === 'partner_resolve') {
+          if (!validPartnerSlug(payload.slug)) throw new ApiError('Invalid business link.', 400);
+          response = getDetail(work.aliases?.[payload.slug]);
+        } else if (action === 'slug_update') {
+          const detail = getDetail(payload.partner_id); revision(detail.partner, payload);
+          if (!validPartnerSlug(payload.slug)) throw new ApiError('Invalid business link.', 400);
+          work.aliases ??= {};
+          if (work.aliases[payload.slug] && work.aliases[payload.slug] !== detail.partner.id) throw new ApiError('This link name is already reserved. Choose another name.', 409, 'PARTNER_LINK_RESERVED');
+          work.aliases[payload.slug] = detail.partner.id; detail.partner.url_slug = payload.slug;
+          if (work.links[detail.partner.id]) work.links[detail.partner.id].slug = payload.slug;
+          touch(detail); event(detail, 'partner.link_updated'); response = detail;
+        } else if (action.startsWith('outcome_')) {
+          const detail = getDetail(payload.partner_id), partnerId = detail.partner.id;
+          work.outcomeReviews ??= {};
+          const rows = work.referrals[partnerId] ??= [];
+          work.earnings ??= {};
+          const awards = work.earnings[partnerId] ??= seedEarnings(rows, timestamp);
+          if (detail.partner.status === 'active' && !rows.some(r => r.id === reviewExampleId)) {
+            const example = seedOutcomeReview(timestamp);
+            rows.unshift({ id: reviewExampleId, submitted_at: example.source.attributed_at, purchased_at: example.source.paid_at, status: 'purchased' });
+            work.outcomeReviews[`${partnerId}:${reviewExampleId}`] = example;
+          }
+          const getReview = (id: string) => {
+            const row = rows.find(r => r.id === id); if (!row) throw new ApiError('Review unavailable.', 404);
+            const key = `${partnerId}:${id}`;
+            const review = work.outcomeReviews![key] ??= seedOutcomeReview(timestamp);
+            if (id !== reviewExampleId) { review.source.documents = []; review.source.payment_held = row.status !== 'purchased'; review.source.paid_at = row.purchased_at; }
+            review.source.recorded = awards.some(a => a.reference === id);
+            return review;
+          };
+          if (action === 'outcome_queue') response = { total: rows.length, items: rows.slice((Number(payload.page) - 1) * 25, Number(payload.page) * 25).map(row => { const review = getReview(row.id); return { id: row.id, submitted_at: row.submitted_at, paid_at: row.purchased_at, decision: review.source.recorded ? 'approved' : review.history[0]?.decision ?? 'unreviewed', document_count: review.source.documents.length, payment_held: review.source.payment_held }; }) };
+          else {
+            const review = getReview(String(payload.attribution_id));
+            if (action === 'outcome_decide') {
+              if (review.source_digest !== payload.source_digest || review.source.recorded) conflict();
+              const decision = payload.decision as 'approved' | 'needs_evidence' | 'ineligible';
+              const facts = payload.facts as Record<string, unknown>;
+              if (!['approved', 'needs_evidence', 'ineligible'].includes(decision) || required(payload, 'notes', 2000).length < 20) throw new ApiError('Explain this review.', 400);
+              if (decision === 'approved') {
+                if (review.source.payment_held || !review.source.program_enabled || Number(facts.final_vehicle_value_minor) - Number(facts.baseline_vehicle_value_minor) <= 100000
+                  || ['baseline_document_id', 'final_document_id', 'acceptance_document_id', 'review_document_id'].some(k => !review.source.documents.some(d => d.id === facts[k]))
+                  || ['latest_written_baseline_confirmed', 'equivalent_vehicle_components_confirmed', 'process_completed', 'insurer_evidence_verified', 'final_acceptance_verified', 'refund_rights_reviewed', 'no_outcome_dispute', 'unregulated_partner_confirmed'].some(k => facts[k] !== true)
+                  || !(Date.parse(String(facts.baseline_communicated_at)) < Date.parse(String(facts.service_started_at)) && Date.parse(review.source.paid_at!) <= Date.parse(String(facts.service_started_at)) && Date.parse(String(facts.service_started_at)) <= Date.parse(String(facts.accepted_at)) && Date.parse(String(facts.accepted_at)) <= Date.parse(timestamp))) throw new ApiError('The documented outcome does not qualify.', 400);
+                const sequence = awards.filter(a => earningsMonth(a.verified_at!) === earningsMonth(timestamp)).length + 1;
+                const eligible = new Date(Math.max(Date.parse(timestamp), Date.parse(review.source.paid_at!) + 30 * 86400_000)).toISOString();
+                awards.push({ reference: String(payload.attribution_id), amount_minor: sequence <= 9 ? 5000 : 7500, verified_at: timestamp, eligible_at: eligible, paid_at: null, status: eligible > timestamp ? 'waiting' : 'ready' });
+                review.source.recorded = true;
+              }
+              review.source.revision++;
+              review.history.unshift({ decision, notes: String(payload.notes), reviewer_id: identity.id, reviewed_at: timestamp, revision: review.source.revision, facts });
+              review.source_digest = await digest(review.source);
+              response = { decision, revision: review.source.revision, award_id: decision === 'approved' ? String(payload.attribution_id) : null };
+            } else response = review;
+          }
+          if (read) { state = work; persist(); }
+        } else if (action === 'earnings' || action === 'simulate_commission') {
+          const detail = getDetail(payload.partner_id);
+          const partnerId = detail.partner.id;
+          const rows = work.referrals[partnerId] ?? [];
+          work.earnings ??= {};
+          const awards = work.earnings[partnerId] ??= seedEarnings(rows, timestamp);
+          if (action === 'simulate_commission') {
+            if (detail.partner.status !== 'active') conflict('Activate the fictional business first.');
+            const id = crypto.randomUUID();
+            const sequence = awards.filter(item => earningsMonth(item.verified_at!) === earningsMonth(timestamp)).length + 1;
+            rows.unshift({ id, status: 'purchased', submitted_at: timestamp, purchased_at: timestamp });
+            work.referrals[partnerId] = rows;
+            awards.push({ reference: id, amount_minor: sequence <= 9 ? 5000 : 7500, verified_at: timestamp, eligible_at: new Date(now() + 30 * 86400_000).toISOString(), status: 'waiting', paid_at: null });
+          }
+          const page = Number(payload.page ?? 1), size = Number(payload.page_size ?? 25);
+          response = earningsFixture(rows, awards, timestamp, page, size);
+          if (read) { state = work; persist(); }
+        } else if (['referral_summary', 'referral_list', 'link_state'].includes(action)) {
           const detail = getDetail(payload.partner_id);
           const partnerId = detail.partner.id;
           const link = work.links[partnerId] ?? null;
@@ -315,13 +408,13 @@ export function createSyntheticReferralPartnerService(mode = 'populated', option
             const sections = payload.sections.map((item: unknown) => { if (!item || typeof item !== 'object') throw new ApiError('Invalid section.', 422); return { heading: required(item as Record<string, unknown>, 'heading'), body: required(item as Record<string, unknown>, 'body', 10000) }; });
             if (template) { Object.assign(template, { title, sections }); template.revision++; }
             else { template = { id: crypto.randomUUID(), revision: 1, title, sections, status: 'draft', created_at: timestamp }; work.templates.unshift(template); }
-          } else { if (!template) throw new ApiError('Template required.', 422); template.status = 'published'; template.published_at = timestamp; template.revision++; }
+          } else { if (!template) throw new ApiError('Template required.', 422); if (template.release_hold) conflict('The proposed agreement remains draft for owner review.'); template.status = 'published'; template.published_at = timestamp; template.revision++; }
           response = { template };
         } else if (action === 'staff_create') {
           const values = proposed(payload);
           const partner: ReferralPartner = { ...values, id: crypto.randomUUID(), revision: 1, currency: 'USD', status: 'onboarding', created_at: timestamp, updated_at: timestamp, user_id: null, current_agreement_id: null };
           const detail: PartnerDetail = { partner, invitations: [], agreements: [], events: [], invitation_deliveries: [] };
-          event(detail, 'partner.created'); work.partners.unshift(detail); response = detail;
+          event(detail, 'partner.created'); work.partners.unshift(detail); addTracking(work, mode); response = detail;
         } else if (action === 'invitation_get' || action === 'invitation_accept') {
           const detail = work.partners.find((item) => item.invitations.some((invitation) => invitation.id === payload.invitation_id));
           const invitation = detail?.invitations.find((item) => item.id === payload.invitation_id);
@@ -395,7 +488,8 @@ export function createSyntheticReferralPartnerService(mode = 'populated', option
           } else if (action === 'agreement_prepare') {
             if (partner.status !== 'onboarding') conflict();
             if (!['legal_business_name', 'address_line1', 'city', 'postal_code', 'contact_name', 'contact_title'].every((key) => partner[key as keyof ReferralPartner])) conflict('Complete the business profile first.');
-            const template = [...work.templates].filter((item) => item.status === 'published').sort((a, b) => String(b.published_at).localeCompare(String(a.published_at)))[0];
+            // This browser-only simulation can demonstrate signing without publishing the proposal.
+            const template = work.templates.find((item) => item.id === proposal.id) ?? [...work.templates].filter((item) => item.status === 'published').sort((a, b) => String(b.published_at).localeCompare(String(a.published_at)))[0];
             if (!template) conflict('Publish a template first.');
             if (!partner.current_agreement_id) {
               const frozen = snapshot(partner, template);
@@ -408,6 +502,16 @@ export function createSyntheticReferralPartnerService(mode = 'populated', option
         if (!read) { work.requests[requestKey] = { fingerprint, response: clone(response) }; state = addTracking(work, mode); persist(); }
         return clone(response) as T;
       });
+    },
+    async downloadEvidence(token, partnerId, attributionId, documentId) {
+      await guard('staff', token); refresh();
+      const review = state.outcomeReviews?.[`${partnerId}:${attributionId}`];
+      const index = review?.source.documents.findIndex(d => d.id === documentId) ?? -1;
+      if (!review || index < 0) throw new ApiError('Evidence unavailable.', 404);
+      const pdf = await PDFDocument.create(), page = pdf.addPage(), font = await pdf.embedFont(StandardFonts.Helvetica);
+      const lines = ['SYNTHETIC LOCAL EVIDENCE - NOT A REAL CASE', review.source.documents[index].name, '', ...evidenceLines(index, review)];
+      lines.forEach((line, n) => page.drawText(line, { x: 40, y: 780 - n * 24, size: 11, font }));
+      return new Blob([Uint8Array.from(await pdf.save())], { type: 'application/pdf' });
     },
     async download(audience, token, agreementId) {
       await guard(audience, token);

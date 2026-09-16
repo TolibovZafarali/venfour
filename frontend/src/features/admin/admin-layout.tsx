@@ -57,9 +57,9 @@ export function AdminLayout() {
   const active = visibleNavigation.find((item) => item.label === "Needs attention" ? location.pathname.startsWith("/admin/cases") && attention
     : item.label === "Cases" ? location.pathname.startsWith("/admin/cases") && !attention
     : item.href === "/admin" ? location.pathname === "/admin" || location.pathname === "/admin/"
-    : location.pathname.startsWith(item.href));
+    : location.pathname.startsWith(item.href) || (item.href === "/admin/referral-partners" && location.pathname.startsWith("/admin/partners/")));
   const title = active?.label ?? "Workspace";
-  const detail = /^\/admin\/(cases|customers)\/[^/]+/.test(location.pathname);
+  const detail = /^\/admin\/(cases|customers|partners)\/[^/]+/.test(location.pathname);
   useDocumentMetadata({ title: `${detail ? "Record details" : title} | Venfour Admin`, description: "Private Venfour staff operations workspace." });
 
   useEffect(() => {

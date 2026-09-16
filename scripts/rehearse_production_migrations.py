@@ -116,8 +116,8 @@ class Rehearsal:
     def seed_cutoff(self):
         # Reuse the repository's baseline paid/report fixture with disjoint UUIDs.
         source = (ROOT / "supabase/tests/database/018_total_loss_customer_delivery.test.sql").read_text()
-        assert "\nselect ok(" in source and "select plan(53);" in source
-        source = source.split("\nselect ok(", 1)[0].replace("begin;", "", 1).replace("select plan(53);", "")
+        assert "\nselect ok(" in source and len(re.findall(r"select plan\(\d+\);", source)) == 1
+        source = re.sub(r"select plan\(\d+\);", "", source.split("\nselect ok(", 1)[0].replace("begin;", "", 1))
         identities = sorted(set(re.findall(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", source)))
         mapping = {old: str(uuid.uuid5(uuid.NAMESPACE_URL, "venfour-production-rehearsal:" + old)) for old in identities}
         for old, new in mapping.items():
@@ -202,7 +202,10 @@ class Rehearsal:
         paths = sorted((ROOT / "supabase/migrations").glob("*.sql"))
         baseline = [p for p in paths if p.name[:14] <= CUTOFF]
         pending = [p for p in paths if p.name[:14] > CUTOFF]
-        assert len(baseline) == 29 and len(pending) == 34
+        assert len(baseline) == 29 and pending, "The known cutoff schema must remain intact"
+        versions = [path.name[:14] for path in paths]
+        assert all(re.fullmatch(r"[0-9]{14}", version) for version in versions)
+        assert len(versions) == len(set(versions)), "Migration versions must be unique"
         for path in baseline:
             self.apply(path)
         self.seed_cutoff()

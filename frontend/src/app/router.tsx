@@ -1,5 +1,7 @@
+import { isPartnerHost } from "@/features/referral-partners/urls";
 import {
   createBrowserRouter,
+  Navigate,
   type LoaderFunctionArgs,
   replace,
   type RouteObject,
@@ -12,7 +14,7 @@ import { publicSiteOnly } from "@/config/public-site";
 import { routeAudience } from "@/app/site-boundary";
 import { diminishedValueStaffReviewAvailable } from "@/config/product-availability";
 import { adminRoute } from "@/features/admin/admin-routes";
-import { PartnerDashboardPage, PartnerDetailPage, PartnerInvitationPage, PartnerWorkspace } from "@/features/referral-partners/pages";
+import { PartnerDashboardPage, PartnerBusinessEarningsPage, PartnerDetailPage, PartnerInvitationPage, PartnerWorkspace } from "@/features/referral-partners/pages";
 import { AdminDiminishedValueAccessGate } from "@/features/admin/diminished-value/admin-access-gate";
 import { AuthCallbackPage } from "@/features/auth";
 import { AnalysisPage } from "@/pages/analysis-page";
@@ -439,6 +441,10 @@ const combinedRoutes: RouteObject[] = [
   adminRoute,
   { path: "partners", element: <PartnerWorkspace />, children: [
     { index: true, element: <PartnerDashboardPage /> },
+    { path: "sign-in", element: <Navigate to="/partners" replace /> },
+    { path: "earnings", element: <PartnerDashboardPage earnings /> },
+    { path: "businesses/:partnerSlug", element: <PartnerDetailPage /> },
+    { path: "businesses/:partnerSlug/earnings", element: <PartnerBusinessEarningsPage /> },
     { path: "invitations/:invitationId", element: <PartnerInvitationPage /> },
     { path: ":partnerId", element: <PartnerDetailPage /> },
   ] },
@@ -453,7 +459,22 @@ export const publicRoutes: RouteObject[] = combinedRoutes.flatMap((route): Route
   }];
 });
 
-export const appRoutes = publicSiteOnly ? publicRoutes : combinedRoutes;
+const partnerRoutes: RouteObject[] = [
+  { path: "/auth/callback/*", element: <AuthCallbackPage /> },
+  { path: "/", element: <PartnerWorkspace />, children: [
+    { index: true, element: <PartnerDashboardPage /> },
+    { path: "sign-in", element: <Navigate to="/" replace /> },
+    { path: "earnings", element: <PartnerDashboardPage earnings /> },
+    { path: "businesses/:partnerSlug", element: <PartnerDetailPage /> },
+    { path: "businesses/:partnerSlug/earnings", element: <PartnerBusinessEarningsPage /> },
+    { path: "invitations/:invitationId", element: <PartnerInvitationPage /> },
+    { path: "partners", loader: () => replace("/") },
+    { path: "partners/invitations/:invitationId", element: <PartnerInvitationPage /> },
+    { path: "partners/:partnerId", element: <PartnerDetailPage /> },
+    { path: "*", element: <NotFoundPage /> },
+  ] },
+];
+export const appRoutes = publicSiteOnly ? publicRoutes : isPartnerHost() ? partnerRoutes : combinedRoutes;
 
 export function createAppRouter() {
   return createBrowserRouter(appRoutes);
