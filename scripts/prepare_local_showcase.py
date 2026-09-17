@@ -1,151 +1,213 @@
-"""Prepare an offline showcase from existing local, pre-launch evidence only."""
-
+"""Build fictional local records through the current deterministic domain code."""
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 from pathlib import Path
+import socket
 import sys
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-
-from venfour.analysis_runs import FileAnalysisRunRepository
-from venfour.presentation import AnalysisPresentationService
-
-RUN_ID = "37310623-c6da-42fc-a7a6-2b7eea276378"
-SOURCE_PDF_SHA256 = "0a5b6889214884cfdb91990f0bb7f8ef385d575b3aea12abe60586b9f60a0ada"
-REPORT_ID = "44444444-4444-4444-8444-444444444444"
 DEST = ROOT / "frontend/preview/showcase/generated"
-LIMITS = [
-    "Local historical showcase, prepared from a genuine report and a saved August 12, 2026 market-data run. No fresh valuation was performed.",
-    "The original saved result found no material discrepancy. It does not support a claim of underpayment or a promised recovery.",
-    "The saved search used ZIP 63123; the original report lists 63026. Distances retain that original search origin. This legacy mismatch has not been corrected by a new search.",
-    "Owner identity, street address, claim and report references, and subject VIN are withheld. Account, payment and reading-progress states are simulated locally.",
-    "This is a display projection of an older saved analysis, not a current strict-review approval or an issued customer evidence package.",
-    "Advertised prices are not completed sale prices or guaranteed settlement amounts. Original data gaps remain visible.",
-]
+CASE_ID = "33333333-3333-4333-8333-333333333333"
+USER_ID = "22222222-2222-4222-8222-222222222222"
+REPORT_ID = "44444444-4444-4444-8444-444444444444"
+INPUT_ID = "11111111-1111-4111-8111-111111111111"
+DATE = "2026-09-16T12:00:00Z"
+
+
+def uid(number):
+    return f"00000000-0000-4000-8000-{number:012d}"
 
 
 def money(value):
-    return {"amountMinorUnits": value["cents"], "currency": "USD", "formatted": value["display"]}
+    if value is None:
+        return None
+    return {"amountMinorUnits": value.get("minorUnits", value.get("cents")),
+            "currency": value.get("currency", "USD"), "formatted": value.get("display")}
 
 
-def prices(value):
-    return {"count": value["count"], "low": money(value["minimumPrice"]), "high": money(value["maximumPrice"]), "median": money(value["medianPrice"])}
+def price_summary(value):
+    if not value:
+        return None
+    return {"count": value["count"], "low": money(value["minimumPrice"]),
+            "median": money(value["medianPrice"]), "high": money(value["maximumPrice"])}
 
 
-def description(row):
-    return " ".join(str(row[k]) for k in ("year", "make", "model", "trim") if row.get(k) is not None)
+def customer_report(value):
+    """Use the current customer-delivery RPC's field projection of a built report."""
+    from venfour.customer_delivery import validate_report_projection
+    conclusion = value["executiveConclusion"]
+    limits = value["assumptionsAndLimitations"]["limitations"]
+    insurer = value["insurerComparableReview"]
+    market = value["independentMarketEvidence"]
+    supported = conclusion["supportedAdvertisedPriceRange"]
+    difference = next(fact for row in value["adjustmentsAndCalculations"]["calculations"]
+                      if row["code"] == "PRIMARY_EVIDENCE_COMPARISON" for fact in row["values"] if fact["key"] == "difference")
+    def evidence(row):
+        return None if row is None else {**{k: row[k] for k in ("label", "description", "evidenceDate", "selectedCount")}, "prices": price_summary(row["prices"])}
+    projected = {
+        "reportId": REPORT_ID, "versionNumber": 1, "versionLabel": "v1", "status": "published",
+        "title": "Venfour Total-Loss Valuation Evidence Package",
+        "issueDate": value["identity"]["issueDate"], "suggestedFilename": value["identity"]["suggestedFilename"],
+        "subjectVehicle": {"description": value["subjectVehicle"]["vehicleDisplay"]},
+        "conclusion": {
+            "classificationLabel": conclusion["classificationLabel"],
+            "continuingSupported": conclusion["continuationStatus"] == "SUPPORTS_CONTINUATION",
+            "insurerValuation": money(conclusion["insurerValuation"]["value"]),
+            "supportedRange": {**{k: money(supported[k]) for k in ("low", "median", "high")}, "evidenceBasis": "Current advertised-price evidence"},
+            "indicatedDifference": {"amountMinorUnits": difference["value"], "currency": "USD", "formatted": difference["displayValue"]},
+            "summary": conclusion["summary"], "limitations": [r["description"] for r in limits],
+            "preliminaryComparison": {k: value["preliminaryVersusFinal"][k] for k in ("status", "summary")},
+        },
+        "insurerEvidence": {
+            "insurerName": value["insurerValuationReviewed"]["insurerName"]["value"],
+            "comparableCount": len(insurer["comparables"]),
+            "summary": {**{k: insurer["summary"][k] for k in ("totalCount", "advertisedPriceMissingCount", "adjustedValueMissingCount", "fullyDisclosedAdjustmentCount", "partiallyDisclosedAdjustmentCount", "undisclosedAdjustmentCount", "unavailableAdjustmentCount")}, **{k: price_summary(insurer["summary"][k]) for k in ("advertisedPrices", "adjustedValues")}},
+            "comparables": [{**{k: row.get(k) for k in ("mileage", "advertisedPrice", "adjustedValue", "netAdjustment", "adjustments", "adjustmentDisclosure", "contributionPercent")},
+                             "vehicle": row["vehicleDisplay"], **({"sourcePrice": row["sourcePrice"]} if "sourcePrice" in row else {})} for row in insurer["comparables"]],
+            "methodologyStatement": insurer["methodologyStatement"],
+            "adjustmentContext": "Insurer adjustments are shown as disclosed in the reviewed report; Venfour does not invent missing adjustment details.",
+        },
+        "marketEvidence": {
+            "primary": evidence(market["primary"]), "secondary": evidence(market["secondary"]),
+            "comparables": [{**{k: row.get(k) for k in ("role", "mileage", "advertisedPrice", "dealer", "location", "distanceMiles", "evidenceDate", "temporalBasis")}, "vehicle": row["vehicleDisplay"]} for row in market["comparables"]],
+            "methodologyStatement": value["adjustmentsAndCalculations"]["methodologyStatement"],
+            "evidenceDateContext": {k: value["evidenceCutoff"][k] for k in ("lossDate", "currentObservedDate", "historicalEvidenceDate")},
+            **{k: market[k] for k in ("marketSearchContext", "higherPricedComparableListings") if k in market},
+        },
+    }
+    return validate_report_projection(projected)
 
 
 def prepare():
-    import pymupdf
-    from reportlab.lib import colors
+    from tests.full_review_fixtures import strict_fixture
+    from venfour.full_review_payment import payment_readiness, strict_result_eligible
+    from venfour.package_assessment import build_total_loss_source_snapshot_v1, build_final_valuation_assessment_v1, canonical_package_digest
+    from venfour.valuation_evidence_report import build_valuation_evidence_report_v1, render_valuation_evidence_report_pdf_v1
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
     from reportlab.lib.styles import getSampleStyleSheet
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
-    from xml.sax.saxutils import escape
+    from reportlab.lib import colors
 
-    source = ROOT / "data/raw/ccc/ccc-002-elantra-state-farm.pdf"
-    extracted = ROOT / "data/extracted/ccc/ccc-002-elantra-state-farm.json"
-    artifact = ROOT / f"data/analysis-runs/{RUN_ID}.json"
-    for path in (source, extracted, artifact):
-        if not path.is_file():
-            raise SystemExit(f"Required existing local source is missing: {path.relative_to(ROOT)}. No remote fallback is allowed.")
-    if hashlib.sha256(source.read_bytes()).hexdigest() != SOURCE_PDF_SHA256:
-        raise SystemExit("The source PDF changed. Redaction coordinates require a fresh visual privacy review.")
-    p = AnalysisPresentationService(FileAnalysisRunRepository(artifact.parent)).get(RUN_ID).to_dict()
-    original = json.loads(extracted.read_text())
-    if p["assessment"]["classification"] != "NO_MATERIAL_DISCREPANCY" or p["cccValuation"]["adjustedVehicleValue"]["cents"] != 1904600:
-        raise SystemExit("The selected source changed. Inspect it before rebuilding the showcase.")
+    fixture = strict_fixture()
+    from venfour.full_review_calculation import calculate_report_review
+    fixture["extraction"]["normalizedReport"]["report"].update(claimReferenceNumber="DEMO-2026-0142", reportDate="2026-08-05")
+    calculation = calculate_report_review(fixture["artifact"], fixture["extraction"], fixture["readiness"], report_id=uid(18), created_at=DATE)
+    assert strict_result_eligible(calculation), "The synthetic evidence must pass the real strict payment gate."
+    p, artifact = calculation["presentation"], calculation["artifact"]
+    vehicle, extraction = p["vehicle"], fixture["extraction"]
     DEST.mkdir(parents=True, exist_ok=True)
-    primary, secondary = p["primaryExternalEvidence"], p["secondaryExternalEvidence"]
-    summary = p["cccComparables"]["summary"]
-
-    def evidence(value):
-        return {k: value[k] for k in ("description", "evidenceDate", "label", "selectedCount")} | {"prices": prices(value["prices"])}
-
-    report = {
-        "reportId": REPORT_ID, "status": "published", "versionNumber": 1, "versionLabel": "v1",
-        "issueDate": p["analysisCreatedAt"][:10], "suggestedFilename": "Venfour_Local_Historical_Showcase.pdf",
-        "subjectVehicle": {"description": description(p["vehicle"])},
-        "conclusion": {
-            "classificationLabel": p["assessment"]["classificationLabel"], "continuingSupported": False,
-            "summary": p["assessment"]["summary"], "insurerValuation": money(p["cccValuation"]["adjustedVehicleValue"]),
-            "indicatedDifference": money(p["cccValuation"]["comparisonToPrimaryEvidence"]["difference"]),
-            "supportedRange": {"low": money(primary["prices"]["minimumPrice"]), "median": money(primary["prices"]["medianPrice"]), "high": money(primary["prices"]["maximumPrice"]), "evidenceBasis": primary["evidenceBasis"]},
-            "limitations": LIMITS,
-            "preliminaryComparison": {"status": "HISTORICAL_SHOWCASE", "summary": LIMITS[4]},
-        },
-        "insurerEvidence": {
-            "insurerName": "State Farm", "comparableCount": summary["totalCount"],
-            "summary": {k: summary[k] for k in ("totalCount", "advertisedPriceMissingCount", "adjustedValueMissingCount", "fullyDisclosedAdjustmentCount", "partiallyDisclosedAdjustmentCount", "undisclosedAdjustmentCount", "unavailableAdjustmentCount")} | {"advertisedPrices": prices(summary["advertisedPrices"]), "adjustedValues": prices(summary["adjustedValues"])},
-            "comparables": [{"vehicle": description(r), "mileage": r["mileage"], "advertisedPrice": r["advertisedPrice"]["display"], "adjustedValue": r["cccAdjustedComparableValue"]["display"], "netAdjustment": r["netAdjustment"]["display"], "adjustmentDisclosure": r["adjustmentDisclosure"], "contributionPercent": r["contributionPercent"], "adjustments": {k: v["display"] if v["cents"] is not None else None for k, v in r["adjustments"].items()}} for r in p["cccComparables"]["rows"]],
-            "methodologyStatement": "Original insurer values and weights are retained. Six rows lack itemized adjustments in the saved extraction; inspect the redacted original excerpt for context. Missing details are not treated as proof of an error.",
-            "adjustmentContext": "The original report adds $297 in subject condition adjustments to its $18,749 base value, producing $19,046. The first six extracted comparable rows each include a $1,351 condition deduction. These facts alone do not prove an error.",
-        },
-        "marketEvidence": {
-            "primary": evidence(primary), "secondary": evidence(secondary),
-            "evidenceDateContext": {"lossDate": p["vehicle"]["lossDate"], "historicalEvidenceDate": primary["evidenceDate"], "currentObservedDate": secondary["evidenceDate"]},
-            "methodologyStatement": LIMITS[2] + " Saved selection and prices are unchanged; historical and then-current prices remain separate.",
-            "comparables": [{"vehicle": description(r), "mileage": r["mileage"], "advertisedPrice": r["advertisedPrice"]["display"], "dealer": (r.get("dealer") or {}).get("name"), "location": ", ".join(str((r.get("dealer") or {}).get(k)) for k in ("city", "state") if (r.get("dealer") or {}).get(k)), "distanceMiles": r["distanceMiles"], "role": r["evidenceRole"], "temporalBasis": r["temporalBasisLabel"], "evidenceDate": r["evidenceDate"]} for stream in ("primary", "secondary") for r in p["comparablesUsed"][stream]],
-        },
-    }
-    manifest = {
-        "title": description(p["vehicle"]), "classification": p["assessment"]["classification"],
-        "provenance": "Existing local source PDF, extraction, and immutable MarketCheck run; no production database or storage was read.",
-        "sourceRunId": RUN_ID, "capturedAt": p["analysisCreatedAt"], "limitations": LIMITS,
-        "sources": [{"path": str(path.relative_to(ROOT)), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()} for path in (source, extracted, artifact)],
-        "sourcePdfPagesIncluded": [1, *range(6, 16)], "redaction": "Raster-only excerpt; owner/claim headers and cover identity/reference fields removed. Other pages omitted. Financial figures are unchanged.",
-        "supplements": ["Local account and browser-only workflow state", "Display adapter into the current customer review components", "Locally generated historical showcase summary PDF"],
-        "alternativesReviewed": ["Camry: no material discrepancy, no loss-date historical evidence", "Earlier Elantra runs: five selected historical comparables", "Synthetic fixtures: excluded as genuine case candidates"],
-    }
-    encoded = json.dumps({"report": report, "manifest": manifest}, indent=2)
-    for private in (original["vehicle"]["vin"], original["report"]["reportReferenceNumber"], original["report"]["claimReferenceNumber"]):
-        if private and private in encoded:
-            raise SystemExit("Private source identifier entered the display artifact.")
-    (DEST / "case.json").write_text(encoded + "\n")
-
-    # Retain original page imagery after removing private regions, with no source text layer.
-    source_doc, redacted = pymupdf.open(source), pymupdf.open()
-    for number in manifest["sourcePdfPagesIncluded"]:
-        page = source_doc[number - 1]
-        if number != 1:
-            page.add_redact_annot(pymupdf.Rect(410, 18, 595, 70), fill=(1, 1, 1))
-        if number == 1:
-            page.add_redact_annot(pymupdf.Rect(30, 140, 397, 210), fill=(1, 1, 1))
-            page.add_redact_annot(pymupdf.Rect(30, 325, 397, 372), fill=(1, 1, 1))
-        page.apply_redactions()
-        if number == 1:
-            page.insert_text((42, 176), "Owner information redacted for local demonstration", fontsize=9, color=(.35, .35, .35))
-            page.insert_text((42, 345), "Claim and report references redacted", fontsize=9, color=(.35, .35, .35))
-        image = page.get_pixmap(matrix=pymupdf.Matrix(1.6, 1.6), alpha=False)
-        clean = redacted.new_page(width=page.rect.width, height=page.rect.height + 24)
-        clean.insert_text((24, 13), f"LOCAL SHOWCASE - REDACTED SOURCE EXCERPT - original page {number} of 19", fontsize=8)
-        clean.insert_image(pymupdf.Rect(0, 24, page.rect.width, page.rect.height + 24), stream=image.tobytes("png"))
-    redacted.set_metadata({"title": "Redacted original CCC report excerpt - local showcase"})
-    redacted.save(DEST / "insurer-report-redacted.pdf", garbage=4, deflate=True)
-
+    filename = "Synthetic_Insurer_Valuation.pdf"
     styles = getSampleStyleSheet()
-    story = [Paragraph("Venfour | Local historical showcase", styles["Title"]), Paragraph(description(p["vehicle"]), styles["Heading1"])]
-    for line in LIMITS:
-        story.extend([Paragraph(escape(line), styles["BodyText"]), Spacer(1, 9)])
-    story.extend([Paragraph("Saved result", styles["Heading2"]), Paragraph("Insurer vehicle value: $19,046. Historical asking-price median: $19,608. Difference: $562 (2.95%). The saved analysis found no material discrepancy.", styles["BodyText"]), Paragraph("Original report context", styles["Heading2"]), Paragraph(escape(report["insurerEvidence"]["adjustmentContext"]), styles["BodyText"]), PageBreak()])
-    for role, title in (("PRIMARY", "Loss-date historical evidence"), ("SECONDARY", "Then-current market context")):
-        story.append(Paragraph(title, styles["Heading1"]))
-        story.append(Paragraph("Selected values from the saved August 12, 2026 run. Dealer listings were not refreshed for this demonstration. Distances are from legacy ZIP 63123.", styles["BodyText"]))
-        story.append(Spacer(1, 16))
-        rows = [["Dealer / location", "Mileage", "Asking price", "Miles"]]
-        for r in report["marketEvidence"]["comparables"]:
-            if r["role"] == role:
-                rows.append([Paragraph(escape((r["dealer"] or "Unknown dealer") + " / " + r["location"]), styles["BodyText"]), f'{r["mileage"]:,}', r["advertisedPrice"], str(r["distanceMiles"])])
-        table = Table(rows, colWidths=[275, 65, 90, 50], repeatRows=1)
-        table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#eeeeee")), ("LINEBELOW", (0, 0), (-1, -1), .3, colors.HexColor("#cccccc")), ("TOPPADDING", (0, 0), (-1, -1), 9), ("BOTTOMPADDING", (0, 0), (-1, -1), 9)]))
-        story.extend([table, Spacer(1, 18), Paragraph("Advertised prices are not guaranteed sale prices or settlement amounts.", styles["BodyText"])])
-        if role == "PRIMARY": story.append(PageBreak())
-    SimpleDocTemplate(str(DEST / report["suggestedFilename"]), title="Local historical showcase", author="Venfour", leftMargin=44, rightMargin=44, topMargin=42, bottomMargin=42).build(story)
-    print(json.dumps({"prepared": str(DEST.relative_to(ROOT)), "classification": manifest["classification"], "historicalComparables": primary["selectedCount"], "providerRequests": 0, "databaseWrites": 0}))
+    story = [Paragraph("SYNTHETIC SAMPLE — NOT AN INSURER-ISSUED REPORT", styles["Heading1"]),
+             Paragraph("Example Insurance · Claim DEMO-2026-0142", styles["Heading2"]),
+             Paragraph("Jordan Example · 123 Example Street, Fenton, MO 63026", styles["Normal"]), Spacer(1, 16)]
+    title = " ".join(str(vehicle[k]) for k in ("year", "make", "model", "trim"))
+    for line in [title, f"Fictional VIN: {extraction['normalizedReport']['vehicle']['vin']}",
+                 f"Mileage: {vehicle['mileage']:,} · Loss: {vehicle['lossDate']} · ZIP: {vehicle['postalCode']}",
+                 "2.0L I4 · FWD · Automatic · Standard SEL equipment",
+                 f"Vehicle valuation: {p['insurerValuation']['value']['display']} before taxes, fees or deductible."]:
+        story.append(Paragraph(line, styles["Normal"]))
+    story.append(Spacer(1, 18))
+    rows = [["Comparable", "Mileage", "Listed", "Net adjustment", "Adjusted"]]
+    for row in p["cccComparables"]["rows"]:
+        rows.append([f"2024 Elantra SEL #{len(rows)}", f"{row['mileage']:,}", row["advertisedPrice"]["display"], row["netAdjustment"]["display"], row["cccAdjustedComparableValue"]["display"]])
+    table = Table(rows, colWidths=[140, 65, 85, 100, 85]); table.setStyle(TableStyle([("GRID", (0,0),(-1,-1), .5, colors.grey), ("BACKGROUND", (0,0),(-1,0), colors.whitesmoke), ("TOPPADDING", (0,0),(-1,-1), 9), ("BOTTOMPADDING", (0,0),(-1,-1), 9)]))
+    story.extend([table, Spacer(1, 18), Paragraph("All identities, documents, listings and offers in this case are fictional. This sample supplies the same structured inputs as a customer report; it is not evidence about a real vehicle or claim.", styles["Normal"])])
+    SimpleDocTemplate(str(DEST / filename), title="Synthetic insurer valuation sample", author="Venfour", invariant=True).build(story)
+    pdf = (DEST / filename).read_bytes(); digest = hashlib.sha256(pdf).hexdigest()
+    extraction["documentSha256"] = digest
+    facts = {"vin": extraction["normalizedReport"]["vehicle"]["vin"], "year": vehicle["year"], "make": vehicle["make"], "model": vehicle["model"], "trim": vehicle["trim"],
+             "vehicleConfiguration": None, "mileage": vehicle["mileage"], "postalCode": vehicle["postalCode"], "lossDate": vehicle["lossDate"], "insurerName": "Example Insurance",
+             "insurerVehicleValuationMinorUnits": p["insurerValuation"]["value"]["cents"], "priorTitleStatus": None, "condition": None, "existingDamageDescription": None, "optionsPackages": None, "intakeCompletedAt": DATE}
+    document = {"bucket": "case-files", "storageOwnerId": USER_ID, "objectPath": f"{USER_ID}/{CASE_ID}/{filename}", "uploadId": uid(18), "originalFilename": filename, "uploadedAt": DATE,
+                "detectedMediaType": "application/pdf", "declaredMimeType": "application/pdf", "byteSize": len(pdf), "pageCount": 1, "sha256": digest}
+    source_extraction = {k:v for k,v in extraction.items() if k != "schemaVersion"}
+    source_extraction.update(rowSchemaVersion="1", wrapperSchemaVersion=extraction["schemaVersion"], extractedAt=DATE)
+    preliminary = {"schemaVersion": "1", "presentation": p, "customerVisibleResult": {"classification": p["assessment"]["classification"], "insurerValueMinorUnits": facts["insurerVehicleValuationMinorUnits"]}}
+    source = build_total_loss_source_snapshot_v1(
+        lineage={"caseId": CASE_ID, "packageJobId": uid(12), "entitlementId": uid(13), "preliminarySnapshotId": uid(14), "sourceSnapshotId": uid(15), "analysisJobId": uid(16), "analysisRunId": artifact["runId"], "ownerUserIdAtCreation": USER_ID, "productIdentifier": "total_loss_advisory_package", "productVersion": "v1"},
+        created_at=DATE, intake_mode="REPORT", analysis_input_revision=1, analysis_input_id=INPUT_ID, confirmed_facts=facts, artifact=artifact,
+        preliminary_presentation=p, preliminary_snapshot=preliminary, preliminary_snapshot_digest=canonical_package_digest(preliminary), preliminary_snapshot_schema_version="1", source_document=document, extraction=source_extraction)
+    assessment = build_final_valuation_assessment_v1(source)
+    built = build_valuation_evidence_report_v1(source_snapshot=source, final_assessment=assessment, report_series_id=uid(20), report_version_id=REPORT_ID, final_assessment_id=uid(21), version_number=1, generated_at=DATE)
+    report = customer_report(built.to_dict())
+    assert report["conclusion"]["continuingSupported"], "The published report must independently support continuation."
+    (DEST / report["suggestedFilename"]).write_bytes(render_valuation_evidence_report_pdf_v1(built, fictional=True))
+    import tempfile
+    from tests.test_efficient_analysis import run_analysis
+    from tests.test_efficient_search import candidate
+    from tests.test_analysis_runs import make_report
+    from venfour.presentation import AnalysisPresentationProjector
+    def free_input():
+        value = make_report()
+        value["report"]["lossDate"] = vehicle["lossDate"]
+        return value
+    with tempfile.TemporaryDirectory() as directory, patch("tests.test_efficient_analysis.make_report", side_effect=free_input):
+        free_artifact, _, _, _ = run_analysis(directory, [candidate(i, price=24000+i*100) for i in range(12)], offer=20000, source_report=False, free_estimate=True)
+    free_analysis = AnalysisPresentationProjector().project(free_artifact).to_dict()
+    assert free_analysis["presentationVersion"] == "8"
+    assert free_analysis["preliminaryResult"]["outcome"] == "ESTIMATE"
+    context = {"case_id": CASE_ID, "source_run_id": free_artifact.run_id, "source_input_id": INPUT_ID, "source_input_revision": 1,
+               "report": {"id": uid(18), "revision": 1, "status": "ready", "readiness": fixture["readiness"], "document_sha256": digest}}
+    context["strict_review"] = {**{k:v for k,v in context.items() if k != "report"}, "id": uid(22), "report_id": uid(18), "report_revision": 1, "document_sha256": digest, "review_version": "1", "calculation": calculation, "calculation_digest": canonical_package_digest(calculation)}
+    readiness = payment_readiness(context)
+    assert readiness["eligible"]
+
+    from tests.test_insurer_response_analysis import InsurerResponseAnalysisFixture
+    from venfour.insurer_response_analysis import CaseEvidenceContext, make_case_evidence_reference, validate_insurer_response_analysis_v1
+    from venfour.insurer_response_processing import _analysis_evidence_index
+    from venfour.insurer_response_recommendation import build_insurer_response_recommendation_v1
+    response_text = "Hello Jordan, we reviewed your reconsideration request and the attached vehicle evidence. Our revised vehicle valuation is $24,500.00, before taxes, fees and any deductible. Please confirm whether you wish to accept this revised valuation. Regards, Taylor Morgan, Example Insurance."
+    response_fixture = InsurerResponseAnalysisFixture(); response_fixture.setUp()
+    request_fields = dict(vehicle_year=vehicle["year"], vehicle_make=vehicle["make"], vehicle_model=vehicle["model"], vehicle_trim=vehicle["trim"], vehicle_mileage=vehicle["mileage"], insurer_name="Example Insurance",
+        original_offer_minor_units=facts["insurerVehicleValuationMinorUnits"], prior_position_summary="The original vehicle valuation was $20,000.",
+        supported_range_low_minor_units=assessment.to_dict()["supportedRange"]["lowMinorUnits"], supported_range_high_minor_units=assessment.to_dict()["supportedRange"]["highMinorUnits"],
+        response_text=response_text, revised_offer_minor_units=2450000,
+        case_evidence=(CaseEvidenceContext(make_case_evidence_reference("finding", "synthetic-market"), "VENFOUR_FINDING", p["assessment"]["summary"]),))
+    request = response_fixture._request(**request_fields)
+    response_analysis = response_fixture._valid_payload(request)
+    response_analysis["analysisSummary"].update(whatInsurerSaid="The insurer revised the vehicle valuation to $24,500 after reviewing your request.", whatThisMeans="You have a revised valuation of $24,500 to consider. It is not a confirmed settlement until you confirm the outcome.")
+    response_analysis["insurerPosition"]["summary"] = "The revised vehicle valuation is $24,500 before taxes, fees and any deductible."
+    response_analysis["requestDisposition"].update(category="ACCEPTED", summary="The insurer reviewed the request and revised the valuation.")
+    response_analysis.update(responsePoints=[], insurerArguments=[], unresolvedIssues=[])
+    validate_insurer_response_analysis_v1(response_analysis, request=request)
+    evidence = _analysis_evidence_index(request)
+    recommendation = build_insurer_response_recommendation_v1(analysis=response_analysis, evidence_index=evidence, final_assessment=assessment.to_dict(), assessment_digest=assessment.to_dict()["assessmentDigest"], customer_offer={"amountMinorUnits": 2450000, "currency": "USD"})
+    from venfour.insurer_response_analysis import understand_insurer_response_document
+    response_filename = "Synthetic_Insurer_Response.pdf"
+    SimpleDocTemplate(str(DEST / response_filename), title="Synthetic insurer response", invariant=True).build([
+        Paragraph("SYNTHETIC SAMPLE — NOT AN INSURER-ISSUED LETTER", styles["Heading1"]),
+        Paragraph("Example Insurance · Claim DEMO-2026-0142", styles["Heading2"]),
+        Paragraph(response_text, styles["Normal"])])
+    response_bytes = (DEST / response_filename).read_bytes()
+    response_document = {"documentId": uid(30), "byteSize": len(response_bytes), "mediaType": "application/pdf", "originalFilename": response_filename}
+    document_request = response_fixture._request(**request_fields, document=understand_insurer_response_document(response_bytes, media_type="application/pdf", filename=response_filename))
+    document_analysis = copy.deepcopy(response_analysis)
+    document_analysis["inputCoverage"] = document_request.to_dict()["inputCoverage"]
+    validate_insurer_response_analysis_v1(document_analysis, request=document_request)
+    document_evidence = _analysis_evidence_index(document_request)
+    document_recommendation = build_insurer_response_recommendation_v1(analysis=document_analysis, evidence_index=document_evidence, final_assessment=assessment.to_dict(), assessment_digest=assessment.to_dict()["assessmentDigest"], customer_offer={"amountMinorUnits": 2450000, "currency": "USD"})
+    template = json.loads((ROOT / "templates/total-loss-reconsideration-email.json").read_text())
+    request_message = {"subject": template["subjectWithClaim"] % "DEMO-2026-0142",
+        "body": "\n\n".join([template["greeting"] % "Taylor", template["opening"],
+            template["request"] % (p["insurerValuation"]["value"]["display"], title),
+            template["findings"]["CCC_BELOW_EXTERNAL_RANGE"], template["reviewRequest"], template["thanks"],
+            "\n".join([template["signoff"], "Jordan Example", "314-555-0142"])])}
+    data = {"responseDocument": response_document, "responseDocumentDigest": hashlib.sha256(response_bytes).hexdigest(),
+        "responseWithDocument": {"analysis": document_analysis, "analysisEvidence": document_evidence, "recommendation": document_recommendation},
+        "requestMessage": request_message, "manifest": {"title": title, "sourceRunId": free_artifact.run_id, "capturedAt": DATE, "classification": p["assessment"]["classification"], "synthetic": True},
+        "facts": facts, "filename": filename, "analysis": free_analysis, "report": report,
+        "fullReview": {"caseId": CASE_ID, "stage": "full_review", "analysisInputId": INPUT_ID, "analysisInputRevision": 1, "status": "ready", "ready": True, "checkoutAvailable": readiness["eligible"], "locked": False, "canReuseReport": True, "report": {"id": uid(18), "revision": 1, "filename": filename}, "issues": [], "message": "Your report is saved.", "paymentReadiness": readiness},
+        "response": {"text": response_text, "offer": 2450000, "analysis": response_analysis, "analysisEvidence": evidence, "recommendation": recommendation}}
+    (DEST / "case.json").write_text(json.dumps(data, indent=2) + "\n")
+    (DEST / "domain-evidence.json").write_text(json.dumps({"source": source.to_dict(), "assessment": assessment.to_dict(), "report": built.to_dict(), "paymentReadiness": readiness}, indent=2) + "\n")
+    print(json.dumps({"prepared": str(DEST.relative_to(ROOT)), "classification": p["assessment"]["classification"], "eligible": readiness["eligible"], "continuingSupported": report["conclusion"]["continuingSupported"], "responsePolicy": recommendation["state"], "externalRequests": 0}))
 
 
 if __name__ == "__main__":
-    prepare()
+    with patch.object(socket.socket, "connect", side_effect=RuntimeError("The local fixture cannot use the network")), patch("socket.create_connection", side_effect=RuntimeError("The local fixture cannot use the network")):
+        prepare()

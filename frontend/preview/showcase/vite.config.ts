@@ -28,9 +28,10 @@ export default defineConfig({
     },
   }],
   resolve: { alias: [
+    { find: "@/features/total-loss-claim/browser-actions", replacement: path.resolve(import.meta.dirname, "./browser-actions.ts") },
     { find: "@/app/site-boundary", replacement: path.resolve(import.meta.dirname, "../workspace/site-boundary.ts") },
-    { find: "@stripe/stripe-js/pure", replacement: path.resolve(import.meta.dirname, "../workspace/payment-preview.ts") },
-    { find: "@stripe/react-stripe-js/checkout", replacement: path.resolve(import.meta.dirname, "../workspace/payment-preview.ts") },
+    { find: "@stripe/stripe-js/pure", replacement: path.resolve(import.meta.dirname, "./payment.tsx") },
+    { find: "@stripe/react-stripe-js/checkout", replacement: path.resolve(import.meta.dirname, "./payment.tsx") },
     { find: "@", replacement: path.resolve(import.meta.dirname, "../../src") },
   ] },
   define: {

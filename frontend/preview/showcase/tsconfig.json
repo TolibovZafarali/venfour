@@ -1,5 +1,1 @@
-{
-  "extends": "../../tsconfig.app.json",
-  "compilerOptions": { "tsBuildInfoFile": "../../node_modules/.tmp/tsconfig.showcase.tsbuildinfo" },
-  "include": ["./**/*.ts", "./**/*.tsx", "./generated/*.json"]
-}
+{"extends":"../../tsconfig.app.json","compilerOptions":{"tsBuildInfoFile":"../../node_modules/.tmp/tsconfig.showcase.tsbuildinfo"},"include":["./*.ts","./*.tsx"],"exclude":["./*.test.ts","./vite.config.ts"]}

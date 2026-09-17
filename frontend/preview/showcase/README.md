@@ -1,38 +1,40 @@
-# Local historical showcase
+# Local customer application
 
-Start from the repository root:
+From the repository root:
 
 ```sh
 node scripts/dev-showcase.mjs
 ```
 
-Open **http://127.0.0.1:4187/_local/showcase**. The launcher rebuilds the sanitized local assets, then starts a loopback-only server. It requires the repository's existing `.venv` with its current Python dependencies, PyMuPDF and ReportLab, and the installed frontend dependencies. It does not need Supabase, a backend, Stripe, an account, or a market-provider key.
+Open **http://127.0.0.1:4187/_local/showcase**. Stop with `Ctrl+C`.
 
-Use **Start the walkthrough** to review the result, insurer evidence, market evidence and conclusion in the existing customer interface. Complete each page using its bottom action. Dismiss the normal cookie notice once if it covers the action. **Reset walkthrough** clears only this browser's showcase reading state and returns to the introduction. **Unlock review sections** makes all four existing review sections available for a shorter demonstration. Refresh preserves progress. `Ctrl+C` stops the server; repeat the command to restart.
+The launcher uses the current `appRoutes`, `AppProvider`, intake forms, version-8 free valuation, checkout, completed review, request editor, insurer-response form, acceptance steps and case record. There are no showcase pages or copied customer components. A small fictional-data notice and **Reset walkthrough** are the only extra interface.
 
-## Genuine source and selection
+Choose **I have my valuation report** to show the real upload screen with the sample already attached, or **I don’t have the report** to show the prefilled vehicle and claim forms. Continue through the real contact form and its explicit acknowledgements. Both paths retain the sample for full review. The real purchase button records a local paid entitlement; external billing/card elements are omitted and no Stripe session exists.
 
-The selected source is the existing local **2024 Hyundai Elantra SEL** CCC report, `data/raw/ccc/ccc-002-elantra-state-farm.pdf`, and immutable local analysis run `37310623-c6da-42fc-a7a6-2b7eea276378` captured August 12, 2026. The existing Python repository validator and presentation service validate and project the saved run before preparation. The original raw report and run are never modified.
+Continue through result → insurer review → market evidence → comparison → message preparation. The adjuster email and claim number are prefilled. Create and edit the normal request; **Open my email app** simulates that external action without opening a mail client. Confirm the report attachment and mark the message sent. Continue to waiting, select **I received a response**, and submit the prefilled reply and revised offer. The optional real file chooser also accepts `frontend/preview/showcase/generated/Synthetic_Insurer_Response.pdf`; other evidence has no precomputed review. Choose **Accept this offer**, follow the actual acceptance steps, explicitly confirm closure, then open **View my case record**.
 
-This was the strongest genuine saved case found: twelve insurer comparables, nine selected loss-date historical comparables and nine separately retained then-current comparables. The Camry source had no loss-date historical evidence; the earlier Elantra runs had smaller selected historical sets. Synthetic fixtures were excluded from genuine-case selection.
+**Reset walkthrough** restores the initial choice, populated forms, attachment, and unpaid state. It clears this fixture’s request versions, response drafts and outcome without database cleanup. Refresh preserves saved progress.
 
-The original outcome is **NO_MATERIAL_DISCREPANCY**. The insurer value is **$19,046**; the selected historical advertised-price median is **$19,608**, a difference of **$562 / 2.95%**. The original outcome and figures remain unchanged. There is no genuine saved material-undervalue case in the inspected local sources. Do not describe this as a customer recovery, insurer error, approved paid report, successful negotiation or promised additional payment.
+## Data and decisions
 
-## What is sanitized or supplemented
+Everything is fictional: Jordan Example, Example Insurance, a 2024 Hyundai Elantra SEL, a $20,000 original vehicle valuation, selected asking prices of $24,000–$24,800, and a $24,500 revised offer. The sample insurer PDF is clearly labeled synthetic. The Venfour PDF is created by the current validated report builder and renderer with its fictional marker.
 
-- The source excerpt retains original pages 1 and 6–15, with owner identity, claim/reference fields and repeated private headers removed. The source PDF's SHA-256 is pinned before coordinate-based redaction. Pages with subject VIN and other private details are omitted. Pages are permanently rasterized after redaction, with no hidden source text layer, attachments or original metadata. Public dealer details and dealer-comparable VINs remain in the original excerpt.
-- JSON and the local summary omit owner details, address, claim/report references and subject VIN. Source hashes and local filenames record provenance. No production customer database, auth user, storage object or backup was used.
-- The current customer review components consume a local display adapter of the older saved result. The account, payment/refund status, case identifier and reading progress are simulated only to render the existing workflow. They are not actual commerce or strict-review records. The persistent showcase notice makes this explicit.
-- The downloadable summary is newly generated **local historical showcase material**, clearly labeled as such. It is not an original insurer report or a newly approved Venfour customer report. The original insurer excerpt is separately available from the introduction.
-- The legacy run searched ZIP **63123**, while the source report lists **63026**. Original distances and results remain unchanged; this limitation is disclosed in the introduction, methodology and summary. No paid rerun or invented correction was performed.
-- Six insurer-comparable rows lack itemized adjustments in the saved extraction. The redacted source excerpt is available for inspection; missing details do not establish an error.
+`scripts/prepare_local_showcase.py` uses the current offline analysis transport and real strict-review calculation, payment-readiness checker, final-assessment builder and response recommendation policy. It fails if the evidence does not qualify or the completed review does not support continuation. The free result uses the current presentation contract, version 8. The initial request uses the current shared reconsideration template.
+
+The current response policy returns **No clear recommendation** for the revised amount; advertised prices alone do not establish a settlement recommendation. The customer explicitly chooses acceptance and confirms the outcome through the real UI. The fixture does not change that rule. This demonstration follows the acceptance branch; it does not provide new provider analysis for edited evidence or a separate follow-up round.
+
+`state.ts` supplies local auth/services and API responses. `records.ts` persists the wire records consumed by the normal customer state machine, including workflow revisions, immutable prepared versions, response lineage and closure. The current frontend API parsers validate these responses in the focused test. Unrecognized requests and evidence fail closed.
 
 ## Isolation and verification
 
-Generated assets live only in `frontend/preview/showcase/generated/`, which is ignored by Git. This directory is outside the production Vite entry point and public assets. The preview configuration rejects build commands and non-loopback hosts, loads no `.env` files, blanks service credentials, blocks external browser requests with CSP, and denies raw `data/`, output, environment and key files. Unimplemented API calls, case writes, real payments and communications fail closed. No database is seeded or reset.
+Vite permits loopback development only and rejects builds and backend requests. It does not load environment files. CSP denies external network connections, scripts and frames. Fetch is allowlisted to local fixture responses and generated assets; email and payment integrations are replaced only at their external boundaries. The generator denies socket connections and uses mocked transports, with no production or staging database, auth, storage, provider or payment connection.
 
-The public and customer production applications never import this entry point. Do not deploy this directory, place its generated assets in production public assets, or point the showcase at a hosted backend.
+Requires the repository `.venv` and installed frontend dependencies. No credentials are required.
 
-Validation includes the four-stage desktop/mobile walkthrough, expandable evidence, PDF opening/downloading, refresh and reset, TypeScript checking, no external requests, and attempted backend/checkout/raw-file requests being blocked. Preparation makes zero provider requests and zero database writes. Source integrity and redaction must be re-reviewed if the original source PDF changes; preparation refuses a different PDF hash.
+```sh
+frontend/node_modules/.bin/tsc -p frontend/preview/showcase/tsconfig.json --noEmit
+npm --prefix frontend test -- --run preview/showcase/state.test.ts
+```
 
-For a collision-center visit, start the server before leaving and keep the browser tab open. All case evidence and PDFs are served locally; no valuation job runs during the walkthrough.
+The focused checks cover prefill, real contract parsing through the complete acceptance journey, positive eligibility, request editing/versioning, response lineage, saved outcome, reset, premature-payment rejection, another-case rejection, signed-out access and blocked external requests. The same journey is also walked in the local browser.
