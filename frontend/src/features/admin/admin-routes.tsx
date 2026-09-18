@@ -1,5 +1,5 @@
 import { AdminOutcomeReviewPage } from "@/features/referral-partners/outcome-review";
-import { AdminCommunicationsPage } from "@/features/admin/communications/page";
+import { AdminEmailHistoryPage } from "@/features/admin/communications/email-history-page";
 import type { RouteObject } from "react-router";
 
 import { AdminCaseOperationsAccessGate } from "@/features/admin/case-operations/admin-access-gate";
@@ -28,7 +28,7 @@ export const adminRoute: RouteObject = {
         { path: "reports", element: <AdminReportsPage /> },
         { path: "processing", element: <AdminProcessingPage /> },
         { path: "payments", element: <AdminPaymentsPage /> },
-        { path: "communications", element: <AdminCommunicationsPage /> },
+        { path: "emails", element: <AdminEmailHistoryPage /> },
         { path: "activity", element: <AdminActivityPage /> },
         { element: <ReferralManagerGate />, children: [
           { path: "referral-partners", element: <AdminReferralPartnersPage /> },

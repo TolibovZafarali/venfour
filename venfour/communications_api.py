@@ -59,7 +59,9 @@ async def staff(request: Request):
         if not isinstance(data, dict) or set(data) != {"action", "payload"} or not isinstance(data["payload"], dict):
             raise CommunicationError(400, "INVALID_COMMUNICATION_REQUEST")
         action, payload = data["action"], data["payload"]
-        if action == "preview" and set(payload) == {"template_key"}:
+        if action == "history" and not payload:
+            result = await run_in_threadpool(instance.email_history, access_token)
+        elif action == "preview" and set(payload) == {"template_key"}:
             result = await run_in_threadpool(instance.preview, payload["template_key"], access_token)
         elif action == "test_send" and set(payload) == {"template_key", "request_id"}:
             result = await run_in_threadpool(instance.test_send, payload["template_key"], payload["request_id"], access_token)

@@ -5,8 +5,6 @@ import hashlib
 import json
 import unittest
 from pathlib import Path
-from html.parser import HTMLParser
-import struct
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, urlsplit
@@ -20,7 +18,7 @@ from venfour.communications import CommunicationError, CommunicationService, aut
 from venfour.communications_api import communication_routes
 from venfour.email_delivery import EmailConfiguration, EmailDeliveryError, email_payload, send_prepared
 from venfour.email_templates import EmailTemplate, TEMPLATES, render_email, render_preview
-from venfour.email_design import BRAND_LINE, DESIGN, LOGO_PATH, LOGO_SOURCE_SHA256
+from venfour.email_design import BRAND_LINE, DESIGN
 
 NOW = datetime.now(timezone.utc)
 SECRET = 'whsec_' + 'c2lnbmF0dXJlLXRlc3Qtc2VjcmV0LW9ubHktbm90LXJlYWw='
@@ -60,8 +58,7 @@ class EmailTemplateTests(unittest.TestCase):
                 self.assertNotIn('SAMPLE PREVIEW',result.html)
                 self.assertIn(BRAND_LINE,result.text)
                 self.assertNotIn('<script',result.html)
-                self.assertEqual(result.html.count('<img '), 1)
-                self.assertIn('https://venfour.com' + LOGO_PATH, result.html)
+                self.assertNotIn('<img ', result.html)
                 self.assertNotIn('CLARITY FOR YOUR NEXT STEP', result.html)
 
     def test_shared_brand_matches_the_website_and_keeps_live_wordmark_text(self):
@@ -72,10 +69,6 @@ class EmailTemplateTests(unittest.TestCase):
         self.assertIn(f'--brand-blue: {DESIGN["brand"]};', foundations)
         for email_token, site_token in [('ink', 'ink'), ('body', 'copy'), ('border', 'line')]:
             self.assertIn(f'--{site_token}: {DESIGN[email_token]};', theme)
-        self.assertEqual(hashlib.sha256((root / 'assets/brand/venfour-mark.svg').read_bytes()).hexdigest(), LOGO_SOURCE_SHA256)
-        png = (root / 'frontend/public' / LOGO_PATH.lstrip('/')).read_bytes()
-        self.assertEqual(png[:8], b'\x89PNG\r\n\x1a\n')
-        self.assertEqual(struct.unpack('>II', png[16:24]), (112, 112))
         result = render_preview('paid_review_ready')
         self.assertIn('font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.7px', result.html)
         self.assertIn('>Venfour</span>', result.html)
@@ -89,14 +82,7 @@ class EmailTemplateTests(unittest.TestCase):
                        'https://example.test/path', 'https://example.test?case=private', 'https://example.test/#private'):
             with self.subTest(origin=origin), self.assertRaises(ValueError):
                 render_preview('auth_sign_in', brand_origin=origin)
-        class Images(HTMLParser):
-            def __init__(self):
-                super().__init__(); self.sources = []
-            def handle_starttag(self, tag, attrs):
-                if tag == 'img': self.sources.append(dict(attrs)['src'])
-        images = Images()
-        images.feed(render_preview('auth_sign_in', brand_origin='http://127.0.0.1:4186/').html)
-        self.assertEqual(images.sources, ['http://127.0.0.1:4186' + LOGO_PATH])
+        self.assertNotIn('<img ', render_preview('auth_sign_in', brand_origin='http://127.0.0.1:4186/').html)
 
     def test_future_content_automatically_inherits_master_and_preview(self):
         template = EmailTemplate('future_email', 'A saved update', 'Your update', ('An update <script>literal</script>.',),
@@ -340,6 +326,13 @@ class EmailApiTests(unittest.TestCase):
             self.assertEqual(template['preview']['text'], expected.text)
         self.assertNotIn(SECRET, response.text)
         self.assertNotIn('private-test-key', response.text)
+
+    def test_email_history_uses_the_staff_only_metadata_read(self):
+        self.gateway.email_history.return_value = {'items': []}
+        response = self.client.post('/api/v1/staff/communications', json={'action': 'history', 'payload': {}}, headers={'Authorization': 'Bearer staff-token'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'items': []})
+        self.gateway.email_history.assert_called_once_with('staff-token')
 
     def test_test_send_matches_gallery_html_and_plain_text(self):
         self.instance.config = configuration(allowlist=('staff@example.test',))

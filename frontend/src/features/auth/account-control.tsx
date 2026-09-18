@@ -53,8 +53,7 @@ export function AccountControl({
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const newAppraisalHref = useNewTotalLossAppraisalHref();
 
-  if (publicSiteOnly) return null;
-  if (publicSessionHint !== undefined) {
+  if (publicSiteOnly || publicSessionHint !== undefined) {
     return publicSessionHint ? null : <a href={applicationHref("/app")} className={cn("inline-flex min-h-11 items-center px-3 text-sm text-ink", focusRingClassName, className)}>Sign In</a>;
   }
 

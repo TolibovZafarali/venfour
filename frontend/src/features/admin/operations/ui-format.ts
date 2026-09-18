@@ -3,7 +3,7 @@ import type { AdminRow } from "./types";
 import { formatCaseOperationDateTime } from "@/features/admin/case-operations/format";
 
 export function safeAdminReturnTo(value: string | null | undefined) {
-  if (!value || !/^\/admin\/cases(?:\?[^#]*)?$/u.test(value)) return "/admin/cases";
+  if (!value || !/^\/admin\/(?:cases|incomplete-intakes)(?:\?[^#]*)?$/u.test(value)) return "/admin/cases";
   return value;
 }
 

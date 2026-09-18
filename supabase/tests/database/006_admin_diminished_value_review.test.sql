@@ -242,7 +242,8 @@ select results_eq(
     values
       ('["public","appraisal_cases","Staff can read submitted diminished-value cases","SELECT",["authenticated"]]'::jsonb),
       ('["public","diminished_value_case_details","Staff can read submitted diminished-value details","SELECT",["authenticated"]]'::jsonb),
-      ('["storage","objects","Staff can read submitted diminished-value documents","SELECT",["authenticated"]]'::jsonb)
+      ('["storage","objects","Staff can read submitted diminished-value documents","SELECT",["authenticated"]]'::jsonb),
+      ('["storage","objects","Staff can read total-loss source reports","SELECT",["authenticated"]]'::jsonb)
   $$,
   'the staff policy catalog contains only the exact intended SELECT tuples'
 );

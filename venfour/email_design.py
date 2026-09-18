@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from html import escape
 
 
-LAYOUT_VERSION = "2026-09-11.3"
+LAYOUT_VERSION = "2026-09-17.1"
 # Match AppShell, the website theme, and its solid primary CTA; use local font fallbacks.
 DESIGN = {
     "background": "#f5f7fa",
@@ -19,8 +19,6 @@ DESIGN = {
     "brand_font": "'Avenir Next','Century Gothic','Trebuchet MS',Arial,sans-serif",
     "width": 560,
 }
-LOGO_PATH = "/email/venfour-mark-v1.png"
-LOGO_SOURCE_SHA256 = "77d30af02d08c53600bf413ca3c5bcbd488276f9542f0e142da485db7b084fca"
 COMPANY_NAME = "Venfour LLC"
 COMPANY_DESCRIPTION = "Independent vehicle valuation guidance"
 BRAND_LINE = f"{COMPANY_NAME} · {COMPANY_DESCRIPTION}"
@@ -73,7 +71,6 @@ def render_master(*, subject: str, heading: str, paragraphs: tuple[str, ...],
         f'<p style="margin:12px 0 0"><a href="{escape(unsubscribe_url, quote=True)}" style="color:{d["muted"]};text-decoration:underline">Stop optional case reminders</a></p>'
         if unsubscribe_url else ""
     )
-    logo_url = brand_origin + LOGO_PATH
     html = f'''<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>{escape(subject)}</title>
 <style>@media only screen and (max-width:480px){{.vf-outer{{padding:20px 12px!important}}.vf-header{{padding:28px 24px 0!important}}.vf-content{{padding:24px!important}}.vf-footer{{padding:20px 24px 28px!important}}.vf-heading{{font-size:21px!important}}.vf-code{{font-size:24px!important;letter-spacing:2px!important}}}}</style></head>
@@ -84,7 +81,6 @@ def render_master(*, subject: str, heading: str, paragraphs: tuple[str, ...],
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="{d["surface"]}" style="max-width:{d["width"]}px;background:{d["surface"]}">
 <tr><td class="vf-header" style="padding:32px 40px 0">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-bottom:1px solid {d["border"]}"><tr>
-<td width="28" valign="middle" style="width:28px;padding:0 0 24px"><img src="{escape(logo_url, quote=True)}" width="28" height="28" alt="" role="presentation" style="display:block;width:28px;height:28px;border:0;outline:none;background:#ffffff" /></td>
 <td align="left" valign="middle" style="padding:0 0 24px 9px"><span class="notranslate" translate="no" style="font-family:{d["brand_font"]};font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.7px;color:{d["ink"]}">Venfour</span></td>
 </tr></table></td></tr>
 <tr><td class="vf-content" align="left" style="padding:28px 40px 32px;overflow-wrap:anywhere">

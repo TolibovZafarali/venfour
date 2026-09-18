@@ -85,6 +85,17 @@ class LocalAuthEmailTemplateTests(unittest.TestCase):
                 self.assertIn('(and (eq .SiteURL "http://localhost:5173") (or (eq .RedirectTo $localSignIn)', template)
                 self.assertNotIn(".Data", template)
 
+    def test_partner_sign_in_uses_the_code_branch_on_the_exact_production_callback(self):
+        context = (ROOT / "supabase/templates/auth-context.gohtml").read_text()
+        self.assertIn('$partnerSignIn := "https://partners.venfour.com/auth/callback"', context)
+        self.assertIn('$partnerSignInQuery := print $partnerSignIn "?"', context)
+        self.assertIn('(eq .SiteURL "https://app.venfour.com")', context)
+        self.assertIn('(eq .RedirectTo $partnerSignIn)', context)
+        self.assertIn('(eq (slice .RedirectTo 0 (len $partnerSignInQuery)) $partnerSignInQuery)', context)
+        self.assertIn('$signInCode = or $signInCode', context)
+        for template in self.templates.values():
+            self.assertIn(context, template)
+
     def test_otp_branch_formats_only_six_characters_and_contains_no_link(self) -> None:
         for name, template in self.templates.items():
             with self.subTest(template=name):

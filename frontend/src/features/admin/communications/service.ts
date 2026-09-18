@@ -64,6 +64,22 @@ export interface EmailPreview {
   subject: string;
   version: string;
 }
+export interface EmailHistoryEntry {
+  id: string;
+  source: string;
+  templateKey: string | null;
+  recipient: string | null;
+  subject: string | null;
+  status: string;
+  attempts: number | null;
+  createdAt: string;
+  acceptedAt: string | null;
+  deliveryStatus: string | null;
+  caseId: string | null;
+}
+export interface EmailHistory {
+  items: EmailHistoryEntry[];
+}
 export function createCommunicationsService(
   baseUrl = environment.apiBaseUrl,
   fetchImplementation?: typeof fetch,
@@ -76,6 +92,13 @@ export function createCommunicationsService(
         accessToken,
         signal,
       });
+    },
+    history(accessToken: string, signal?: AbortSignal) {
+      return client.postJson<EmailHistory>(
+        path,
+        { action: "history", payload: {} },
+        { accessToken, signal },
+      );
     },
     operation<T>(
       accessToken: string,

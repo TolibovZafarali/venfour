@@ -874,8 +874,7 @@ select results_eq(
       contact_email,
       contact_email_verified,
       identity_claimed_at is null
-    from public.staff_list_case_operations()
-    where case_id = '9a222222-2222-4222-8222-222222222222'
+    from public.staff_get_total_loss_case_operation('9a222222-2222-4222-8222-222222222222')
   $$,
   $$
     values (
@@ -886,7 +885,7 @@ select results_eq(
       true
     )
   $$,
-  'staff projections distinguish an anonymous owner and unverified entered contact'
+  'staff detail distinguishes an anonymous owner and unverified entered contact'
 );
 
 select results_eq(

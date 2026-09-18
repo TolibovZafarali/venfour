@@ -403,6 +403,9 @@ insert into public.appraisal_cases(id,user_id,service_type,status,created_at,upd
  ('35100000-0000-4000-8000-000000000001','35000000-0000-4000-8000-000000000003','total_loss','draft','2026-09-01','2026-09-01','2026-09-01'),
  ('35100000-0000-4000-8000-000000000002','35000000-0000-4000-8000-000000000003','total_loss','draft','2026-09-01','2026-09-01','2026-09-01'),
  ('35100000-0000-4000-8000-000000000003','35000000-0000-4000-8000-000000000003','diminished_value','draft','2026-09-01','2026-09-01','2026-09-01');
+insert into public.total_loss_case_details(case_id,intake_mode,intake_completed_at) values
+ ('35100000-0000-4000-8000-000000000001','manual',statement_timestamp()),
+ ('35100000-0000-4000-8000-000000000002','manual',statement_timestamp());
 insert into public.total_loss_workflow_events(id,case_id,event_type,actor_type,actor_user_id,details) values
  ('35200000-0000-4000-8000-000000000001','b2000000-0000-4000-8000-000000000001','request.customer_reported_sent','customer','b1000000-0000-4000-8000-000000000001',
  '{"messageBody":"STAFF_HIDDEN_MESSAGE","providerPayload":"STAFF_HIDDEN_PROVIDER"}');
@@ -478,7 +481,7 @@ select ok(jsonb_array_length(public.staff_admin_record('reports','bd000000-0000-
 select ok(jsonb_array_length(public.staff_admin_record('activity','35200000-0000-4000-8000-000000000001')->'sections')>0,
  'a requested activity record returns its safe details');
 select ok(jsonb_array_length(public.staff_admin_case('b2000000-0000-4000-8000-000000000001')->'sections')>0
- and jsonb_array_length(public.staff_admin_customer('35000000-0000-4000-8000-000000000001')->'sections')>0,
+ and jsonb_array_length(public.staff_admin_customer('b1000000-0000-4000-8000-000000000001')->'sections')>0,
  'case and customer detail retain full investigation sections');
 select ok(public.staff_admin_record('activity','35200000-0000-4000-8000-000000000001')::text !~ 'STAFF_HIDDEN|messageBody|providerPayload',
  'demand-loaded activity still excludes raw event details');
@@ -491,14 +494,14 @@ select is(public.staff_admin_list('cases','', '{"customerId":"35000000-0000-4000
  '35100000-0000-4000-8000-000000000001','pagination returns next tied row without duplication');
 select is(jsonb_array_length(public.staff_admin_list('cases','', '{"customerId":"35000000-0000-4000-8000-000000000003"}', 'updated',3,1)->'items'),0,
  'out-of-range page is empty while retaining complete count');
-select is((public.staff_admin_list('customers','empty-directory@example.test')->>'total')::integer,1,
- 'registered accounts without cases remain visible');
-select is(public.staff_admin_customer('35000000-0000-4000-8000-000000000002')->>'caseCount','0',
- 'customer detail reports zero cases explicitly');
+select is((public.staff_admin_list('customers','empty-directory@example.test')->>'total')::integer,0,
+ 'registered accounts without completed intake remain outside customers');
+select is(public.staff_admin_customer('35000000-0000-4000-8000-000000000002'),null::jsonb,
+ 'accounts without completed intake have no customer detail');
 select is((public.staff_admin_list('customers','35000000-0000-4000-8000-000000000003')->>'total')::integer,0,
  'customers defaults to registered accounts');
-select is((public.staff_admin_list('customers','35000000-0000-4000-8000-000000000003','{"identity":"guest"}')->>'total')::integer,1,
- 'guest filter exposes case-linked anonymous identities');
+select is((public.staff_admin_list('customers','35000000-0000-4000-8000-000000000003','{"identity":"guest"}')->>'total')::integer,0,
+ 'staff membership excludes even case-linked guest identities from customers');
 select is(public.staff_admin_customer('35000000-0000-4000-8000-000000000004'),null::jsonb,
  'anonymous identities without total-loss cases remain outside directory');
 select is(public.staff_admin_case('35100000-0000-4000-8000-000000000003'),null::jsonb,
@@ -537,8 +540,8 @@ select is(public.staff_admin_list('activity','','{"caseId":"b2000000-0000-4000-8
  'request.customer_reported_sent','workflow activity preserves customer-reported provenance');
 select ok(public.staff_admin_list('activity','','{"caseId":"b2000000-0000-4000-8000-000000000001"}')::text !~ 'STAFF_HIDDEN|messageBody|providerPayload',
  'raw event details and message contents are excluded');
-select ok(public.staff_admin_customer('35000000-0000-4000-8000-000000000001')::text !~ 'STAFF_HIDDEN|raw_user_meta_data|token',
- 'account projection excludes authentication metadata and secrets');
+select is(public.staff_admin_customer('35000000-0000-4000-8000-000000000001'),null::jsonb,
+ 'staff account is excluded from customers');
 select ok(public.staff_admin_list('processing','','{"caseId":"b2000000-0000-4000-8000-000000000001"}')::text !~ 'processing_token|dispatch_token|STAFF_HIDDEN',
  'processing projection excludes lease and dispatch tokens');
 select is(public.staff_admin_overview()->>'attentionCases', public.staff_admin_list('cases','','{"attention":"true"}')->>'total',

@@ -82,6 +82,7 @@ begin
         u.email, cases.case_count::text || ' total-loss cases',
         case when u.email_confirmed_at is not null then 'verified' else 'unverified' end,
         case when coalesce(u.is_anonymous,false) then 'guest' else 'account' end,
+        case when coalesce(u.is_anonymous,false) then 'guest' else 'account' end,
         u.email_confirmed_at is not null,cases.case_count,'{}',u.created_at,greatest(u.updated_at,p.updated_at,cases.updated_at,u.created_at),
         public.staff_admin_facts('Confirmed name',case when p.full_name_confirmed_at is not null then p.display_name end,
           'Name confirmed at',p.full_name_confirmed_at::text,'Account email',u.email,
@@ -128,8 +129,7 @@ begin
     from public.total_loss_case_operations_internal operation
     where operation.service_type='total_loss'
       and operation.intake_completed_at is null
-      and (operation.report_original_filename is not null or operation.report_storage_object_path is not null
-        or operation.report_last_upload_id is not null)
+      and (operation.report_original_filename is not null or operation.report_last_upload_id is not null)
       and (requested_record_id is null or operation.case_id::text=requested_record_id);
   else
     return query
@@ -253,10 +253,23 @@ begin
 end;
 $$;
 
-drop policy if exists "Staff can read private case files" on storage.objects;
-create policy "Staff can read private case files"
+create function public.staff_can_read_total_loss_source_report(object_path text)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select (select public.is_venfour_staff()) and exists (
+    select 1 from public.total_loss_case_details details
+    join public.appraisal_cases appraisal_case on appraisal_case.id=details.case_id
+    where appraisal_case.service_type='total_loss'
+      and details.report_last_upload_id is not null
+      and object_path=details.report_storage_owner_id::text || '/' || details.case_id::text || '/valuation-report.pdf'
+  );
+$$;
+revoke all on function public.staff_can_read_total_loss_source_report(text)
+  from public, anon, authenticated, service_role;
+grant execute on function public.staff_can_read_total_loss_source_report(text) to authenticated;
+
+create policy "Staff can read total-loss source reports"
 on storage.objects for select to authenticated
-using (bucket_id='case-files' and (select public.is_venfour_staff()));
+using (bucket_id='case-files' and public.staff_can_read_total_loss_source_report(name));
 
 revoke all on function public.staff_admin_rows_internal(text,boolean,text),
   public.staff_total_loss_source_report_locator(uuid)

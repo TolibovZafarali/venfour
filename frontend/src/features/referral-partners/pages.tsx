@@ -39,7 +39,7 @@ function PartnerWorkspaceContent() {
   const { signOut } = useAuth();
   const [error, setError] = useState<unknown>(null);
   const [pending, setPending] = useState(false);
-  const requiresSignIn = location.pathname === "/sign-in" || location.pathname.startsWith("/invitations/");
+  const requiresSignIn = location.pathname.replace(/\/$/u, "") !== partnerWorkspacePath().replace(/\/$/u, "");
   useDocumentMetadata({
     title: !userId && !requiresSignIn ? "Partner with Venfour | Venfour" : "Referral Partner Workspace | Venfour",
     description: !userId && !requiresSignIn ? "Learn how Venfour’s invitation-only referral partnership works." : "Private referral partner onboarding and agreements.",
@@ -53,7 +53,7 @@ function PartnerLandingPage() {
     <p className="partner-invitation-eyebrow">Venfour for businesses</p>
     <h1 id="partner-landing-title">Help vehicle owners make sense of a total-loss valuation.</h1>
     <p className="partner-landing-lede">Give customers a clear, independent way to understand the insurer’s valuation and the evidence behind it.</p>
-    <div className="partner-landing-actions"><Button asChild><Link to="/sign-in">Become a referral partner</Link></Button><Link className="partner-text-button" to="/sign-in">Already a partner? Sign in</Link></div>
+    <div className="partner-landing-actions"><Button asChild><Link to={partnerWorkspacePath("sign-in")}>Become a referral partner</Link></Button><Link className="partner-text-button" to={partnerWorkspacePath("sign-in")}>Already a partner? Sign in</Link></div>
     <div className="partner-landing-grid">
       <article><span>01</span><h2>Introduce</h2><p>Share Venfour with a customer who wants a clearer review of their total-loss valuation.</p></article>
       <article><span>02</span><h2>Track</h2><p>Use your private workspace to see submitted referrals and their purchase status.</p></article>

@@ -64,13 +64,13 @@ export function AdminTotalLossCasePage() {
   const item = query.data;
   const name = item.contactFullName ?? item.customerFullName;
   const vehicle = formatCaseOperationVehicle(item.vehicleYear, item.vehicleMake, item.vehicleModel, item.vehicleTrim);
-  const status = operation.data?.status ?? (dependencies?.operationsService ? operation.isPending ? "Current stage loading…" : "Current stage unavailable" : item.caseStage);
+  const status = item.intakeCompletedAt === null ? "incomplete_intake" : operation.data?.status ?? (dependencies?.operationsService ? operation.isPending ? "Current stage loading…" : "Current stage unavailable" : item.caseStage);
   const attentionReasons = operation.data?.attentionReasons ?? (dependencies?.operationsService ? [] : item.needsAttention ? [item.analysisFailureCode ? formatCaseOperationCode(item.analysisFailureCode) : "This case has a recorded condition that needs staff attention."] : []);
   return <article className="admin-page admin-case-page">
     <AdminBackLink to={returnTo}>Back to cases</AdminBackLink>
     {query.isError || (operation.isError && operation.data) ? <AdminRefreshNotice /> : null}
     <AdminPageHeader title={`Total-loss case #${formatCaseOperationReference(item.caseId)}`} description={[name, vehicle === "Not provided" ? null : vehicle].filter(Boolean).join(" · ") || "Customer and case details"} eyebrow="Case record" refreshing={query.isFetching || operation.isFetching} onRefresh={() => { void query.refetch(); if (dependencies?.operationsService) void operation.refetch(); }} actions={<AdminBadge tone={adminStatusTone(status)}>{humanizeAdminCode(status)}</AdminBadge>} />
-    <div className="admin-case-summary"><span>{operation.data ? `Last activity ${formatCaseOperationDateTime(operation.data.updatedAt)}` : "Initial record activity " + formatCaseOperationDateTime(item.lastActivityAt)}</span><Link to={`/admin/customers/${encodeURIComponent(item.ownerUserId)}`} className="admin-row-link">View customer ↗</Link></div>
+    <div className="admin-case-summary"><span>{operation.data ? `Last activity ${formatCaseOperationDateTime(operation.data.updatedAt)}` : "Initial record activity " + formatCaseOperationDateTime(item.lastActivityAt)}</span>{item.intakeCompletedAt !== null && <Link to={`/admin/customers/${encodeURIComponent(item.ownerUserId)}`} className="admin-row-link">View customer ↗</Link>}</div>
     {attentionReasons.length ? <div className="admin-notice"><AlertTriangle className="size-5 shrink-0" aria-hidden /><div><strong>This case needs staff attention.</strong>{attentionReasons.map(reason => <div key={reason}><p>{humanizeAdminCode(reason)}</p><button type="button" className="admin-row-link" onClick={() => selectTab(attentionDestination(reason))}>Inspect {attentionDestination(reason)} ↗</button></div>)}</div></div> : null}
     <Tabs.Root value={tab} onValueChange={selectTab} activationMode="manual"><Tabs.List className="admin-tabs" aria-label="Case sections">{tabs.map(item => <Tabs.Trigger key={item.value} value={item.value}>{item.label}</Tabs.Trigger>)}</Tabs.List>
       <Tabs.Content value="overview" className="admin-tab-panel">
@@ -152,15 +152,19 @@ function SourceReportSection({ item, onOpenSourceReport }: { readonly item: Staf
     if (!onOpenSourceReport) return;
     setPending(download ? "download" : "view");
     setError(null);
+    const reportWindow = window.open("about:blank", "_blank");
+    if (reportWindow) reportWindow.opener = null;
     try {
       const url = await onOpenSourceReport(download);
       if (!url) {
+        reportWindow?.close();
         setError("The saved source PDF is no longer available.");
         return;
       }
-      const opened = window.open(url, "_blank", "noopener,noreferrer");
-      if (!opened) window.location.assign(url);
+      if (reportWindow) reportWindow.location.replace(url);
+      else window.location.assign(url);
     } catch {
+      reportWindow?.close();
       setError("The saved source PDF could not be opened. Try again.");
     } finally {
       setPending(null);

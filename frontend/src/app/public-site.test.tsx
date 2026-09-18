@@ -27,7 +27,9 @@ describe("public-only launch", () => {
       await waitFor(() => expect(service.getSession).toHaveBeenCalled());
       expect(screen.getByRole("heading", { name: "Your Vehicle’s Value, Made Clear." })).toBeInTheDocument();
       expect(screen.getAllByRole("link", { name: /Contact Venfour/ }).every(link => link.getAttribute("href") === "/contact")).toBe(true);
-      expect(screen.queryByRole("link", { name: /Sign In|Open app|Admin|Account|Start Total Loss review/ })).not.toBeInTheDocument();
+      expect(screen.getAllByRole("link", { name: "Sign In" }).length).toBeGreaterThan(0);
+      expect(screen.queryByRole("button", { name: "Sign In" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /Open app|Admin|Account|Start Total Loss review/ })).not.toBeInTheDocument();
       expect(view.container.querySelector('a[href*="app.venfour.com"]')).toBeNull();
       expect(screen.queryByText("Available now")).not.toBeInTheDocument();
       bodies.push(view.container.querySelector("main")?.textContent ?? null);

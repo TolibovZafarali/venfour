@@ -46,6 +46,23 @@ class CommunicationGateway(SupabaseHttpGateway):
         except (httpx.HTTPError, ValueError):
             raise CommunicationError() from None
 
+    def email_history(self, token: str):
+        try:
+            response = self._client.post(
+                f"{self._configuration.url}/rest/v1/rpc/staff_email_history",
+                headers={**self._user_headers(token), "Content-Type": "application/json"},
+                json={},
+                timeout=5,
+            )
+            if response.is_success:
+                return response.json()
+            body = response.json()
+            raise CommunicationError(
+                401 if response.status_code == 401 else 403 if body.get("code") == "42501" else 503,
+            )
+        except (httpx.HTTPError, ValueError):
+            raise CommunicationError() from None
+
 
 def verify_email_signature(body: bytes, headers: Mapping[str, str], secret: str, *, resend=False):
     prefix = "svix" if resend else "webhook"
@@ -170,6 +187,9 @@ class CommunicationService:
         result["templates"] = [template | {"preview": asdict(self._preview(template["key"]))}
                                for template in template_catalogue()]
         return result
+
+    def email_history(self, token):
+        return self.gateway.email_history(token)
 
     def preview(self, key, token):
         self.gateway.staff("overview", {}, token)

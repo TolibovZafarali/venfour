@@ -724,13 +724,10 @@ select results_eq(
   $$,
   $$
     values
-      ('7a000000-0000-4000-8000-000000000001'::uuid, 'intake_not_started'::text, false),
-      ('7a000000-0000-4000-8000-000000000002'::uuid, 'intake_in_progress'::text, false),
-      ('7a000000-0000-4000-8000-000000000003'::uuid, 'report_uploaded'::text, false),
       ('7a000000-0000-4000-8000-000000000004'::uuid, 'ready_for_analysis'::text, false),
       ('7a000000-0000-4000-8000-000000000005'::uuid, 'needs_attention'::text, true)
   $$,
-  'pre-analysis facts and incomplete confirmed manual intake map deterministically'
+  'staff case list excludes early intake while retaining submitted intake stages'
 );
 
 select results_eq(
@@ -798,10 +795,9 @@ select results_eq(
     values
       ('7a000000-0000-4000-8000-000000000012'::uuid, 'needs_attention'::text, true),
       ('7a000000-0000-4000-8000-000000000013'::uuid, 'needs_attention'::text, true),
-      ('7a000000-0000-4000-8000-000000000014'::uuid, 'needs_attention'::text, true),
       ('7a000000-0000-4000-8000-000000000016'::uuid, 'needs_attention'::text, true)
   $$,
-  'missing canonical report, invalid postal, expired upload, and incomplete finalized triples surface attention'
+  'submitted intake problems surface attention without listing unfinished uploads'
 );
 
 select is(
@@ -812,8 +808,8 @@ select is(
       and service_type = 'total_loss'
       and case_status = 'draft'
   ),
-  10::bigint,
-  'staff retains visibility of every preexisting duplicate Total-Loss draft'
+  6::bigint,
+  'staff lists only duplicate drafts whose intake was completed'
 );
 
 select results_eq(
