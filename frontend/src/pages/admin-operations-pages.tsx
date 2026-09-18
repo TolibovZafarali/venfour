@@ -21,7 +21,7 @@ export function AdminOverviewPage() {
         { label: "Active cases", value: query.data.activeCases, icon: BriefcaseBusiness, note: "Total-loss cases in progress", href: "/admin/cases?active=true" },
         { label: "Needs attention", value: query.data.attentionCases, icon: CircleAlert, note: "Recorded issues to investigate", href: "/admin/cases?view=attention" },
         { label: "Processing jobs", value: query.data.processingJobs, icon: Workflow, note: "Jobs currently in progress", href: "/admin/processing?active=true" },
-        { label: "Registered accounts", value: query.data.registeredAccounts, icon: UsersRound, note: "Including accounts without cases", href: "/admin/customers" },
+        { label: "Customers", value: query.data.registeredAccounts, icon: UsersRound, note: "Accounts with a completed intake", href: "/admin/customers" },
       ].map(metric => <Link className="admin-metric" data-attention={metric.label === "Needs attention" && metric.value > 0} key={metric.label} to={metric.href}><div className="admin-metric-heading"><metric.icon className="size-4" aria-hidden /><span>{metric.label}</span><ArrowUpRight className="size-4" aria-hidden /></div><strong>{metric.value.toLocaleString("en-US")}</strong><small>{metric.note}</small></Link>)}</div>
       <div className="admin-overview-grid"><AdminPanel title="Needs attention" description="The five most recently active cases with recorded issues." action={<Link className="admin-row-link" to="/admin/cases?view=attention">View all<ArrowUpRight className="size-4" aria-hidden /></Link>}>
         {query.data.attention.length ? <ul className="admin-attention-queue">{query.data.attention.map(item => <li key={item.id}><Link to={item.caseId ? adminCaseHref(item.caseId, "overview", "/admin/cases?view=attention") : "/admin/cases?view=attention"}>
@@ -43,6 +43,7 @@ const customerFilters: readonly AdminFilterDefinition[] = [
 ];
 
 export function AdminCustomersPage() { return <AdminCollection resource="customers" title="Customers" description="Account profiles, verified contact information, and linked cases." searchPlaceholder="Search name, email, or customer ID" filters={customerFilters} defaultFilters={{ identity: "account" }} />; }
+export function AdminIncompleteIntakesPage() { return <AdminCollection resource="incomplete_intakes" title="Incomplete intakes" description="Saved valuation reports for people who did not submit contact details." searchPlaceholder="Search report, email, or case ID" filters={[{ key: "identity", label: "Ownership", options: [{ value: "", label: "All uploads" }, { value: "account", label: "Registered accounts" }, { value: "guest", label: "Guest sessions" }] }]} />; }
 
 export function AdminCustomerPage() {
   const { customerId = "" } = useParams();

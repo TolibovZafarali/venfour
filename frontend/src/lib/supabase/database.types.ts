@@ -7244,6 +7244,13 @@ export type Database = {
           verified: boolean
         }[]
       }
+      staff_total_loss_source_report_locator: {
+        Args: { requested_case_id: string }
+        Returns: {
+          filename: string
+          object_path: string
+        }[]
+      }
       staff_get_total_loss_case_operation: {
         Args: { requested_case_id: string }
         Returns: {

@@ -2,6 +2,7 @@ export type AdminResource =
   | "cases"
   | "customers"
   | "reports"
+  | "incomplete_intakes"
   | "processing"
   | "payments"
   | "activity";

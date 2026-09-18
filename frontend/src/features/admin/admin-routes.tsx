@@ -1,12 +1,11 @@
 import { AdminOutcomeReviewPage } from "@/features/referral-partners/outcome-review";
 import { AdminCommunicationsPage } from "@/features/admin/communications/page";
-import { AdminPaymentApprovalsPage } from "@/features/admin/payment-approvals/page";
 import type { RouteObject } from "react-router";
 
 import { AdminCaseOperationsAccessGate } from "@/features/admin/case-operations/admin-access-gate";
 import { AdminCaseOperationsPage } from "@/pages/admin-case-operations-page";
 import { AdminTotalLossCasePage } from "@/pages/admin-total-loss-case-page";
-import { AdminActivityPage, AdminCustomerPage, AdminCustomersPage, AdminOverviewPage, AdminPaymentsPage, AdminProcessingPage, AdminReportsPage } from "@/pages/admin-operations-pages";
+import { AdminActivityPage, AdminCustomerPage, AdminCustomersPage, AdminIncompleteIntakesPage, AdminOverviewPage, AdminPaymentsPage, AdminProcessingPage, AdminReportsPage } from "@/pages/admin-operations-pages";
 import { NotFoundPage } from "@/pages/not-found-page";
 import { AdminAgreementTemplatesPage, AdminReferralPartnerPage, AdminReferralPartnersPage, ReferralManagerGate } from "@/features/referral-partners/pages";
 
@@ -25,10 +24,10 @@ export const adminRoute: RouteObject = {
         { path: "cases/:caseId", element: <AdminTotalLossCasePage /> },
         { path: "customers", element: <AdminCustomersPage /> },
         { path: "customers/:customerId", element: <AdminCustomerPage /> },
+        { path: "incomplete-intakes", element: <AdminIncompleteIntakesPage /> },
         { path: "reports", element: <AdminReportsPage /> },
         { path: "processing", element: <AdminProcessingPage /> },
         { path: "payments", element: <AdminPaymentsPage /> },
-        { path: "payment-approvals", element: <AdminPaymentApprovalsPage /> },
         { path: "communications", element: <AdminCommunicationsPage /> },
         { path: "activity", element: <AdminActivityPage /> },
         { element: <ReferralManagerGate />, children: [

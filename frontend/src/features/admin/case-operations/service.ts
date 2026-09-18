@@ -53,6 +53,10 @@ export interface StaffCaseOperationsService {
   getTotalLossCase(
     caseId: string,
   ): Promise<StaffTotalLossCaseOperation | null>;
+  getSourceReportUrl?(
+    caseId: string,
+    download: boolean,
+  ): Promise<string | null>;
 }
 
 export class StaffCaseOperationsResponseError extends Error {
@@ -113,6 +117,36 @@ export function createStaffCaseOperationsService(
         );
       }
       return result;
+    },
+
+    async getSourceReportUrl(caseId, download) {
+      const normalizedCaseId = caseId.toLowerCase();
+      assertUuid(normalizedCaseId, "Case ID");
+      const { data: locator, error: locatorError } = await client.rpc(
+        "staff_total_loss_source_report_locator",
+        { requested_case_id: normalizedCaseId },
+      );
+      if (locatorError) throw locatorError;
+      if (!Array.isArray(locator) || locator.length === 0) return null;
+      if (locator.length !== 1) {
+        throw new StaffCaseOperationsResponseError(
+          "Supabase returned more than one source report locator.",
+        );
+      }
+      const filename = requiredString(locator[0] as Record<string, unknown>, "filename");
+      const objectPath = requiredString(locator[0] as Record<string, unknown>, "object_path");
+      const { data, error } = await client.storage.from("case-files").createSignedUrl(
+        objectPath,
+        60,
+        download ? { download: filename } : undefined,
+      );
+      if (error) throw error;
+      if (!data?.signedUrl) {
+        throw new StaffCaseOperationsResponseError(
+          "Supabase did not return a source report URL.",
+        );
+      }
+      return data.signedUrl;
     },
   };
 }

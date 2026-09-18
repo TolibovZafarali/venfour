@@ -1,6 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 import { Tabs } from "radix-ui";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 
 import { useAdminCaseOperationsDependencies } from "@/features/admin/case-operations/dependencies";
@@ -22,6 +22,7 @@ import { useStaffTotalLossCaseOperationQuery } from "@/features/admin/case-opera
 import type { StaffTotalLossCaseOperation } from "@/features/admin/case-operations/types";
 import { AdminCollection, RecordFacts } from "@/features/admin/operations/collection";
 import { AdminBackLink, AdminBadge, AdminDetailField, AdminEmptyState, AdminErrorState, AdminLoadingState, AdminRefreshNotice, AdminPageHeader, AdminPanel } from "@/features/admin/operations/page-ui";
+import { Button } from "@/components/ui/button";
 import { safeAdminReturnTo, adminStatusTone, humanizeAdminCode } from "@/features/admin/operations/ui-format";
 import { useAdminCase } from "@/features/admin/operations/queries";
 import type { AdminRow } from "@/features/admin/operations/types";
@@ -45,6 +46,7 @@ export function AdminTotalLossCasePage() {
   const returnTo = safeAdminReturnTo(params.get("returnTo"));
   const { auth } = useAuth();
   const dependencies = useAdminCaseOperationsDependencies();
+  const sourceReportService = dependencies?.caseService.getSourceReportUrl;
   const userId = auth.status === "signedIn" ? auth.user.id : null;
   const query = useStaffTotalLossCaseOperationQuery({ caseId, service: dependencies?.caseService ?? null, userId });
   const operation = useAdminCase(caseId);
@@ -76,7 +78,7 @@ export function AdminTotalLossCasePage() {
         <OverviewSections item={item} />
       </Tabs.Content>
       <Tabs.Content value="intake" className="admin-tab-panel"><IntakeSection item={item} /></Tabs.Content>
-      <Tabs.Content value="reports" className="admin-tab-panel"><SourceReportSection item={item} /><AdminCollection resource="reports" title="Case reports" description="Source and generated report metadata, including version and publication status." filters={reportFilters} fixedFilters={{ caseId }} embedded /></Tabs.Content>
+      <Tabs.Content value="reports" className="admin-tab-panel"><SourceReportSection item={item} onOpenSourceReport={sourceReportService ? async download => sourceReportService(item.caseId, download) : null} /><AdminCollection resource="reports" title="Case reports" description="Source and generated report metadata, including version and publication status." filters={reportFilters} fixedFilters={{ caseId }} embedded /></Tabs.Content>
       <Tabs.Content value="processing" className="admin-tab-panel"><AdminCollection resource="processing" title="Case processing" description="Recorded processing across free valuation, paid review, and insurer responses." filters={processingFilters} fixedFilters={{ caseId }} embedded /><AnalysisSections item={item} /></Tabs.Content>
       <Tabs.Content value="payments" className="admin-tab-panel"><AdminCollection resource="payments" title="Case payments" description="Recorded orders, checkout attempts, refunds, and entitlement status for this case." filters={paymentFilters} fixedFilters={{ caseId }} embedded /></Tabs.Content>
       <Tabs.Content value="activity" className="admin-tab-panel"><AdminCollection resource="activity" title="Case activity" description="Recorded workflow events after the customer continued the review. Initial intake dates are available under Overview and Vehicle & intake." filters={activityFilters} fixedFilters={{ caseId }} embedded /></Tabs.Content>
@@ -143,8 +145,29 @@ function IntakeSection({ item }: { readonly item: StaffTotalLossCaseOperation })
   ]} /></AdminPanel>;
 }
 
-function SourceReportSection({ item }: { readonly item: StaffTotalLossCaseOperation }) {
-  return <AdminPanel title="Valuation report" description="Report metadata only. The private source PDF is not available from this workspace."><Fields values={[
+function SourceReportSection({ item, onOpenSourceReport }: { readonly item: StaffTotalLossCaseOperation; readonly onOpenSourceReport: ((download: boolean) => Promise<string | null>) | null }) {
+  const [pending, setPending] = useState<"view" | "download" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  async function openSourceReport(download: boolean) {
+    if (!onOpenSourceReport) return;
+    setPending(download ? "download" : "view");
+    setError(null);
+    try {
+      const url = await onOpenSourceReport(download);
+      if (!url) {
+        setError("The saved source PDF is no longer available.");
+        return;
+      }
+      const opened = window.open(url, "_blank", "noopener,noreferrer");
+      if (!opened) window.location.assign(url);
+    } catch {
+      setError("The saved source PDF could not be opened. Try again.");
+    } finally {
+      setPending(null);
+    }
+  }
+  const hasSourceReport = Boolean(item.reportOriginalFilename && item.reportStorageObjectPath);
+  return <AdminPanel title="Valuation report" description="Staff can securely open the private source PDF when it is still available."><Fields values={[
     ["Display filename", item.reportOriginalFilename],
     ["Uploaded", formatCaseOperationDateTime(item.reportUploadedAt)],
     ["Detected provider", item.reportProviderName],
@@ -152,7 +175,7 @@ function SourceReportSection({ item }: { readonly item: StaffTotalLossCaseOperat
     ["Extraction confidence", item.reportExtractionConfidence === null ? null : `${Math.round(item.reportExtractionConfidence * 100)}%`],
     ["Extracted", formatCaseOperationDateTime(item.reportExtractedAt)],
     ["Customer facts confirmed", formatCaseOperationDateTime(item.reportFactsConfirmedAt)],
-  ]} /><TechnicalDetails values={[["Storage namespace", item.reportStorageOwnerId, true], ["Private object path", item.reportStorageObjectPath, true]]} /></AdminPanel>;
+  ]} />{hasSourceReport && onOpenSourceReport ? <div className="mt-5 flex flex-wrap gap-2"><Button size="sm" onClick={() => void openSourceReport(false)} disabled={pending !== null}>{pending === "view" ? "Opening…" : "View source PDF"}</Button><Button variant="outline" size="sm" onClick={() => void openSourceReport(true)} disabled={pending !== null}>{pending === "download" ? "Preparing…" : "Download PDF"}</Button></div> : null}{error ? <p className="admin-issue-text mt-3" role="alert">{error}</p> : null}<TechnicalDetails values={[["Storage namespace", item.reportStorageOwnerId, true], ["Private object path", item.reportStorageObjectPath, true]]} /></AdminPanel>;
 }
 
 function AnalysisSections({ item }: { readonly item: StaffTotalLossCaseOperation }) {

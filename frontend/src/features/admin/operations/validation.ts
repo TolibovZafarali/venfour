@@ -11,7 +11,7 @@ import type {
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 const TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u;
 const CODE_PATTERN = /^[a-zA-Z][a-zA-Z0-9_.-]{0,127}$/u;
-const RESOURCES = new Set<AdminResource>(["cases", "customers", "reports", "processing", "payments", "activity"]);
+const RESOURCES = new Set<AdminResource>(["cases", "customers", "reports", "incomplete_intakes", "processing", "payments", "activity"]);
 const FILTERS = new Set(["caseId", "customerId", "status", "kind", "identity", "verified", "hasCases", "attention", "active"]);
 const ROW_FIELDS = ["id", "caseId", "customerId", "title", "subtitle", "summary", "status", "kind", "identity", "verified", "caseCount", "attentionReasons", "createdAt", "updatedAt", "facts", "sections"];
 
@@ -61,7 +61,7 @@ export function normalizeAdminUuid(value: string): string {
 }
 
 export function normalizeAdminRecordRequest(resource: AdminResource, id: string) {
-  if (!["reports", "processing", "payments", "activity"].includes(resource)) {
+  if (!["reports", "incomplete_intakes", "processing", "payments", "activity"].includes(resource)) {
     throw new AdminOperationsResponseError("The requested staff record resource is unavailable.");
   }
   if (typeof id !== "string" || !id.trim() || id.length > 512) {
@@ -157,6 +157,7 @@ export function assertAdminResourceScope(row: AdminRow, resource: AdminResource)
     cases: ["total_loss"],
     customers: ["account", "guest"],
     reports: ["uploaded", "generated"],
+    incomplete_intakes: ["incomplete_intake"],
     processing: ["initial_analysis", "paid_package", "insurer_response"],
     payments: ["order"],
     activity: ["workflow_event"],

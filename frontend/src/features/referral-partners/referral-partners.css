@@ -6,6 +6,16 @@
 .partner-brand img { width: 28px; height: 28px; }
 .partner-brand span { font-size: 1.25rem; line-height: 1; letter-spacing: -.035em; }
 .partner-page { width: 100%; max-width: 1100px; margin-inline: auto; padding: 2.5rem 1.25rem 5rem; }
+.partner-landing { max-width: 900px; margin: 0 auto; padding: clamp(3rem, 10vw, 7rem) 0 4rem; }
+.partner-page .partner-landing h1 { max-width: 14ch; font-size: clamp(2.5rem, 7vw, 5.5rem); letter-spacing: -.055em; font-weight: 600; line-height: .98; }
+.partner-landing-lede { max-width: 40rem; margin-top: 1.5rem; color: #525252; font-size: 1.15rem; line-height: 1.7; }
+.partner-landing-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin-top: 2rem; }
+.partner-landing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 5rem; }
+.partner-landing-grid article { border-top: 1px solid #d9d9d9; padding-top: 1rem; }
+.partner-landing-grid span { color: #777; font-size: .75rem; letter-spacing: .12em; }
+.partner-landing-grid h2 { margin-top: .75rem; font-size: 1.15rem; font-weight: 600; }
+.partner-landing-grid p, .partner-landing-note { margin-top: .5rem; color: #525252; line-height: 1.65; }
+.partner-landing-note { margin-top: 3rem; border-top: 1px solid #e5e5e5; padding-top: 1rem; font-size: .9rem; }
 .partner-page h1, .partner-state h1 { font-size: clamp(1.75rem, 3vw, 2.5rem); letter-spacing: -.035em; font-weight: 600; line-height: 1.15; }
 .partner-page-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 2rem; }
 .partner-page-header p, .partner-card > p, .partner-state p { color: #525252; line-height: 1.7; margin-top: .75rem; }
@@ -130,7 +140,7 @@
 .partner-table a { font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 .partner-table small { display: block; color: #666666; margin-top: .3rem; }
 .partner-template-section { display: grid; gap: 1rem; padding-top: 1.25rem; border-top: 1px solid #e5e5e5; }
-@media (max-width: 600px) { .partner-form-grid { grid-template-columns: 1fr; } .partner-page { padding-top: 1.75rem; } .partner-topbar { align-items: flex-start; } .partner-topbar nav { flex-wrap: wrap; justify-content: flex-end; font-size: .8rem; } }
+@media (max-width: 700px) { .partner-form-grid { grid-template-columns: 1fr; } .partner-page { padding-top: 1.75rem; } .partner-topbar { align-items: flex-start; } .partner-topbar nav { flex-wrap: wrap; justify-content: flex-end; font-size: .8rem; } .partner-landing { padding-top: 3rem; } .partner-landing-grid { grid-template-columns: 1fr; gap: 2rem; margin-top: 3rem; } }
 .partner-referral-link-row { display: flex; align-items: end; gap: .75rem; margin-block: 1.25rem; }
 .partner-referral-link-row .partner-field { flex: 1; min-width: 0; }
 .partner-referral-link-row input { font-size: .875rem; }

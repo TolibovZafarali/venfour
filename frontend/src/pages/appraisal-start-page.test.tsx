@@ -106,6 +106,13 @@ afterEach(() => {
 });
 
 describe("/start appraisal intake", () => {
+  it("returns to the public homepage when the start-page logo is clicked", () => {
+    renderTestApp(["/start?service=total-loss"]);
+
+    expect(screen.getByRole("banner").querySelector("a[aria-label='Venfour home']"))
+      .toHaveAttribute("href", "/");
+  });
+
   it.each([
     ["missing", "/start?campaign=spring"],
     ["invalid", "/start?service=collision&campaign=spring"],

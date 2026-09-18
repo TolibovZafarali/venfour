@@ -212,6 +212,7 @@ describe("staff case-operations service", () => {
 
   it("exposes no case mutation methods", () => {
     expect(Object.keys(createTestService()).sort()).toEqual([
+      "getSourceReportUrl",
       "getTotalLossCase",
       "isStaff",
       "listCases",

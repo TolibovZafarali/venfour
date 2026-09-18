@@ -198,6 +198,11 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
     completedReviewRoute ||
     (Boolean(totalLossCaseRoute) && isPermanentAuthState(auth));
   const totalLossHref = onHomePage ? "#total-loss" : publicHref("/#total-loss");
+  const brandHref = startFlowRoute
+    ? publicHref()
+    : hostAudience() === "application" || (!publicSite && isPermanentAuthState(auth))
+      ? applicationHref("/app")
+      : publicHref();
   const diminishedValueHref = onHomePage
     ? "#diminished-value"
     : publicHref("/#diminished-value");
@@ -285,7 +290,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
             >
               <div className="flex min-w-0 items-center gap-3 sm:gap-4">
                 <Link
-                  to={hostAudience() === "application" || (!publicSite && isPermanentAuthState(auth)) ? applicationHref("/app") : publicHref()}
+                  to={brandHref}
                   className="notranslate inline-flex min-h-11 select-none items-center gap-[0.5625rem] rounded-md text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
                   aria-label="Venfour home"
                   translate="no"
@@ -520,7 +525,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-5">
                 <Link
-                  to={hostAudience() === "application" || (!publicSite && isPermanentAuthState(auth)) ? applicationHref("/app") : publicHref()}
+                  to={brandHref}
                   className="notranslate inline-flex min-h-11 select-none items-center gap-2 rounded-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                   aria-label="Venfour home"
                   translate="no"
@@ -549,8 +554,10 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
                 ) : null}
               </div>
 
-              <nav aria-label="Footer navigation">
-                <ul className="flex flex-wrap gap-x-5 gap-y-3">
+              <nav aria-label="Footer navigation" className="grid gap-5 sm:grid-cols-4">
+                <section>
+                  <h2 className="text-xs font-semibold tracking-[0.12em] text-ink uppercase">Services</h2>
+                  <ul className="mt-2 flex flex-col gap-1">
                   <li>
                     <a
                       href={totalLossHref}
@@ -567,34 +574,14 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
                       Diminished Value
                     </a>
                   </li>
+                  </ul>
+                </section>
+                <section>
+                  <h2 className="text-xs font-semibold tracking-[0.12em] text-ink uppercase">Learn</h2>
+                  <ul className="mt-2 flex flex-col gap-1">
                   <li>
                     <Link to="/methodology" className={footerLinkClassName}>
                       Methodology
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/terms" className={footerLinkClassName}>
-                      Terms
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/refund-policy" className={footerLinkClassName}>
-                      Refund policy
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/privacy" className={footerLinkClassName}>
-                      Privacy
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/cookies" className={footerLinkClassName}>
-                      Cookie Policy
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/referral-partners" className={footerLinkClassName}>
-                      Referral partners
                     </Link>
                   </li>
                   <li>
@@ -602,6 +589,25 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
                       Contact
                     </Link>
                   </li>
+                  </ul>
+                </section>
+                <section>
+                  <h2 className="text-xs font-semibold tracking-[0.12em] text-ink uppercase">For businesses</h2>
+                  <ul className="mt-2 flex flex-col gap-1">
+                  <li>
+                    <Link to="/referral-partners" className={footerLinkClassName}>
+                      Referral partners
+                    </Link>
+                  </li>
+                  </ul>
+                </section>
+                <section>
+                  <h2 className="text-xs font-semibold tracking-[0.12em] text-ink uppercase">Legal</h2>
+                  <ul className="mt-2 flex flex-col gap-1">
+                  <li><Link to="/terms" className={footerLinkClassName}>Terms</Link></li>
+                  <li><Link to="/refund-policy" className={footerLinkClassName}>Refund policy</Link></li>
+                  <li><Link to="/privacy" className={footerLinkClassName}>Privacy</Link></li>
+                  <li><Link to="/cookies" className={footerLinkClassName}>Cookie Policy</Link></li>
                   <li>
                     <button
                       type="button"
@@ -611,7 +617,8 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
                       Cookie preferences
                     </button>
                   </li>
-                </ul>
+                  </ul>
+                </section>
               </nav>
             </div>
             <p

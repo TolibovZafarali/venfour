@@ -17,7 +17,7 @@ export function createAdminRow(overrides: Partial<AdminRow> = {}): AdminRow {
 }
 
 export function createAdminTestDependencies({ rows = {}, staff = true, legacyCase = createLegacyAdminCase() }: { readonly rows?: Partial<Record<AdminResource, readonly AdminRow[]>>; readonly staff?: boolean; readonly legacyCase?: StaffTotalLossCaseOperation | null } = {}): AdminCaseOperationsDependencies & { operationsService: AdminOperationsService } {
-  const records: Record<AdminResource, readonly AdminRow[]> = { cases: [createAdminRow()], customers: [createAdminRow({ id: OWNER_USER_ID, customerId: OWNER_USER_ID, caseId: null, kind: "account", status: "verified", caseCount: 1, summary: "1 total-loss case" })], reports: [], processing: [], payments: [], activity: [], ...rows };
+  const records: Record<AdminResource, readonly AdminRow[]> = { cases: [createAdminRow()], customers: [createAdminRow({ id: OWNER_USER_ID, customerId: OWNER_USER_ID, caseId: null, kind: "account", status: "verified", caseCount: 1, summary: "1 total-loss case" })], reports: [], incomplete_intakes: [], processing: [], payments: [], activity: [], ...rows };
   async function list(resource: AdminResource, options: AdminListOptions = {}): Promise<AdminPage> {
     let items = [...records[resource]];
     const filters = options.filters ?? {};
@@ -38,7 +38,7 @@ export function createAdminTestDependencies({ rows = {}, staff = true, legacyCas
     return { items: items.slice((page - 1) * pageSize, page * pageSize).map(row => ({ ...row, sections: [] })), total, page, pageSize, asOf: ADMIN_TIME };
   }
   return {
-    caseService: { isStaff: vi.fn(async () => staff), listCases: vi.fn(async () => legacyCase ? [legacyCase] : []), getTotalLossCase: vi.fn(async id => legacyCase?.caseId === id ? legacyCase : null) },
+    caseService: { isStaff: vi.fn(async () => staff), listCases: vi.fn(async () => legacyCase ? [legacyCase] : []), getTotalLossCase: vi.fn(async id => legacyCase?.caseId === id ? legacyCase : null), getSourceReportUrl: vi.fn(async () => null) },
     operationsService: {
       list: vi.fn(list),
       overview: vi.fn(async () => ({ asOf: ADMIN_TIME, activeCases: records.cases.filter(row => row.status !== "closed").length, attentionCases: records.cases.filter(row => row.attentionReasons.length).length, processingJobs: records.processing.filter(row => row.status === "processing").length, registeredAccounts: records.customers.filter(row => row.identity === "account").length, attention: records.cases.filter(row => row.attentionReasons.length).slice(0,5), activity: records.activity.slice(0,8) })),

@@ -35,12 +35,32 @@ export function PartnerWorkspace() {
 
 function PartnerWorkspaceContent() {
   const { auth, userId } = useReferralIdentity();
+  const location = useLocation();
   const { signOut } = useAuth();
   const [error, setError] = useState<unknown>(null);
   const [pending, setPending] = useState(false);
-  useDocumentMetadata({ title: "Referral Partner Workspace | Venfour", description: "Private referral partner onboarding and agreements." });
+  const requiresSignIn = location.pathname === "/sign-in" || location.pathname.startsWith("/invitations/");
+  useDocumentMetadata({
+    title: !userId && !requiresSignIn ? "Partner with Venfour | Venfour" : "Referral Partner Workspace | Venfour",
+    description: !userId && !requiresSignIn ? "Learn how Venfour’s invitation-only referral partnership works." : "Private referral partner onboarding and agreements.",
+  });
   const exit = async () => { setPending(true); setError(null); try { await signOut(); } catch (failure) { setError(failure); } finally { setPending(false); } };
-  return <div className="partner-workspace"><header className="partner-topbar"><Link to={partnerWorkspacePath()} className="partner-brand notranslate" aria-label="Venfour home" translate="no"><img src={venfourMark} width={28} height={28} alt="" aria-hidden data-brand-logo="venfour" /><span className="font-brand" data-brand-wordmark="venfour">Venfour</span></Link><nav aria-label="Partner navigation">{userId && <><Link className="partner-text-button" to={partnerWorkspacePath()}>Dashboard</Link><Link className="partner-text-button" to={partnerWorkspacePath("earnings")}>Earnings</Link></>}{userId && <Button variant="outline" disabled={pending} onClick={() => void exit()}>{pending ? "Signing out…" : "Sign out"}</Button>}</nav></header><main className="partner-page" id="main-content"><PartnerError error={error} />{auth.status === "loading" ? <PartnerState title="Checking your sign-in…" /> : auth.status === "unavailable" ? <PartnerState title="Sign in is temporarily unavailable"><p>Please try again later.</p></PartnerState> : !userId ? <PartnerSignIn /> : <Outlet key={userId} />}</main></div>;
+  return <div className="partner-workspace"><header className="partner-topbar"><Link to={partnerWorkspacePath()} className="partner-brand notranslate" aria-label="Venfour home" translate="no"><img src={venfourMark} width={28} height={28} alt="" aria-hidden data-brand-logo="venfour" /><span className="font-brand" data-brand-wordmark="venfour">Venfour</span></Link><nav aria-label="Partner navigation">{userId && <><Link className="partner-text-button" to={partnerWorkspacePath()}>Dashboard</Link><Link className="partner-text-button" to={partnerWorkspacePath("earnings")}>Earnings</Link></>}{userId && <Button variant="outline" disabled={pending} onClick={() => void exit()}>{pending ? "Signing out…" : "Sign out"}</Button>}</nav></header><main className="partner-page" id="main-content"><PartnerError error={error} />{auth.status === "loading" ? <PartnerState title="Checking your sign-in…" /> : auth.status === "unavailable" ? <PartnerState title="Sign in is temporarily unavailable"><p>Please try again later.</p></PartnerState> : !userId ? requiresSignIn ? <PartnerSignIn /> : <PartnerLandingPage /> : <Outlet key={userId} />}</main></div>;
+}
+
+function PartnerLandingPage() {
+  return <section className="partner-landing" aria-labelledby="partner-landing-title">
+    <p className="partner-invitation-eyebrow">Venfour for businesses</p>
+    <h1 id="partner-landing-title">Help vehicle owners make sense of a total-loss valuation.</h1>
+    <p className="partner-landing-lede">Give customers a clear, independent way to understand the insurer’s valuation and the evidence behind it.</p>
+    <div className="partner-landing-actions"><Button asChild><Link to="/sign-in">Become a referral partner</Link></Button><Link className="partner-text-button" to="/sign-in">Already a partner? Sign in</Link></div>
+    <div className="partner-landing-grid">
+      <article><span>01</span><h2>Introduce</h2><p>Share Venfour with a customer who wants a clearer review of their total-loss valuation.</p></article>
+      <article><span>02</span><h2>Track</h2><p>Use your private workspace to see submitted referrals and their purchase status.</p></article>
+      <article><span>03</span><h2>Review terms</h2><p>Complete the invitation, business details, and agreement review before activation.</p></article>
+    </div>
+    <p className="partner-landing-note">The program is invitation-only and begins in Missouri. Your signed agreement controls the participation terms.</p>
+  </section>;
 }
 
 function PartnerSignIn() {

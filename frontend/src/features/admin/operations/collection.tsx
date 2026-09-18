@@ -12,7 +12,7 @@ import { adminRecordColumns } from "./record-columns";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminRefreshNotice, AdminPageHeader, AdminPagination, AdminSearch, AdminSelect, AdminTable } from "./page-ui";
 import { adminActivityTitle, adminCaseHref, formatAdminFact, humanizeAdminCode } from "./ui-format";
 
-export type AdminCollectionResource = "cases" | "customers" | "reports" | "processing" | "payments" | "activity";
+export type AdminCollectionResource = "cases" | "customers" | "reports" | "incomplete_intakes" | "processing" | "payments" | "activity";
 export interface AdminFilterDefinition { readonly key: string; readonly label: string; readonly options: readonly { readonly value: string; readonly label: string }[] }
 
 const commonFilters = ["status", "kind", "identity", "verified", "hasCases", "attention", "active", "customerId", "caseId"] as const;
@@ -86,7 +86,7 @@ function AdminRecordDetails({ resource, id }: { readonly resource: AdminCollecti
     <div className="admin-panel-header"><h3>{resource === "activity" ? adminActivityTitle(item.title) : item.title}</h3><Button variant="outline" size="sm" disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh details</Button></div>
     {query.isError ? <AdminRefreshNotice /> : null}
     <RecordFacts item={item} />
-    {item.caseId ? <Link className="admin-row-link" to={adminCaseHref(item.caseId, resource === "customers" || resource === "cases" ? "overview" : resource)}>Open case #{formatCaseOperationReference(item.caseId)}<ArrowIcon /></Link> : null}
+    {item.caseId ? <Link className="admin-row-link" to={adminCaseHref(item.caseId, resource === "customers" || resource === "cases" ? "overview" : resource === "incomplete_intakes" ? "reports" : resource, resource === "incomplete_intakes" ? "/admin/incomplete-intakes" : undefined)}>Open case #{formatCaseOperationReference(item.caseId)}<ArrowIcon /></Link> : null}
   </div>;
 }
 
