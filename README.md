@@ -20,6 +20,14 @@ less confusion, better organization, stronger evidence, and better-informed
 decisions. That direction informs the product's terminology and architecture;
 it does not mean those broader capabilities are implemented in this repository.
 
+## Working on a change
+
+Start with the [repository map](docs/engineering/repository-map.md) and
+[verification policy](docs/engineering/verification.md). Select the affected
+subsystem and tests; the complete command lists below are reference material,
+not a requirement to run every check. Deployment and rollout sections describe
+specific operations and historical evidence, not authorization for routine changes.
+
 ## Current repository scope
 
 This repository contains the Python backend through Phase 3F and the
@@ -640,8 +648,9 @@ token-hash email templates. Never expose service-role, Turnstile, SMTP, OAuth,
 or provider credentials through `VITE_*`, and keep
 `VENFOUR_ENABLE_LEGACY_ANALYSIS_API` disabled in every deployment.
 
-When the Supabase CLI and Docker are available, validate the local database
-from the repository root with:
+For database changes that warrant full local regression, the following commands
+recreate the local database. Use only a verified disposable local target;
+`db reset` destroys its existing data. Prefer affected SQL tests first:
 
 ```sh
 supabase start
@@ -671,7 +680,8 @@ real validated analysis-run artifact under the ignored `data/analysis-runs/`
 directory. It does not create a Supabase-owned case or run and therefore is not
 available through the default authenticated customer path.
 
-Available frontend checks are:
+Available full-package frontend checks (run from `frontend/`) are listed below.
+For localized edits, use the targeted commands in the verification policy instead:
 
 ```sh
 npm run lint
@@ -1278,7 +1288,7 @@ CCC comparables or calculate an alternative valuation.
 Run the complete offline test suite with:
 
 ```sh
-.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/python scripts/run_offline_tests.py
 ```
 
 ## Phase 2.5: end-to-end report processing
@@ -1367,7 +1377,7 @@ manually verified benchmark fixtures. It makes no network requests, costs $0,
 and does not require an `OPENAI_API_KEY`:
 
 ```sh
-.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/python scripts/run_offline_tests.py
 ```
 
 The current benchmarks cover two real CCC reports:

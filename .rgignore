@@ -1,0 +1,8 @@
+# Discovery only: does not change Git tracking, test selection, or builds.
+# To investigate an excluded area: rg --no-ignore -n 'pattern' output/named-area
+/output/
+/.playwright-mcp/
+/.wrangler/
+/frontend/.wrangler/
+/frontend/.tmp-*/
+/frontend/preview/showcase/
