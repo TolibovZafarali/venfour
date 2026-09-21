@@ -272,13 +272,13 @@ describe("Venfour application", () => {
       renderTestApp(["/"], { authService: null });
       const navigation = screen.getByRole("navigation", { name: "Primary navigation" });
       const publicContent = document.querySelector("#main-content")?.innerHTML;
-      expect(within(navigation).getByRole("link", { name: "Sign In" })).toHaveAttribute("href", "https://app.venfour.com/app");
+      expect(within(navigation).getByRole("button", { name: "Sign In" })).toBeVisible();
       expect(within(navigation).getByRole("link", { name: "Get Started" })).toHaveAttribute("href", "https://app.venfour.com/start?service=total-loss");
 
       document.cookie = "venfour.app-session=1; Domain=venfour.com; Path=/; Secure; SameSite=Lax";
       act(() => window.dispatchEvent(new Event("focus")));
       expect(within(navigation).getByRole("link", { name: "Open app" })).toHaveAttribute("href", "https://app.venfour.com/app");
-      expect(within(navigation).queryByRole("link", { name: "Sign In" })).not.toBeInTheDocument();
+      expect(within(navigation).queryByRole("button", { name: "Sign In" })).not.toBeInTheDocument();
       expect(document.querySelector("#main-content")?.innerHTML).toBe(publicContent);
       expect(screen.queryByRole("button", { name: /^Account for/ })).not.toBeInTheDocument();
       await userEvent.setup().click(screen.getByRole("button", { name: "Open navigation" }));
@@ -286,7 +286,7 @@ describe("Venfour application", () => {
 
       document.cookie = "venfour.app-session=; Domain=venfour.com; Path=/; Secure; Max-Age=0";
       act(() => window.dispatchEvent(new Event("pageshow")));
-      expect(within(navigation).getByRole("link", { name: "Sign In" })).toHaveAttribute("href", "https://app.venfour.com/app");
+      expect(within(navigation).getByRole("button", { name: "Sign In" })).toBeVisible();
     } finally {
       browserEnvironment.jsdom.cookieJar.removeAllCookiesSync();
       browserEnvironment.jsdom.reconfigure({ url: originalUrl });
@@ -842,8 +842,8 @@ describe("Venfour application", () => {
   });
 
   test.each([
-    ["total-loss", "Your vehicle was totaled"],
-    ["diminished-value", "Your vehicle was repaired"],
+    ["total-loss", "Your Vehicle’s Value, Made Clear."],
+    ["diminished-value", "A few things you might be wondering."],
     ["how-it-works", "Start online in a few steps"],
     ["example", "Two numbers. A clearer picture."],
     ["faq", "A few things you might be wondering."],
@@ -862,6 +862,10 @@ describe("Venfour application", () => {
       await waitFor(() => expect(scrollIntoView).toHaveBeenCalledOnce());
       expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
       expect(document.getElementById(id)).toHaveFocus();
+      if (id === "diminished-value") {
+        expect(document.getElementById(id)).toHaveAttribute("open");
+        expect(screen.getByText(/Customer intake is currently paused/)).toBeVisible();
+      }
       expect(screen.getByRole("heading", { name: heading })).toBeVisible();
       await waitFor(() => expect(router.state.location.hash).toBe(""));
       expect(router.state.location.pathname).toBe("/");

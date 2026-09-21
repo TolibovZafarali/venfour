@@ -160,6 +160,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
       return;
     }
 
+    if (target instanceof HTMLDetailsElement) target.open = true;
     scrollToSection(target);
     target.focus({ preventScroll: true });
     clearingSectionHashRef.current = true;
@@ -247,6 +248,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
       </a>
       <div className="sticky top-0 z-40 h-16 shrink-0">
         <header
+          data-site-header
           data-header-state={visibleHeaderDetached ? "detached" : "integrated"}
           className={cn(
             "absolute top-0 right-0 left-0 transition-[top,left,right] motion-reduce:transition-none",
@@ -634,7 +636,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
           </div>
         </footer>
       ) : null}
-      <CookieConsent />
+      {!appVisualSystem ? <CookieConsent /> : null}
     </div>
   );
 }

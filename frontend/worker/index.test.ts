@@ -52,6 +52,7 @@ describe("public website boundary", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("x-robots-tag")).toBeNull();
     expect(response.headers.get("content-security-policy")).toContain("connect-src 'self';");
+    expect(response.headers.get("content-security-policy")).toContain("frame-src https://app.venfour.com/auth/sign-in;");
     expect(response.headers.get("content-security-policy")).not.toContain("stripe.com");
     expect(transport).not.toHaveBeenCalled();
   });
@@ -524,6 +525,21 @@ function productionEnv(assetFetch?: (request: Request) => Promise<Response>): En
 }
 
 describe("production Worker boundary", () => {
+  it("allows only the dedicated sign-in document to be framed by public hosts", async () => {
+    const assets = async () => new Response("sign in", { headers: { "Content-Type": "text/html" } });
+    const response = await handleRequest(new Request("https://app.venfour.com/auth/sign-in?parentOrigin=https%3A%2F%2Fvenfour.com"), productionEnv(assets));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-security-policy")).toContain("frame-ancestors https://venfour.com https://www.venfour.com;");
+    expect(response.headers.has("x-frame-options")).toBe(false);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    for (const path of ["/app", "/auth/callback", "/auth/sign-in/", "/auth/sign-in/other", "/total-loss/cases/example"]) {
+      const protectedResponse = await handleRequest(new Request(`https://app.venfour.com${path}`), productionEnv(assets));
+      expect(protectedResponse.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+      expect(protectedResponse.headers.get("x-frame-options")).toBe("DENY");
+    }
+    const partner = await handleRequest(new Request("https://partners.venfour.com/auth/sign-in"), productionEnv(assets));
+    expect(partner.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+  });
   it.each(["https://venfour.com", "https://www.venfour.com", "https://preview.venfour.com", "https://staging.venfour.com", "https://app.venfour.com:8443", "http://app.venfour.com", "http://venfour.com", "https://app.venfour.com.attacker.test"])("rejects the unconfigured origin %s before assets or transport", async (origin) => {
     const assets = vi.fn(async () => new Response("asset"));
     const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));

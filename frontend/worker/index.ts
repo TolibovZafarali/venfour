@@ -374,6 +374,14 @@ async function handleProductionRequest(request: Request, env: Env, configuration
   if (url.origin === PARTNER_ORIGIN && url.pathname.startsWith("/r/")) return redirectToOrigin(url, APP_ORIGIN);
   const publicPage = PUBLIC_PATHS.has(url.pathname.replace(/\/+$/, "") || "/");
   if (publicPage && url.pathname !== "/") return redirectToOrigin(url, PUBLIC_ORIGIN);
+  if (url.origin === APP_ORIGIN && url.pathname === "/auth/sign-in") {
+    const response = await serveAsset(request, env);
+    response.headers.set("Content-Security-Policy", CONTENT_SECURITY_POLICY.replace(
+      "frame-ancestors 'none'", `frame-ancestors ${PUBLIC_ORIGIN} https://www.venfour.com`,
+    ));
+    response.headers.delete("X-Frame-Options");
+    return response;
+  }
   return serveAsset(request, env);
 }
 
@@ -447,7 +455,7 @@ async function handlePublicSiteRequest(request: Request, env: Env) {
   const response = await serveAsset(request, env, publicPage || asset);
   response.headers.set("Content-Security-Policy", [
     "default-src 'self'", "base-uri 'self'", "connect-src 'self'", "font-src 'self' data:",
-    "form-action 'self'", "frame-ancestors 'none'", "frame-src 'none'", "img-src 'self' data: blob:",
+    "form-action 'self'", "frame-ancestors 'none'", `frame-src ${APP_ORIGIN}/auth/sign-in`, "img-src 'self' data: blob:",
     "object-src 'none'", "script-src 'self'", "style-src 'self' 'unsafe-inline'", "upgrade-insecure-requests",
   ].join("; "));
   return response;

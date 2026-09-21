@@ -1,4 +1,4 @@
-import { ArrowRight, CarFront, Check, Plus, Wrench } from "lucide-react";
+import { ArrowRight, Check, Plus } from "lucide-react";
 import { useRef } from "react";
 import { Link } from "react-router";
 
@@ -62,6 +62,7 @@ const frequentlyAskedQuestions = [
     answer: publicIntakeClosed ? <>Online reviews are opening soon. For help with an existing review, <Link to="/contact" className="font-semibold text-brand underline underline-offset-4">contact Venfour</Link>.</> : <>Yes. Return from the same browser, or use <Link to={applicationHref("/find-review")} className="font-semibold text-brand underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">review recovery</Link> with the email you supplied.</>,
   },
   {
+    id: "diminished-value",
     question: "Is Diminished Value available?",
     answer: publicIntakeClosed ? "Diminished Value intake is currently paused while we prepare the Total Loss experience." : <>Customer intake is currently paused while we complete the Total Loss experience. You can <Link to={applicationHref("/start?service=diminished-value")} className="font-semibold text-brand underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">view the service update</Link> for its current availability.</>,
   },
@@ -75,16 +76,18 @@ export function PublicHomePage() {
   return (
     <div ref={motionRoot} data-home-motion className="home-page -mt-16 w-full overflow-clip bg-white text-ink">
       <div className="home-intro-gradient bg-canvas">
-        <section className="home-hero-gradient relative isolate overflow-hidden pt-16">
+        <section id="total-loss" aria-labelledby="home-title" tabIndex={-1} className="home-hero-gradient section-anchor relative isolate overflow-hidden pt-16">
           <div
             className="relative z-10 mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-[90rem] items-center justify-center px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:py-24"
             data-hero-content
           >
             <div className="w-full max-w-4xl text-center">
               <h1
+                id="home-title"
+                data-anchor-heading
                 data-home-entrance="heading"
                 aria-label="Your Vehicle’s Value, Made Clear."
-                className="font-hero text-[clamp(1rem,9.75vw,2.875rem)] leading-[0.98] font-bold tracking-[-0.035em] whitespace-nowrap text-ink sm:text-[3.25rem] lg:text-[4rem] xl:text-[4.75rem] 2xl:text-[5rem]"
+                className="w-full font-hero text-[clamp(1rem,9.75vw,2.875rem)] leading-[0.98] font-bold tracking-[-0.035em] whitespace-nowrap text-ink sm:text-[3.25rem] lg:text-[4rem] xl:text-[4.75rem] 2xl:text-[5rem]"
               >
                 <span className="block">Your Vehicle’s Value,</span>
                 <span className="block">Made Clear.</span>
@@ -104,45 +107,6 @@ export function PublicHomePage() {
                   <Link to={applicationHref("/find-review")} className={textLinkClassName}>Find my review</Link>
                 </>}
               </p>
-            </div>
-          </div>
-        </section>
-
-        <section id="services" className="section-anchor scroll-mt-24" aria-labelledby="services-title" tabIndex={-1}>
-          <div className="home-section pt-4 sm:pt-4 lg:pt-4">
-            <div data-home-entrance="heading" className="mx-auto mb-8 max-w-3xl text-center sm:mb-10">
-              <p className="home-eyebrow">Here to help you understand</p>
-              <h2 id="services-title" data-anchor-heading className={`${sectionHeadingClassName} mx-auto mt-3`}>Start with your situation.</h2>
-            </div>
-            <div className="grid gap-4 md:grid-cols-[1.12fr_1fr] sm:gap-5">
-              <article id="total-loss" className="home-service home-service-active section-anchor scroll-mt-24" aria-labelledby="total-loss-title" tabIndex={-1}>
-                <div data-home-entrance="supporting" className="flex items-center justify-between gap-4">
-                  <span className="home-service-icon"><CarFront className="size-6" strokeWidth={1.5} aria-hidden /></span>
-                  <span className="flex items-center gap-2 text-xs font-medium text-market-strong"><span className="size-1.5 rounded-full bg-market" aria-hidden />{publicIntakeClosed ? "Opening soon" : "Available now"}</span>
-                </div>
-                <div data-home-entrance="copy" data-home-order="1" className="mt-6">
-                  <p className="home-eyebrow">Total Loss Valuation Review</p>
-                  <h3 id="total-loss-title" data-anchor-heading className="mt-2 text-2xl font-semibold tracking-[-0.035em] sm:text-[1.75rem]">Your vehicle was totaled</h3>
-                  <p className="mt-3 max-w-md text-base leading-7 text-copy">Get a clearer view of your vehicle’s valuation and the market evidence behind it. Start with or without an insurer report.</p>
-                </div>
-                <Link to={reviewHref} data-home-entrance="supporting" data-home-order="2" className={`${textLinkClassName} mt-5 self-start`}>
-                  {reviewLabel} <ArrowRight className="size-4" aria-hidden />
-                </Link>
-              </article>
-              <article id="diminished-value" className="home-service section-anchor scroll-mt-24 border-ink/10 bg-white/45" aria-labelledby="diminished-value-title" tabIndex={-1}>
-                <div data-home-entrance="supporting" className="flex items-center justify-between gap-4">
-                  <span className="home-service-icon bg-white/80 text-copy"><Wrench className="size-5" strokeWidth={1.5} aria-hidden /></span>
-                  <span className="text-xs font-medium text-copy">Intake paused</span>
-                </div>
-                <div data-home-entrance="copy" data-home-order="1" className="mt-6">
-                  <p className="home-eyebrow text-copy">Diminished Value</p>
-                  <h3 id="diminished-value-title" data-anchor-heading className="mt-2 text-2xl font-semibold tracking-[-0.035em] sm:text-[1.75rem]">Your vehicle was repaired</h3>
-                  <p className="mt-3 max-w-md text-base leading-7 text-copy">Accident history can affect resale value, even after repairs. Customer intake is paused while we focus on Total Loss.</p>
-                </div>
-                <Link to={publicIntakeClosed ? "/contact" : applicationHref("/start?service=diminished-value")} data-home-entrance="supporting" data-home-order="2" className={`${textLinkClassName} mt-5 self-start text-copy`}>
-                  {publicIntakeClosed ? "Ask about availability" : "View service update"} <ArrowRight className="size-4" aria-hidden />
-                </Link>
-              </article>
             </div>
           </div>
         </section>
@@ -203,13 +167,13 @@ export function PublicHomePage() {
               <h2 id="faq-title" data-anchor-heading className={`${sectionHeadingClassName} mx-auto mt-3`}>A few things you might be wondering.</h2>
             </div>
             <div className="home-faq mx-auto mt-9 max-w-3xl lg:mt-12">
-              {frequentlyAskedQuestions.map(({ question, answer }) => (
-                <details key={question} data-home-entrance="supporting" className="group border-b border-line first:border-t">
+              {frequentlyAskedQuestions.map((item) => (
+                <details key={item.question} id={"id" in item ? item.id : undefined} tabIndex={"id" in item ? -1 : undefined} data-home-entrance="supporting" className="group section-anchor scroll-mt-24 border-b border-line first:border-t">
                   <summary className="flex min-h-20 cursor-pointer list-none items-center justify-between gap-5 py-5 text-base leading-6 font-medium text-ink transition-colors hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset motion-reduce:transition-none">
-                    <span>{question}</span>
+                    <span data-anchor-heading>{item.question}</span>
                     <Plus className="size-5 shrink-0 text-copy transition-transform duration-200 group-open:rotate-45 motion-reduce:transition-none" strokeWidth={1.5} aria-hidden />
                   </summary>
-                  <div className="max-w-xl pr-7 pb-6 text-sm leading-7 text-copy sm:text-base">{answer}</div>
+                  <div className="max-w-xl pr-7 pb-6 text-sm leading-7 text-copy sm:text-base">{item.answer}</div>
                 </details>
               ))}
             </div>

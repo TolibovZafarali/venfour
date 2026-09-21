@@ -15,32 +15,6 @@
     text-transform: uppercase;
   }
 
-  :root:not([data-visual-system="app"]) .home-service {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    padding: 1.5rem;
-    border-width: 1px;
-    border-radius: 1.25rem;
-  }
-
-  :root:not([data-visual-system="app"]) .home-service-active {
-    border-color: rgb(21 94 239 / 0.2);
-    background: #fff;
-    box-shadow: 0 8px 32px -24px rgb(11 31 51 / 0.24);
-  }
-
-  :root:not([data-visual-system="app"]) .home-service-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 3rem;
-    height: 3rem;
-    border-radius: 0.875rem;
-    color: var(--brand);
-    background: var(--brand-soft);
-  }
-
   :root:not([data-visual-system="app"]) .home-comparison {
     min-width: 0;
     overflow: hidden;
@@ -99,19 +73,11 @@
     :root:not([data-visual-system="app"]) .home-section {
       padding: 5rem 2rem;
     }
-
-    :root:not([data-visual-system="app"]) .home-service {
-      padding: 2rem;
-    }
   }
 
   @media (min-width: 1024px) {
     :root:not([data-visual-system="app"]) .home-section {
       padding: 6rem 2.5rem;
-    }
-
-    :root:not([data-visual-system="app"]) .home-service {
-      padding: 2.5rem;
     }
   }
 }

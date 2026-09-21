@@ -1,4 +1,4 @@
-import { applicationHref, hostAudience } from "@/app/site-boundary";
+import { applicationHref } from "@/app/site-boundary";
 import { publicSiteOnly } from "@/config/public-site";
 import {
   CircleUserRound,
@@ -54,7 +54,7 @@ export function AccountControl({
   const newAppraisalHref = useNewTotalLossAppraisalHref();
 
   if (publicSiteOnly || publicSessionHint !== undefined) {
-    return publicSessionHint ? null : <a href={applicationHref("/app")} className={cn("inline-flex min-h-11 items-center px-3 text-sm text-ink", focusRingClassName, className)}>Sign In</a>;
+    return publicSessionHint ? null : <button type="button" onClick={() => openSignIn()} className={cn("inline-flex min-h-11 items-center rounded-lg px-3 text-[0.8125rem] font-medium text-ink/70", focusRingClassName, className)}>Sign In</button>;
   }
 
   if (auth.status === "loading") {
@@ -73,7 +73,6 @@ export function AccountControl({
   }
 
   if (!isPermanentAuthState(auth)) {
-    if (hostAudience() === "public") return <a href={applicationHref("/app")} className={cn("inline-flex min-h-11 items-center px-3 text-sm text-ink", focusRingClassName, className)}>Sign In</a>;
     const signInButton = (
       <button
         type="button"
@@ -237,9 +236,11 @@ export function MobileAccountControl({
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const newAppraisalHref = useNewTotalLossAppraisalHref();
 
-  if (publicSiteOnly) return null;
-  if (publicSessionHint !== undefined) {
-    return <a href={applicationHref("/app")} onClick={onAction} className={cn("inline-flex min-h-12 items-center border-t border-ink/10 py-2 text-sm font-medium text-ink/75", focusRingClassName, className)}>{publicSessionHint ? "Open app" : "Sign In"}</a>;
+  if (publicSiteOnly || publicSessionHint !== undefined) {
+    const styles = cn("inline-flex min-h-12 items-center border-t border-ink/10 py-2 text-sm font-medium text-ink/75", focusRingClassName, className);
+    return publicSessionHint
+      ? <a href={applicationHref("/app")} onClick={onAction} className={styles}>Open app</a>
+      : <button type="button" onClick={() => openSignIn()} className={styles}>Sign In</button>;
   }
 
   if (auth.status === "loading") {
@@ -254,7 +255,6 @@ export function MobileAccountControl({
   }
 
   if (!isPermanentAuthState(auth)) {
-    if (hostAudience() === "public") return <a href={applicationHref("/app")} className={cn("inline-flex min-h-11 items-center px-3 text-sm text-ink", focusRingClassName, className)}>Sign In</a>;
     return (
       <button
         type="button"

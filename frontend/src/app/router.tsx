@@ -17,6 +17,7 @@ import { adminRoute } from "@/features/admin/admin-routes";
 import { PartnerDashboardPage, PartnerBusinessEarningsPage, PartnerDetailPage, PartnerInvitationPage, PartnerWorkspace } from "@/features/referral-partners/pages";
 import { AdminDiminishedValueAccessGate } from "@/features/admin/diminished-value/admin-access-gate";
 import { AuthCallbackPage } from "@/features/auth";
+import { PublicSignInPage } from "@/features/auth/public-sign-in-page";
 import { AnalysisPage } from "@/pages/analysis-page";
 import { AdminDiminishedValueCasePage } from "@/pages/admin-diminished-value-case-page";
 import { AdminDiminishedValueQueuePage } from "@/pages/admin-diminished-value-queue-page";
@@ -59,6 +60,7 @@ function redirectPartnerReferral({ params }: LoaderFunctionArgs) {
 }
 
 const combinedRoutes: RouteObject[] = [
+  { path: "/auth/sign-in", element: <PublicSignInPage /> },
   { path: "/r/:code", loader: redirectPartnerReferral },
   {
     path: "/",

@@ -1,6 +1,8 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+
+import * as siteBoundary from "@/app/site-boundary";
 
 import {
   COOKIE_CONSENT_STORAGE_KEY,
@@ -10,6 +12,40 @@ import type { CookieConsentPreferences } from "@/features/privacy/consent";
 import { renderTestApp } from "@/test/render";
 
 describe("cookie consent", () => {
+  test.each([
+    ["https://venfour.com", true],
+    ["https://www.venfour.com", true],
+    ["https://app.venfour.com", false],
+    ["https://partners.venfour.com", false],
+  ])("limits the banner to public hosts: %s", (origin, visible) => {
+    const audience = siteBoundary.hostAudience(origin);
+    const host = vi.spyOn(siteBoundary, "hostAudience").mockReturnValue(audience);
+    try {
+      renderTestApp(["/privacy"]);
+
+      expect(Boolean(screen.queryByRole("region", {
+        name: "Your privacy, your choice",
+      }))).toBe(visible);
+      expect(readStoredConsent()).toBeNull();
+      expect(hasAnalyticsConsent()).toBe(false);
+    } finally {
+      host.mockRestore();
+    }
+  });
+
+  test("hides the banner on local app routes without accepting consent", async () => {
+    const { router } = renderTestApp();
+    expect(screen.getByRole("region", { name: "Your privacy, your choice" })).toBeVisible();
+
+    await act(() => router.navigate("/start?service=total-loss"));
+    expect(screen.queryByRole("region", { name: "Your privacy, your choice" })).not.toBeInTheDocument();
+    expect(readStoredConsent()).toBeNull();
+    expect(hasAnalyticsConsent()).toBe(false);
+
+    await act(() => router.navigate("/"));
+    expect(screen.getByRole("region", { name: "Your privacy, your choice" })).toBeVisible();
+  });
+
   test("keeps rejection inside preferences and persists the choice", async () => {
     const user = userEvent.setup();
     const { unmount } = renderTestApp();

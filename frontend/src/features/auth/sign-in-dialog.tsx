@@ -51,6 +51,8 @@ interface SignInDialogProps {
   returnTo?: string;
   callbackParameters?: AuthActionOptions["callbackParameters"];
   intent?: SignInIntent;
+  onOAuthStart?: (provider: "google" | "apple") => void;
+  onNavigate?: (destination: string) => void;
 }
 
 const intentDescriptions: Record<SignInIntent, string> = {
@@ -76,6 +78,10 @@ export function SignInPanel({ returnTo }: { returnTo: string }) {
   return <SignInExperience open onOpenChange={() => {}} returnTo={returnTo} intent="partner-onboarding" inline />;
 }
 
+export function EmbeddedSignIn(props: SignInDialogProps) {
+  return <SignInExperience {...props} embedded />;
+}
+
 function SignInExperience({
   open,
   onOpenChange,
@@ -85,7 +91,10 @@ function SignInExperience({
   callbackParameters,
   intent = "default",
   inline = false,
-}: SignInDialogProps & { inline?: boolean }) {
+  embedded = false,
+  onOAuthStart,
+  onNavigate,
+}: SignInDialogProps & { inline?: boolean; embedded?: boolean }) {
   const {
     auth,
     sendEmailCode,
@@ -147,6 +156,10 @@ function SignInExperience({
   }, [code]);
 
   const startOAuthSignIn = async (provider: "google" | "apple") => {
+    if (onOAuthStart) {
+      onOAuthStart(provider);
+      return;
+    }
     setError(null);
     setPendingAction(provider);
 
@@ -230,7 +243,8 @@ function SignInExperience({
       if (!mountedRef.current) return;
       onSignInComplete?.();
       onOpenChange(false);
-      navigateAfterAuth(destination, navigate);
+      if (onNavigate) onNavigate(destination);
+      else navigateAfterAuth(destination, navigate);
     } catch (signInError) {
       if (mountedRef.current)
         setError(getFriendlyAuthError(signInError, "verify-code"));
@@ -240,8 +254,8 @@ function SignInExperience({
     }
   };
 
-  const Title = inline ? "h1" : Dialog.Title;
-  const Description = inline ? "p" : Dialog.Description;
+  const Title = inline || embedded ? "h1" : Dialog.Title;
+  const Description = inline || embedded ? "p" : Dialog.Description;
   const emailForm = <>
     <form
       onSubmit={(event) => {
@@ -316,7 +330,7 @@ function SignInExperience({
       </Description>
     </div>
 
-    {!inline && <Dialog.Close asChild>
+    {!inline && !embedded && <Dialog.Close asChild>
       <button
         type="button"
         className={`absolute top-4 right-4 inline-flex size-11 items-center justify-center rounded-lg text-copy transition-colors hover:bg-surface hover:text-ink ${focusRingClassName}`}
@@ -543,6 +557,8 @@ function SignInExperience({
           Venfour will ask you to confirm its{" "}
           <Link
             to={publicHref("/terms")}
+            target={embedded ? "_blank" : undefined}
+            rel={embedded ? "noopener noreferrer" : undefined}
             className={`rounded-sm font-medium text-ink underline decoration-ink/25 underline-offset-4 hover:text-brand ${focusRingClassName}`}
             onClick={() => onOpenChange(false)}
           >
@@ -551,6 +567,8 @@ function SignInExperience({
           and acknowledge its{" "}
           <Link
             to={publicHref("/privacy")}
+            target={embedded ? "_blank" : undefined}
+            rel={embedded ? "noopener noreferrer" : undefined}
             className={`rounded-sm font-medium text-ink underline decoration-ink/25 underline-offset-4 hover:text-brand ${focusRingClassName}`}
             onClick={() => onOpenChange(false)}
           >
@@ -559,6 +577,8 @@ function SignInExperience({
           after sign-in. You can also review the{" "}
           <Link
             to={publicHref("/cookies")}
+            target={embedded ? "_blank" : undefined}
+            rel={embedded ? "noopener noreferrer" : undefined}
             className={`rounded-sm font-medium text-ink underline decoration-ink/25 underline-offset-4 hover:text-brand ${focusRingClassName}`}
             onClick={() => onOpenChange(false)}
           >
@@ -571,6 +591,7 @@ function SignInExperience({
   </>;
 
   if (inline) return <section className="partner-sign-in" aria-label="Business sign in">{content}</section>;
+  if (embedded) return <main className="bg-white p-5 sm:p-6">{content}</main>;
 
   return (
     <Dialog.Root

@@ -2,6 +2,9 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import { SignInDialog } from "@/features/auth/sign-in-dialog";
+import { PublicSignInDialog } from "@/features/auth/public-sign-in-dialog";
+import { hostAudience } from "@/app/site-boundary";
+import { publicSiteOnly } from "@/config/public-site";
 import {
   SignInDialogContext,
   type OpenSignInOptions,
@@ -44,12 +47,15 @@ export function SignInDialogProvider({
     () => ({ closeSignIn, openSignIn }),
     [closeSignIn, openSignIn],
   );
+  const DialogComponent = publicSiteOnly || hostAudience() === "public"
+    ? PublicSignInDialog
+    : SignInDialog;
 
   return (
     <SignInDialogContext.Provider value={value}>
       {children}
       {dialog ? (
-        <SignInDialog
+        <DialogComponent
           key={dialog.key}
           open
           onOpenChange={(open) => {

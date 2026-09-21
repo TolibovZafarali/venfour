@@ -38,36 +38,15 @@ describe("homepage structure", () => {
     ).not.toBeInTheDocument();
   });
 
-  test("keeps an available Total Loss service and a clearly paused Diminished Value service", async () => {
+  test("moves directly from the hero to the process without the service cards", async () => {
     renderTestApp();
-    await screen.findByRole("heading", { name: "Start with your situation." });
-    const services = document.getElementById("services");
-    if (!services) throw new Error("The services section was not rendered.");
-
-    expect(services.querySelectorAll("article")).toHaveLength(2);
-    for (const [id, heading] of [
-      ["total-loss", "Your vehicle was totaled"],
-      ["diminished-value", "Your vehicle was repaired"],
-    ]) {
-      const service = document.getElementById(id);
-      expect(service).toBeVisible();
-      expect(service).toHaveAttribute("tabindex", "-1");
-      expect(service).toContainElement(
-        within(services).getByRole("heading", { name: heading }),
-      );
-    }
-    expect(
-      within(services).getByRole("link", { name: "Start Total Loss review" }),
-    ).toHaveAttribute("href", "/start?service=total-loss");
-    const diminishedValue = document.getElementById("diminished-value")!;
-    expect(diminishedValue).toHaveTextContent(/intake.*paused/i);
-    expect(
-      within(diminishedValue).getByRole("link", { name: /service update/i }),
-    ).toHaveAttribute("href", "/start?service=diminished-value");
-    expect(
-      screen.queryByRole("link", { name: "Submit diminished-value request" }),
-    ).not.toBeInTheDocument();
-    expect(document.querySelector('a[href*="vehicle-value"]')).not.toBeInTheDocument();
+    const hero = await homepageHero();
+    expect(document.getElementById("services")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Start with your situation." })).not.toBeInTheDocument();
+    expect(hero.closest(".home-intro-gradient")?.nextElementSibling).toBe(document.getElementById("how-it-works"));
+    expect(document.getElementById("total-loss")).toBe(hero);
+    expect(within(hero).getByRole("link", { name: "Start Total Loss review" })).toHaveAttribute("href", "/start?service=total-loss");
+    expect(document.getElementById("faq")).toContainElement(document.getElementById("diminished-value"));
   });
 
   test("explains the three steps without repeating illustrated examples", async () => {
@@ -198,12 +177,13 @@ describe("homepage structure", () => {
     expect(screen.getByRole("heading", { name: "Start your Total Loss review" })).toBeVisible();
   });
 
-  test("opens the paused Diminished Value update from its service card", async () => {
+  test("opens the paused Diminished Value update from its FAQ answer", async () => {
     const user = userEvent.setup();
     const { router } = renderTestApp();
     await homepageHero();
     const diminishedValue = document.getElementById("diminished-value");
-    if (!diminishedValue) throw new Error("The Diminished Value service was not rendered.");
+    if (!diminishedValue) throw new Error("The Diminished Value FAQ was not rendered.");
+    await user.click(within(diminishedValue).getByText("Is Diminished Value available?"));
     await user.click(within(diminishedValue).getByRole("link", { name: /service update/i }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe("/start"));

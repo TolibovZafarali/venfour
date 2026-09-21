@@ -7,6 +7,7 @@
 @import "./app-tokens.css";
 @import "./public-surfaces.css";
 @import "./app-components.css";
+@import "./header-navigation.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -62,6 +63,26 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+
+  :where(
+    a[href], button, summary, select,
+    [role="link"], [role="button"], [role="menuitem"],
+    [role="menuitemcheckbox"], [role="menuitemradio"],
+    [role="option"], [role="tab"], [role="switch"],
+    [role="checkbox"], [role="radio"], [role="combobox"],
+    input[type="button"], input[type="submit"], input[type="reset"],
+    input[type="checkbox"], input[type="radio"], input[type="file"],
+    input[type="range"], input[type="color"],
+    input[type="date"], input[type="time"], input[type="datetime-local"],
+    input[type="month"], input[type="week"],
+    label[for], label:has(input, select, textarea)
+  ):not(:disabled, [aria-disabled="true"], [aria-busy="true"]):not(:has(:disabled)) {
+    cursor: pointer;
+  }
+
+  input[type="file"]:enabled::file-selector-button {
+    cursor: pointer;
   }
 
   html {

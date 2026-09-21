@@ -1,0 +1,27 @@
+/* Header links change text color only; branding and primary actions stay separate. */
+:root [data-site-header] :is(a[href], button):not(.bg-brand, .bg-primary, .review-primary, .request-button-primary, [data-variant="default"]) {
+  text-decoration: none;
+  transition: color 160ms ease;
+
+  &:not([aria-label="Venfour home"]):is(:hover, :active):not(:disabled, [aria-disabled="true"], [aria-busy="true"]) {
+    background-color: transparent;
+    color: #171717;
+    box-shadow: none;
+    filter: none;
+    transform: none;
+  }
+
+  &[aria-label="Venfour home"] {
+    transition: none;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #2563eb !important;
+    outline-offset: -2px !important;
+    filter: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
