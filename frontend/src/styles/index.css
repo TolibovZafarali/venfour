@@ -8,6 +8,7 @@
 @import "./public-surfaces.css";
 @import "./app-components.css";
 @import "./header-navigation.css";
+@import "./public-footer.css";
 
 @custom-variant dark (&:is(.dark *));
 

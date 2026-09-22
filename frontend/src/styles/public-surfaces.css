@@ -101,8 +101,7 @@
   :root:not([data-visual-system="app"]) .page-gradient-dv-operations,
   :root:not([data-visual-system="app"]) .page-gradient-auth,
   :root:not([data-visual-system="app"]) .page-gradient-not-found,
-  :root:not([data-visual-system="app"]) .page-gradient-route-error,
-  :root:not([data-visual-system="app"]) .site-footer-gradient {
+  :root:not([data-visual-system="app"]) .page-gradient-route-error {
     background-repeat: no-repeat;
     background-size: cover;
   }
@@ -351,21 +350,6 @@
         transparent 72%
       ),
       linear-gradient(140deg, #fffaf2 0%, #ffffff 50%, #f3f7fd 100%);
-  }
-
-  :root:not([data-visual-system="app"]) .site-footer-gradient {
-    background-image:
-      radial-gradient(
-        ellipse 40% 120% at 4% 128%,
-        rgb(215 228 253 / 0.34) 0%,
-        transparent 72%
-      ),
-      radial-gradient(
-        ellipse 38% 120% at 96% -28%,
-        rgb(211 236 228 / 0.3) 0%,
-        transparent 72%
-      ),
-      linear-gradient(135deg, #f3f6f9 0%, #f7f9fb 50%, #f2f7f5 100%);
   }
 
   :root:not([data-visual-system="app"]) .appraisal-start-gradient {

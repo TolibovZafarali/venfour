@@ -39,7 +39,7 @@ const primaryLinkClassName =
   "inline-flex min-h-11 items-center rounded-lg px-3 text-[0.8125rem] font-medium text-ink/70 transition-colors hover:bg-white/55 hover:text-ink focus-visible:bg-white/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 motion-reduce:transition-none";
 
 const footerLinkClassName =
-  "inline-flex min-h-11 items-center rounded-sm text-sm text-copy transition-colors hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none";
+  "public-footer__link";
 
 const mobileLinkClassName =
   "inline-flex min-h-12 items-center border-b border-ink/10 py-2 text-sm font-medium text-ink/75 transition-colors last:border-b-0 hover:bg-white/35 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/60 motion-reduce:transition-none";
@@ -522,13 +522,13 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
           </nav>
         </footer>
       ) : !appVisualSystem && !startFlowRoute && !adminRoute ? (
-        <footer className="site-footer-gradient relative z-10 shrink-0 border-t border-line bg-surface">
-          <div className="mx-auto w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-7">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-5">
+        <footer className="public-footer relative z-10 shrink-0">
+          <div className="public-footer__inner">
+            <div className="public-footer__main">
+              <div className="public-footer__brand">
                 <Link
                   to={brandHref}
-                  className="notranslate inline-flex min-h-11 select-none items-center gap-2 rounded-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                  className="public-footer__brand-link notranslate inline-flex min-h-11 select-none items-center gap-2.5 rounded-sm text-ink"
                   aria-label="Venfour home"
                   translate="no"
                 >
@@ -546,93 +546,62 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
                     Venfour
                   </span>
                 </Link>
+                <p className="public-footer__statement">
+                  Clarity for the<br />conversation ahead.
+                </p>
+                <p className="public-footer__description">
+                  Vehicle valuation evidence, explained simply.
+                </p>
                 {supportEmail ? (
-                  <a
-                    href={`mailto:${supportEmail}`}
-                    className={footerLinkClassName}
-                  >
+                  <a href={`mailto:${supportEmail}`} className="public-footer__link public-footer__email">
                     {supportEmail}
                   </a>
                 ) : null}
               </div>
 
-              <nav aria-label="Footer navigation" className="grid gap-5 sm:grid-cols-4">
+              <nav aria-label="Footer navigation" className="public-footer__navigation">
                 <section>
-                  <h2 className="text-xs font-semibold tracking-[0.12em] text-ink uppercase">Services</h2>
-                  <ul className="mt-2 flex flex-col gap-1">
-                  <li>
-                    <a
-                      href={totalLossHref}
-                      className={footerLinkClassName}
-                    >
-                      Total Loss
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href={diminishedValueHref}
-                      className={footerLinkClassName}
-                    >
-                      Diminished Value
-                    </a>
-                  </li>
+                  <h2 className="public-footer__heading">Services</h2>
+                  <ul>
+                    <li><a href={totalLossHref} className={footerLinkClassName}>Total Loss</a></li>
+                    <li><a href={diminishedValueHref} className={footerLinkClassName}>Diminished Value</a></li>
                   </ul>
                 </section>
                 <section>
-                  <h2 className="text-xs font-semibold tracking-[0.12em] text-ink uppercase">Learn</h2>
-                  <ul className="mt-2 flex flex-col gap-1">
-                  <li>
-                    <Link to="/methodology" className={footerLinkClassName}>
-                      Methodology
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/contact" className={footerLinkClassName}>
-                      Contact
-                    </Link>
-                  </li>
+                  <h2 className="public-footer__heading">Explore</h2>
+                  <ul>
+                    <li><Link to="/methodology" className={footerLinkClassName}>Methodology</Link></li>
+                    <li><Link to="/contact" className={footerLinkClassName}>Contact</Link></li>
                   </ul>
                 </section>
                 <section>
-                  <h2 className="text-xs font-semibold tracking-[0.12em] text-ink uppercase">For businesses</h2>
-                  <ul className="mt-2 flex flex-col gap-1">
-                  <li>
-                    <Link to="/referral-partners" className={footerLinkClassName}>
-                      Referral partners
-                    </Link>
-                  </li>
-                  </ul>
-                </section>
-                <section>
-                  <h2 className="text-xs font-semibold tracking-[0.12em] text-ink uppercase">Legal</h2>
-                  <ul className="mt-2 flex flex-col gap-1">
-                  <li><Link to="/terms" className={footerLinkClassName}>Terms</Link></li>
-                  <li><Link to="/refund-policy" className={footerLinkClassName}>Refund policy</Link></li>
-                  <li><Link to="/privacy" className={footerLinkClassName}>Privacy</Link></li>
-                  <li><Link to="/cookies" className={footerLinkClassName}>Cookie Policy</Link></li>
-                  <li>
-                    <button
-                      type="button"
-                      className={footerLinkClassName}
-                      onClick={openPreferences}
-                    >
-                      Cookie preferences
-                    </button>
-                  </li>
+                  <h2 className="public-footer__heading">For businesses</h2>
+                  <ul>
+                    <li><Link to="/referral-partners" className={footerLinkClassName}>Referral partners</Link></li>
                   </ul>
                 </section>
               </nav>
             </div>
-            <p
-              className="mt-4 border-t border-line pt-4 text-xs text-copy"
-              data-footer-legal
-            >
-              © {new Date().getFullYear()}{" "}
-              <span className="notranslate" translate="no">
-                Venfour LLC
-              </span>
-              . All rights reserved.
-            </p>
+            <div className="public-footer__bottom">
+              <p className="public-footer__copyright" data-footer-legal>
+                © {new Date().getFullYear()}{" "}
+                <span className="notranslate" translate="no">Venfour LLC</span>
+                . All rights reserved.
+              </p>
+              <nav aria-label="Footer legal navigation">
+                <ul className="public-footer__legal">
+                  <li><Link to="/terms" className={footerLinkClassName}>Terms</Link></li>
+                  <li><Link to="/privacy" className={footerLinkClassName}>Privacy</Link></li>
+                  <li><Link to="/refund-policy" className={footerLinkClassName}>Refund policy</Link></li>
+                  <li><Link to="/cookies" className={footerLinkClassName}>Cookie Policy</Link></li>
+                  <li>
+                    <button type="button" className={footerLinkClassName} onClick={openPreferences}>
+                      Cookie preferences
+                    </button>
+                  </li>
+                </ul>
+              </nav>
+            </div>
           </div>
         </footer>
       ) : null}

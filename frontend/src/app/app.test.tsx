@@ -146,8 +146,10 @@ describe("Venfour application", () => {
     const footerNavigation = screen.getByRole("navigation", {
       name: "Footer navigation",
     });
-    expect(within(footerNavigation).getAllByRole("link")).toHaveLength(9);
-    expect(within(footerNavigation).getByRole("link", { name: "Refund policy" })).toHaveAttribute("href", "/refund-policy");
+    expect(within(footerNavigation).getAllByRole("link")).toHaveLength(5);
+    const footerLegalNavigation = screen.getByRole("navigation", { name: "Footer legal navigation" });
+    expect(within(footerLegalNavigation).getAllByRole("link")).toHaveLength(4);
+    expect(within(footerLegalNavigation).getByRole("link", { name: "Refund policy" })).toHaveAttribute("href", "/refund-policy");
     expect(
       within(footerNavigation).getByRole("link", { name: "Total Loss" }),
     ).toHaveAttribute("href", "#total-loss");
@@ -158,13 +160,13 @@ describe("Venfour application", () => {
       within(footerNavigation).getByRole("link", { name: "Methodology" }),
     ).toHaveAttribute("href", "/methodology");
     expect(
-      within(footerNavigation).getByRole("link", { name: "Terms" }),
+      within(footerLegalNavigation).getByRole("link", { name: "Terms" }),
     ).toHaveAttribute("href", "/terms");
     expect(
-      within(footerNavigation).getByRole("link", { name: "Privacy" }),
+      within(footerLegalNavigation).getByRole("link", { name: "Privacy" }),
     ).toHaveAttribute("href", "/privacy");
     expect(
-      within(footerNavigation).getByRole("link", { name: "Cookie Policy" }),
+      within(footerLegalNavigation).getByRole("link", { name: "Cookie Policy" }),
     ).toHaveAttribute("href", "/cookies");
     expect(
       within(footerNavigation).getByRole("link", { name: "Referral partners" }),
@@ -173,7 +175,7 @@ describe("Venfour application", () => {
       within(footerNavigation).getByRole("link", { name: "Contact" }),
     ).toHaveAttribute("href", "/contact");
     expect(
-      within(footerNavigation).getByRole("button", {
+      within(footerLegalNavigation).getByRole("button", {
         name: "Cookie preferences",
       }),
     ).toBeVisible();
@@ -774,11 +776,11 @@ describe("Venfour application", () => {
       const { router } = renderTestApp(["/terms"]);
       expect(scrollTo).not.toHaveBeenCalled();
 
-      const footerNavigation = screen.getByRole("navigation", {
-        name: "Footer navigation",
+      const footerLegalNavigation = screen.getByRole("navigation", {
+        name: "Footer legal navigation",
       });
       await user.click(
-        within(footerNavigation).getByRole("link", { name: "Privacy" }),
+        within(footerLegalNavigation).getByRole("link", { name: "Privacy" }),
       );
 
       await waitFor(() => expect(router.state.location.pathname).toBe("/privacy"));
