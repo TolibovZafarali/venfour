@@ -45,7 +45,7 @@ describe("public website boundary", () => {
     DEPLOYMENT_ENVIRONMENT: "public-site", ASSETS: { fetch } as Fetcher,
   });
 
-  it.each(["/", "/terms", "/privacy", "/refund-policy", "/refund-policy/", "/contact", "/methodology", "/cookies", "/referral-partners"])("serves %s without backend configuration or transport", async path => {
+  it.each(["/", "/terms", "/privacy", "/refund-policy", "/refund-policy/", "/contact", "/methodology", "/cookies", "/referral-partners", "/about", "/resources/understanding-your-report", "/resources/valuation-review-checklist", "/resources/understanding-your-report/"])("serves %s without backend configuration or transport", async path => {
     const assets = vi.fn(async () => new Response("Venfour", { headers: { "Content-Type": "text/html" } }));
     const transport = vi.fn();
     const response = await handleRequest(new Request(`https://venfour.com${path}`), publicEnv(assets), dependencies(transport));

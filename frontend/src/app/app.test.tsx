@@ -146,7 +146,10 @@ describe("Venfour application", () => {
     const footerNavigation = screen.getByRole("navigation", {
       name: "Footer navigation",
     });
-    expect(within(footerNavigation).getAllByRole("link")).toHaveLength(5);
+    expect(within(footerNavigation).getAllByRole("link")).toHaveLength(8);
+    expect(within(footerNavigation).getByRole("link", { name: "About Venfour" })).toHaveAttribute("href", "/about");
+    expect(within(footerNavigation).getByRole("link", { name: "Understanding your report" })).toHaveAttribute("href", "/resources/understanding-your-report");
+    expect(within(footerNavigation).getByRole("link", { name: "Valuation review checklist" })).toHaveAttribute("href", "/resources/valuation-review-checklist");
     const footerLegalNavigation = screen.getByRole("navigation", { name: "Footer legal navigation" });
     expect(within(footerLegalNavigation).getAllByRole("link")).toHaveLength(4);
     expect(within(footerLegalNavigation).getByRole("link", { name: "Refund policy" })).toHaveAttribute("href", "/refund-policy");
@@ -157,7 +160,7 @@ describe("Venfour application", () => {
       within(footerNavigation).getByRole("link", { name: "Diminished Value" }),
     ).toHaveAttribute("href", "#diminished-value");
     expect(
-      within(footerNavigation).getByRole("link", { name: "Methodology" }),
+      within(footerNavigation).getByRole("link", { name: "Our methodology" }),
     ).toHaveAttribute("href", "/methodology");
     expect(
       within(footerLegalNavigation).getByRole("link", { name: "Terms" }),

@@ -15,6 +15,7 @@ import {
 
 import { isPageMetadata, useDocumentMetadata } from "@/app/document-metadata";
 import { CompletedReviewActionsHostContext, CompletedReviewNavigationHostContext, CompletedReviewProgressHostContext } from "@/components/completed-review-progress-host";
+import { diminishedValueIntakeAvailable } from "@/config/product-availability";
 import { supportEmail } from "@/config/support";
 import { useAdminDiminishedValueDependencies } from "@/features/admin/diminished-value/dependencies";
 import { useStaffAccessQuery } from "@/features/admin/diminished-value/queries";
@@ -564,19 +565,24 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
                   <h2 className="public-footer__heading">Services</h2>
                   <ul>
                     <li><a href={totalLossHref} className={footerLinkClassName}>Total Loss</a></li>
-                    <li><a href={diminishedValueHref} className={footerLinkClassName}>Diminished Value</a></li>
+                    <li><a href={diminishedValueHref} className={footerLinkClassName}>Diminished Value</a>
+                      {!diminishedValueIntakeAvailable ? <span className="public-footer__service-note">Intake paused</span> : null}
+                    </li>
                   </ul>
                 </section>
                 <section>
-                  <h2 className="public-footer__heading">Explore</h2>
+                  <h2 className="public-footer__heading">Resources</h2>
                   <ul>
-                    <li><Link to="/methodology" className={footerLinkClassName}>Methodology</Link></li>
+                    <li><Link to="/resources/understanding-your-report" className={footerLinkClassName}>Understanding your report</Link></li>
+                    <li><Link to="/resources/valuation-review-checklist" className={footerLinkClassName}>Valuation review checklist</Link></li>
+                    <li><Link to="/methodology" className={footerLinkClassName}>Our methodology</Link></li>
+                  </ul>
+                </section>
+                <section>
+                  <h2 className="public-footer__heading">Company</h2>
+                  <ul>
+                    <li><Link to="/about" className={footerLinkClassName}>About Venfour</Link></li>
                     <li><Link to="/contact" className={footerLinkClassName}>Contact</Link></li>
-                  </ul>
-                </section>
-                <section>
-                  <h2 className="public-footer__heading">For businesses</h2>
-                  <ul>
                     <li><Link to="/referral-partners" className={footerLinkClassName}>Referral partners</Link></li>
                   </ul>
                 </section>

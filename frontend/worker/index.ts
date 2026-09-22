@@ -38,7 +38,7 @@ const PUBLIC_ORIGIN = "https://venfour.com";
 const APP_ORIGIN = "https://app.venfour.com";
 const PARTNER_ORIGIN = "https://partners.venfour.com";
 const PRODUCTION_ORIGINS = new Set([PUBLIC_ORIGIN, APP_ORIGIN, PARTNER_ORIGIN, "https://www.venfour.com"]);
-const PUBLIC_PATHS = new Set(["/", "/contact", "/cookies", "/methodology", "/privacy", "/terms", "/refund-policy", "/referral-partners"]);
+const PUBLIC_PATHS = new Set(["/", "/contact", "/cookies", "/methodology", "/privacy", "/terms", "/refund-policy", "/referral-partners", "/about", "/resources/understanding-your-report", "/resources/valuation-review-checklist"]);
 
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",

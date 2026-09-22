@@ -14,7 +14,7 @@
 
   .public-footer__main {
     display: grid;
-    grid-template-columns: 1fr 1.35fr;
+    grid-template-columns: 0.85fr 1.5fr;
     gap: 4rem;
     padding-bottom: 3.5rem;
   }
@@ -39,10 +39,17 @@
 
   .public-footer__navigation {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1fr 1.4fr 1fr;
     align-content: start;
     gap: 1.5rem;
     padding-top: 0.875rem;
+  }
+
+  .public-footer__service-note {
+    display: block;
+    margin-top: -0.35rem;
+    color: var(--copy);
+    font-size: 0.6875rem;
   }
 
   .public-footer__heading {
@@ -56,6 +63,7 @@
   .public-footer__link {
     display: inline-flex;
     min-height: 2.75rem;
+    padding-block: 0.5rem;
     align-items: center;
     border-radius: 2px;
     color: var(--copy);

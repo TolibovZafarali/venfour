@@ -27,6 +27,7 @@ import { CookiePolicyPage } from "@/pages/cookie-policy-page";
 import { AppEntryPage } from "@/pages/app-entry-page";
 import { AppraisalResumePage } from "@/pages/appraisal-resume-page";
 import { HomePage } from "@/pages/home-page";
+import { AboutPage, UnderstandingReportPage, ValuationChecklistPage } from "@/pages/public-resources";
 import { MethodologyPage } from "@/pages/methodology-page";
 import { NotFoundPage } from "@/pages/not-found-page";
 import { PrivacyPage } from "@/pages/privacy-page";
@@ -381,6 +382,21 @@ const combinedRoutes: RouteObject[] = [
           "Finish Signing In | Venfour",
           "Finish securely signing in to Venfour.",
         ),
+      },
+      {
+        path: "about",
+        element: <AboutPage />,
+        handle: metadata("About Venfour | Vehicle Valuation Evidence, Explained", "Learn why Venfour exists and how it helps vehicle owners understand total-loss valuation evidence."),
+      },
+      {
+        path: "resources/understanding-your-report",
+        element: <UnderstandingReportPage />,
+        handle: metadata("Understanding Your Valuation Report | Venfour", "Read an annotated fictional example to understand vehicle details, comparable vehicles, adjustments, and valuation amounts."),
+      },
+      {
+        path: "resources/valuation-review-checklist",
+        element: <ValuationChecklistPage />,
+        handle: metadata("Valuation Review Checklist | Venfour", "Use a practical, printable checklist to review your insurer’s valuation report and prepare questions for your adjuster."),
       },
       {
         path: "methodology",
