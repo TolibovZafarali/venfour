@@ -1,0 +1,4552 @@
+{
+  "schema_version": "0.1-research-only",
+  "prepared_on": "2026-09-22",
+  "purpose": "Initial source-screening inventory and implementation test data; NOT a legal rules engine.",
+  "production_activation_permitted": false,
+  "coverage": {
+    "jurisdictions": 51,
+    "sources": 67,
+    "source_screen_counts": {
+      "Scope source reviewed": 33,
+      "Program/portal only": 13,
+      "Retrieval gap": 3,
+      "Dated guidance only": 2
+    },
+    "selected_valuation_benchmark_screens": 6,
+    "legal_clearances": 0,
+    "launch_approvals": 0,
+    "excluded_geographies": "US territories and non-US jurisdictions",
+    "retrieval_gaps": [
+      "HI",
+      "NH",
+      "SD"
+    ],
+    "dated_guidance_only": [
+      "KY",
+      "MS"
+    ]
+  },
+  "interpretation_rules": [
+    "Not determined is not an assertion that a service is prohibited.",
+    "A licensing category's existence does not establish its application to Venfour.",
+    "Absence of a licensing program does not establish permission.",
+    "A source URL or access date is not legal clearance or proof of current completeness.",
+    "Research review priority is operational triage, not a comparative legal-risk score.",
+    "Do not promote these records into executable permissions.",
+    "No case-specific numeric valuation, tax or deadline rules are approved by this file."
+  ],
+  "capability_catalog": [
+    {
+      "id": "case_specific_preview",
+      "label": "Case-specific free preview",
+      "review_note": "Separate scope review; free pricing alone is not an exemption."
+    },
+    {
+      "id": "market_evidence_report",
+      "label": "Factual market-evidence report",
+      "review_note": "Review individual/entity licensing, method and advertising scope."
+    },
+    {
+      "id": "personalized_valuation",
+      "label": "Personalized valuation conclusion",
+      "review_note": "Review valuation/appraiser authority and reviewer qualifications."
+    },
+    {
+      "id": "customer_reconsideration_draft",
+      "label": "Customer-submitted factual reconsideration draft",
+      "review_note": "Review claim-preparation/assistance boundaries; self-submission is not clearance."
+    },
+    {
+      "id": "insurer_response_coaching",
+      "label": "Personalized insurer-response guidance",
+      "review_note": "Review claims-assistance and policy-interpretation boundaries separately."
+    },
+    {
+      "id": "insurer_contact_negotiation",
+      "label": "Insurer contact or settlement negotiation",
+      "review_note": "Out of initial expansion scope; separate authority and operational approval required."
+    },
+    {
+      "id": "formal_appraisal_clause",
+      "label": "Formal insurance appraisal-clause appointment",
+      "review_note": "Out of initial expansion scope; verify policy, role, qualifications, independence and licensing."
+    },
+    {
+      "id": "umpire_expert_role",
+      "label": "Umpire or expert-witness role",
+      "review_note": "Out of scope; separate review and engagement."
+    },
+    {
+      "id": "referral_marketing",
+      "label": "Referral marketing / solicitation",
+      "review_note": "Review channel, recipient, disclosures and any activity-specific solicitation restrictions."
+    },
+    {
+      "id": "referral_compensation",
+      "label": "Paid referral compensation",
+      "review_note": "Review recipient eligibility, financial-interest and compensation restrictions separately from attribution."
+    }
+  ],
+  "approved_rules": [],
+  "jurisdictions": [
+    {
+      "jurisdiction_code": "AL",
+      "jurisdiction_name": "Alabama",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "AL-L1"
+      ],
+      "scope_question": "Which report, drafting or coaching activities would be impermissible public adjusting or legal practice? Is a narrower evidence-only product permissible?",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "AK",
+      "jurisdiction_name": "Alaska",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "AK-L1"
+      ],
+      "scope_question": "Separate factual valuation from policy interpretation, claim preparation and representation; obtain the exact permitted scope rather than treating no license as blanket permission.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "AZ",
+      "jurisdiction_name": "Arizona",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "AZ-L1",
+        "AZ-L2"
+      ],
+      "scope_question": "Does direct-to-consumer valuation investigation or personalized drafting require authority under 20-321? Would any technical-assistance exception actually fit?",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "AR",
+      "jurisdiction_name": "Arkansas",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "AR-L1"
+      ],
+      "scope_question": "Obtain a specific boundary for factual market research versus prohibited adjusting; do not assume a public-adjuster partner solves the issue.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "CA",
+      "jurisdiction_name": "California",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "CA-L1",
+        "CA-L2"
+      ],
+      "scope_question": "Confirm the effect of all statutory exclusions and whether factual review, value conclusions, customer-submitted drafts and response coaching fall inside regulated assistance.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "CO",
+      "jurisdiction_name": "Colorado",
+      "research_status": "Program/portal only",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "CO-L1"
+      ],
+      "scope_question": "Retrieve current Colorado public-adjuster definitions, exemptions and license/contract rules; classify each consumer-side capability.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "CT",
+      "jurisdiction_name": "Connecticut",
+      "research_status": "Program/portal only",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "CT-L1"
+      ],
+      "scope_question": "Check the 2026 supplement and classify insurer-report review, pre-loss value conclusions, drafting and coverage advice under all relevant categories.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "DE",
+      "jurisdiction_name": "Delaware",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "DE-L1"
+      ],
+      "scope_question": "Determine whether consumer-direct factual review and drafting are covered, and whether an exemption applies to the actual engagement model.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "DC",
+      "jurisdiction_name": "District of Columbia",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "DC-L1"
+      ],
+      "scope_question": "Apply the definition and adjacent license/exemption provisions to each feature; do not equate customer self-submission with an exemption.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "FL",
+      "jurisdiction_name": "Florida",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "FL-L1",
+        "FL-L2"
+      ],
+      "scope_question": "Obtain feature-level classification and all applicable exceptions. Separate auto rules from residential-only fee/cancellation provisions; assess free previews tied to the paid product too.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "GA",
+      "jurisdiction_name": "Georgia",
+      "research_status": "Program/portal only",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "GA-L1"
+      ],
+      "scope_question": "Determine whether advice about an existing total-loss valuation falls under public adjusting, counseling, neither, or a limited exception; then apply only the relevant contract rules.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "HI",
+      "jurisdiction_name": "Hawaii",
+      "research_status": "Retrieval gap",
+      "review_priority": "Source retrieval required",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "HI-L1"
+      ],
+      "scope_question": "Retrieve current HRS adjuster definitions and licensing provisions from the regulator or legislature, including scope for insured-side auto work and entities.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "ID",
+      "jurisdiction_name": "Idaho",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "ID-L1"
+      ],
+      "scope_question": "Read the linked statutory definitions and exceptions against report-only work, drafts, coaching and partner-supervised work.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "IL",
+      "jurisdiction_name": "Illinois",
+      "research_status": "Program/portal only",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "IL-L1"
+      ],
+      "scope_question": "Review current Article XLV and its exemptions; confirm auto applicability, entity requirements and whether any contract approval applies to this product.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "IN",
+      "jurisdiction_name": "Indiana",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "IN-L1"
+      ],
+      "scope_question": "Assess factual valuation, individualized response coaching and marketing together; review full statutory conditions and exceptions before deciding scope.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "IA",
+      "jurisdiction_name": "Iowa",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "IA-L1"
+      ],
+      "scope_question": "Use the current chapter, not an old licensing survey; classify the direct-to-consumer report/draft engagement and check exceptions and entity requirements.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "KS",
+      "jurisdiction_name": "Kansas",
+      "research_status": "Program/portal only",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "KS-L1"
+      ],
+      "scope_question": "Retrieve current K.S.A. public-adjuster provisions and definitions; assess the report, drafting and commercial terms without relying on older fee summaries.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "KY",
+      "jurisdiction_name": "Kentucky",
+      "research_status": "Dated guidance only",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "KY-L1"
+      ],
+      "scope_question": "Confirm current Kentucky adjuster definitions/exemptions and any advance-payment or contract rules before applying them to a flat-fee valuation product.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "LA",
+      "jurisdiction_name": "Louisiana",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "LA-L1"
+      ],
+      "scope_question": "Does the consumer-direct service fit any exemption? Do not extend a professional-support exception to a customer purchase without analyzing the actual contracting relationship.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "ME",
+      "jurisdiction_name": "Maine",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "ME-L1"
+      ],
+      "scope_question": "Classify the product under the underlying adjuster definition and authorized lines rather than searching only for a license called public adjuster.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "MD",
+      "jurisdiction_name": "Maryland",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "MD-L1"
+      ],
+      "scope_question": "Determine the boundary between vehicle-value evidence and covered claim assistance, plus applicability of entity, contract and referral requirements.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "MA",
+      "jurisdiction_name": "Massachusetts",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "MA-L1"
+      ],
+      "scope_question": "Does a remote pre-loss total-loss value report, as distinct from repair estimating, fall inside the framework? Check public-adjuster rules separately.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "MI",
+      "jurisdiction_name": "Michigan",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "MI-L1"
+      ],
+      "scope_question": "Check the exact lines, exemptions and insurance-counselor boundary for factual review, policy interpretation and personalized drafts.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "MN",
+      "jurisdiction_name": "Minnesota",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "MN-L1",
+        "MN-V1"
+      ],
+      "scope_question": "Check licensing and appraiser-conduct provisions with the actual service scope; do not collapse a value report, settlement assistance and formal appraisal into one activity.",
+      "valuation_research_status": "SELECTED BENCHMARKS REVIEWED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "MS",
+      "jurisdiction_name": "Mississippi",
+      "research_status": "Dated guidance only",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "MS-L1"
+      ],
+      "scope_question": "Obtain the current Mississippi public-adjuster statute/rule and classify consumer-side auto valuation, drafting and any entity requirements.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "MO",
+      "jurisdiction_name": "Missouri",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Home-state scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "MO-L1",
+        "MO-V1"
+      ],
+      "scope_question": "Request written classification of the report, value conclusion, self-submitted draft and response coaching; include legal-practice, appraiser and business-license questions.",
+      "valuation_research_status": "SELECTED BENCHMARKS REVIEWED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "MT",
+      "jurisdiction_name": "Montana",
+      "research_status": "Program/portal only",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "MT-L1"
+      ],
+      "scope_question": "Read current definitions, not the historical 2017 code link; determine whether report advice triggers adjusting or consulting requirements.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "NE",
+      "jurisdiction_name": "Nebraska",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "NE-L1"
+      ],
+      "scope_question": "Apply current chapter 44 public-adjuster definitions to each feature; do not assume a consultant or an unrelated license authorizes the service.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "NV",
+      "jurisdiction_name": "Nevada",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "NV-L1",
+        "NV-L2"
+      ],
+      "scope_question": "Does the remote pre-loss report fall within the damage-appraiser definition? If so, identify an actual authorized delivery model rather than assuming a virtual address or outside license suffices.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "NH",
+      "jurisdiction_name": "New Hampshire",
+      "research_status": "Retrieval gap",
+      "review_priority": "Source retrieval required",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "NH-L1"
+      ],
+      "scope_question": "Retrieve the correct current insured-side chapter and exclusions. Do not use insurer-side RSA 402-B:1 alone to approve or prohibit Venfour.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "NJ",
+      "jurisdiction_name": "New Jersey",
+      "research_status": "Program/portal only",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "NJ-L1"
+      ],
+      "scope_question": "Retrieve current public-adjuster definitions and auto claims rules; classify report-only work separately from claim assistance and solicitation.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "NM",
+      "jurisdiction_name": "New Mexico",
+      "research_status": "Program/portal only",
+      "review_priority": "Source retrieval required",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "NM-L1"
+      ],
+      "scope_question": "Obtain current New Mexico adjuster and consultant definitions, auto applicability and exceptions; no exemption may be inferred from missing portal categories.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "NY",
+      "jurisdiction_name": "New York",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "NY-L1"
+      ],
+      "scope_question": "Review Insurance Law 2101 and all line-specific exclusions; decide whether the exact auto report/draft service is covered rather than assuming every property license covers auto.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "NC",
+      "jurisdiction_name": "North Carolina",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "NC-L1",
+        "NC-L2",
+        "NC-L3"
+      ],
+      "scope_question": "Map each capability to the actual category and exemptions; separately verify any statutory auto appraisal process and who may invoke it.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "ND",
+      "jurisdiction_name": "North Dakota",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "ND-L1"
+      ],
+      "scope_question": "Apply current insured-side definitions and exemptions to the actual report/draft/coaching service, not the insurer-side licensing rules.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "OH",
+      "jurisdiction_name": "Ohio",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "OH-L1",
+        "OH-V1"
+      ],
+      "scope_question": "Classify factual review, investigation, drafting and coaching independently, including whether a technical/other exception fits consumer-direct work.",
+      "valuation_research_status": "SELECTED BENCHMARKS REVIEWED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "OK",
+      "jurisdiction_name": "Oklahoma",
+      "research_status": "Program/portal only",
+      "review_priority": "Source retrieval required",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "OK-L1"
+      ],
+      "scope_question": "Retrieve current public-adjuster and appraiser provisions plus exceptions; verify which entity/individual authority would cover each capability.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "OR",
+      "jurisdiction_name": "Oregon",
+      "research_status": "Program/portal only",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "OR-L1"
+      ],
+      "scope_question": "Review underlying adjusting/consulting definitions and exemptions for value research, factual drafts and interpretation of insurer responses.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "PA",
+      "jurisdiction_name": "Pennsylvania",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "PA-L1",
+        "PA-V1"
+      ],
+      "scope_question": "Determine whether the value conclusion/report is a regulated appraisal; separately classify drafting/coaching under public-adjuster rules and examine applicable exemptions.",
+      "valuation_research_status": "SELECTED BENCHMARKS REVIEWED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "RI",
+      "jurisdiction_name": "Rhode Island",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "RI-L1"
+      ],
+      "scope_question": "Classify remote pre-loss valuation and the operating firm under the actual definition; examine public-adjuster rules and exceptions separately.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "SC",
+      "jurisdiction_name": "South Carolina",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "SC-L1",
+        "SC-L2"
+      ],
+      "scope_question": "Determine which category covers the report, its author and firm, and whether separate claim-drafting/coaching permission is needed.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "SD",
+      "jurisdiction_name": "South Dakota",
+      "research_status": "Retrieval gap",
+      "review_priority": "Source retrieval required",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "SD-L1"
+      ],
+      "scope_question": "Obtain current regulator/statutory confirmation of the adjuster position, then analyze legal-practice and other business restrictions even if no adjuster license exists.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "TN",
+      "jurisdiction_name": "Tennessee",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "TN-L1"
+      ],
+      "scope_question": "Apply the underlying definitions/exceptions to auto review and assistance; evaluate entity, contract and insurance requirements only if that activity is covered.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "TX",
+      "jurisdiction_name": "Texas",
+      "research_status": "Program/portal only",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "TX-L1",
+        "TX-V1"
+      ],
+      "scope_question": "Obtain current Insurance Code chapter 4102 and exceptions, especially appraisal-related boundaries; classify the report separately from claims representation.",
+      "valuation_research_status": "SELECTED BENCHMARKS REVIEWED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "UT",
+      "jurisdiction_name": "Utah",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "UT-L1"
+      ],
+      "scope_question": "Assess each feature against adjusting and consulting definitions, including policy/coverage advice and any applicable exclusions.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "VT",
+      "jurisdiction_name": "Vermont",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "VT-L1"
+      ],
+      "scope_question": "Do not apply insurer-side appraiser language as a universal consumer-report rule. Assess public-adjuster/consultant scope and reconcile 2026 updates.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "VA",
+      "jurisdiction_name": "Virginia",
+      "research_status": "Program/portal only",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "VA-L1"
+      ],
+      "scope_question": "Retrieve the definition, license scope and exemptions; apply contract/referral/payment requirements only to a correctly classified engagement.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "WA",
+      "jurisdiction_name": "Washington",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "WA-L1",
+        "WA-V1"
+      ],
+      "scope_question": "A formal-clause exemption is not an exemption for all review/coaching. Classify each capability and identify the correct date anchor for changing total-loss rules.",
+      "valuation_research_status": "SELECTED BENCHMARKS REVIEWED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "WV",
+      "jurisdiction_name": "West Virginia",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "WV-L1"
+      ],
+      "scope_question": "Review adjacent licensing/exemption provisions and classify factual valuation versus claim assistance, holding out and partner-supported work.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "WI",
+      "jurisdiction_name": "Wisconsin",
+      "research_status": "Scope source reviewed",
+      "review_priority": "Priority scope review",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "WI-L1"
+      ],
+      "scope_question": "As an out-of-state service, determine whether covered nonresident adjusting is performed and by whom; assess the actual firm/individual arrangement.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    },
+    {
+      "jurisdiction_code": "WY",
+      "jurisdiction_name": "Wyoming",
+      "research_status": "Program/portal only",
+      "review_priority": "Standard",
+      "screened_on": "2026-09-22",
+      "source_ids": [
+        "WY-L1"
+      ],
+      "scope_question": "Review the statutory scope and exclusions; a route to a license does not establish that the review requires one or that another state's license is sufficient.",
+      "valuation_research_status": "NOT COMPLETED",
+      "unresolved_workstreams": [
+        "Exact individual/entity licensing and activity-by-activity applicability",
+        "Marketing terminology, including any appraisal claim",
+        "First-party, third-party and personal/commercial distinctions",
+        "Detailed valuation/comparable rules and case-specific applicability",
+        "Settlement taxes/fees and formal appraisal-clause rights",
+        "Disclosures, price/refund terms, paid referrals and solicitation",
+        "Service taxability/nexus, business qualification and privacy/data rights"
+      ],
+      "capability_reviews": {
+        "case_specific_preview": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "market_evidence_report": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "personalized_valuation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "customer_reconsideration_draft": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_response_coaching": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "insurer_contact_negotiation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "formal_appraisal_clause": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "umpire_expert_role": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_marketing": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        },
+        "referral_compensation": {
+          "review_status": "not_determined",
+          "approved_rule_id": null,
+          "approval_evidence": null
+        }
+      },
+      "launch_approval": null
+    }
+  ],
+  "sources": [
+    {
+      "id": "AL-L1",
+      "jurisdiction": "AL",
+      "title": "Alabama DOI — Licensing FAQ",
+      "url": "https://aldoi.gov/Licensing/LicensingFAQ.aspx",
+      "authority_type": "Regulator guidance",
+      "locator": "Public adjuster FAQ",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "AK-L1",
+      "jurisdiction": "AK",
+      "title": "Alaska — Licenses with special requirements",
+      "url": "https://www.commerce.alaska.gov/web/ins/Producers/LicensesWithSpecialRequirements.aspx",
+      "authority_type": "Regulator guidance",
+      "locator": "Adjuster FAQ 7; Public Adjuster section",
+      "accessed_on": "2026-09-22",
+      "limitations": "Official page says no insurance-code public-adjuster license, but expressly warns other law and legal-practice restrictions may apply. Page crawl was older; reconfirm before launch."
+    },
+    {
+      "id": "AZ-L1",
+      "jurisdiction": "AZ",
+      "title": "Arizona — Adjuster definition",
+      "url": "https://www.azleg.gov/ars/20/00321.htm",
+      "authority_type": "Statute",
+      "locator": "A.R.S. 20-321",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "AZ-L2",
+      "jurisdiction": "AZ",
+      "title": "Arizona — Adjuster license requirement",
+      "url": "https://www.azleg.gov/ars/20/00321-01.htm",
+      "authority_type": "Statute",
+      "locator": "A.R.S. 20-321.01",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "AR-L1",
+      "jurisdiction": "AR",
+      "title": "Arkansas Insurance Department — Licensing",
+      "url": "https://insurance.arkansas.gov/industry-regulation/licensing/",
+      "authority_type": "Regulator guidance",
+      "locator": "Public adjuster licensing FAQ",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "CA-L1",
+      "jurisdiction": "CA",
+      "title": "California — Public insurance adjuster authorizing act",
+      "url": "https://www.insurance.ca.gov/0200-industry/0050-renew-license/0200-requirements/public-adjuster/Authorizing-Act.cfm",
+      "authority_type": "Regulator quotation of statute",
+      "locator": "CIC 15007; Authorizing Act section",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "CA-L2",
+      "jurisdiction": "CA",
+      "title": "California — Public insurance adjuster license information",
+      "url": "https://www.insurance.ca.gov/0200-industry/0050-renew-license/0200-requirements/public-adjuster/Index.cfm",
+      "authority_type": "Regulator licensing program",
+      "locator": "Individual and business entity, resident and nonresident routes",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "CO-L1",
+      "jurisdiction": "CO",
+      "title": "Colorado — NIPR nonresident licensing requirements",
+      "url": "https://nipr.com/licensing-center/state-requirements/colorado-non-resident-licensing-individual",
+      "authority_type": "Licensing-platform instructions",
+      "locator": "Business Rules; distinction between insurer independent adjusters and public adjusters",
+      "accessed_on": "2026-09-22",
+      "limitations": "Licensing-platform instructions only. Colorado DOI and current statutory definitions were not successfully retrieved; not a scope opinion."
+    },
+    {
+      "id": "CT-L1",
+      "jurisdiction": "CT",
+      "title": "Connecticut — Insurance licensing chapter",
+      "url": "https://www.cga.ct.gov/current/pub/chap_702.htm",
+      "authority_type": "Statute chapter/index",
+      "locator": "Chapter 702; sections 38a-769, 38a-790 and 38a-792",
+      "accessed_on": "2026-09-22",
+      "limitations": "Chapter was located/read in this pass; later retrieval failed. The linked 2026 supplement and each relevant exclusion require follow-up."
+    },
+    {
+      "id": "DE-L1",
+      "jurisdiction": "DE",
+      "title": "Delaware — Public adjusters",
+      "url": "https://delcode.delaware.gov/title18/c017a/index.html",
+      "authority_type": "Statute",
+      "locator": "18 Del. C. 1750–1751",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "DC-L1",
+      "jurisdiction": "DC",
+      "title": "D.C. — Public insurance adjuster definitions",
+      "url": "https://code.dccouncil.gov/us/dc/council/code/sections/31-1631.02",
+      "authority_type": "Statute",
+      "locator": "D.C. Code 31-1631.02(5)",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "FL-L1",
+      "jurisdiction": "FL",
+      "title": "Florida — Public adjuster definition and restrictions",
+      "url": "https://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0600-0699/0626/Sections/0626.854.html",
+      "authority_type": "Statute",
+      "locator": "Fla. Stat. 626.854(1), (19), (20)",
+      "accessed_on": "2026-09-22",
+      "limitations": "Displayed as 2026 statute. Subsections (5)–(18) have a residential-property limitation in subsection (19); do not apply those terms wholesale to auto claims."
+    },
+    {
+      "id": "FL-L2",
+      "jurisdiction": "FL",
+      "title": "Florida — Scope of adjuster provisions",
+      "url": "https://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0600-0699/0626/Sections/0626.852.html",
+      "authority_type": "Statute",
+      "locator": "Fla. Stat. 626.852",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "GA-L1",
+      "jurisdiction": "GA",
+      "title": "Georgia — Adjusters, public adjusters and counselors",
+      "url": "https://oci.georgia.gov/agents-agency-licensing/licensed-adjusters-public-adjusters-counselors-surplus-lines-brokers",
+      "authority_type": "Regulator licensing program",
+      "locator": "Public Adjuster and Counselor sections",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "HI-L1",
+      "jurisdiction": "HI",
+      "title": "Hawaii — Licensing retrieval lead",
+      "url": "https://cca.hawaii.gov/ins/producers/instructions_insurance_license/resident-adjuster/",
+      "authority_type": "Retrieval lead",
+      "locator": "Former resident adjuster page",
+      "accessed_on": "2026-09-22",
+      "limitations": "Former page failed on re-fetch; replacement navigation led to producer continuing education rather than adjuster scope. No license conclusion is based on this URL."
+    },
+    {
+      "id": "ID-L1",
+      "jurisdiction": "ID",
+      "title": "Idaho — Public adjuster license",
+      "url": "https://doi.idaho.gov/industry/licensing-services/license-types/adjuster-public/",
+      "authority_type": "Regulator guidance",
+      "locator": "Public Adjuster; links to Idaho Code 41-5802 and 41-5803",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "IL-L1",
+      "jurisdiction": "IL",
+      "title": "Illinois — Public adjuster licensing",
+      "url": "https://idoi.illinois.gov/producers/illinois-public-adjuster.html",
+      "authority_type": "Regulator licensing program",
+      "locator": "Public Adjuster requirements; links to 215 ILCS 5 Article XLV and 50 IAC 3118",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "IN-L1",
+      "jurisdiction": "IN",
+      "title": "Indiana — Resident adjuster licensing requirements",
+      "url": "https://www.in.gov/idoi/licensing/resident-adjuster-licensing/resident-adjuster-licensing-requirements/",
+      "authority_type": "Regulator guidance",
+      "locator": "Public Adjuster section; IC 27-1-27",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "IA-L1",
+      "jurisdiction": "IA",
+      "title": "Iowa — Licensing of adjusters definitions, 2026 Code",
+      "url": "https://www.legis.iowa.gov/docs/code/522C.2.pdf",
+      "authority_type": "Statute",
+      "locator": "Iowa Code 522C.2(18), pages 1–2",
+      "accessed_on": "2026-09-22",
+      "limitations": "2026 Code PDF reviewed, including first-page screenshot. Licensing categories changed through 2025 legislation; older surveys are not reliable substitutes."
+    },
+    {
+      "id": "KS-L1",
+      "jurisdiction": "KS",
+      "title": "Kansas — Licensing directory",
+      "url": "https://www.insurance.kansas.gov/licensing/",
+      "authority_type": "Regulator licensing directory",
+      "locator": "Public Adjusters link",
+      "accessed_on": "2026-09-22",
+      "limitations": "Directory lists Public Adjusters. Detailed linked page returned 403; current definitions/exclusions were not retrieved. An older 2021/22 statute was not treated as current."
+    },
+    {
+      "id": "KY-L1",
+      "jurisdiction": "KY",
+      "title": "Kentucky — Consumer guide to public adjusters",
+      "url": "https://insurance.ky.gov/PPC/Documents/Consumer%20Guide%20to%20Public%20Adjusters%202021.pdf",
+      "authority_type": "Dated regulator guidance",
+      "locator": "2021 consumer guide, page 1",
+      "accessed_on": "2026-09-22",
+      "limitations": "Dated 2021; first page visually reviewed. Confirms that historical guidance required licensure, not the complete 2026 scope or fee rules."
+    },
+    {
+      "id": "LA-L1",
+      "jurisdiction": "LA",
+      "title": "Louisiana — Public adjuster license required",
+      "url": "https://www.legis.la.gov/legis/Law.aspx?d=508691",
+      "authority_type": "Statute",
+      "locator": "La. R.S. 22:1693",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "ME-L1",
+      "jurisdiction": "ME",
+      "title": "Maine — Adjuster frequently asked questions",
+      "url": "https://www.maine.gov/pfr/insurance/frequently-asked-questions/adjusters",
+      "authority_type": "Regulator guidance",
+      "locator": "Adjuster license types; link to 24-A M.R.S. 1402",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "MD-L1",
+      "jurisdiction": "MD",
+      "title": "Maryland — Public adjusters",
+      "url": "https://insurance.maryland.gov/Producer/Pages/publicadjusters.aspx",
+      "authority_type": "Regulator guidance",
+      "locator": "Public adjuster definition and licensing",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "MA-L1",
+      "jurisdiction": "MA",
+      "title": "Massachusetts — Motor vehicle damage appraiser licensing board",
+      "url": "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleII/Chapter26/Section8G",
+      "authority_type": "Statute",
+      "locator": "M.G.L. c. 26, section 8G",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "MI-L1",
+      "jurisdiction": "MI",
+      "title": "Michigan — Adjuster licensing",
+      "url": "https://www.michigan.gov/difs/industry/licensing-ins/adjuster",
+      "authority_type": "Regulator guidance",
+      "locator": "Adjuster for the insured / insurer",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "MN-L1",
+      "jurisdiction": "MN",
+      "title": "Minnesota — Adjuster and appraiser definitions",
+      "url": "https://www.revisor.mn.gov/statutes/cite/72B.02",
+      "authority_type": "Statute",
+      "locator": "Minn. Stat. 72B.02, subdivisions 6 and 9",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "MN-V1",
+      "jurisdiction": "MN",
+      "title": "Minnesota — Unfair claims practices",
+      "url": "https://www.revisor.mn.gov/statutes/cite/72A.201",
+      "authority_type": "Statute",
+      "locator": "Minn. Stat. 72A.201, subdivision 6",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "MS-L1",
+      "jurisdiction": "MS",
+      "title": "Mississippi — Adjuster application instructions",
+      "url": "https://www.mid.ms.gov/licensing/pdf/instructions/adjusterinstructions.pdf",
+      "authority_type": "Dated regulator guidance",
+      "locator": "2017 instructions; public adjuster section",
+      "accessed_on": "2026-09-22",
+      "limitations": "2017 form/instructions; screenshot reviewed. Current statutory scope, terms and fees not validated."
+    },
+    {
+      "id": "MO-L1",
+      "jurisdiction": "MO",
+      "title": "Missouri — Public adjusters",
+      "url": "https://insurance.mo.gov/producers/public-adjusters",
+      "authority_type": "Regulator quotation of statute",
+      "locator": "RSMo 325.010 definition quoted by regulator",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "MO-V1",
+      "jurisdiction": "MO",
+      "title": "Missouri — Auto insurance consumer FAQs",
+      "url": "https://insurance.mo.gov/consumer-faqs/auto-insurance-faqs",
+      "authority_type": "Regulator consumer guidance",
+      "locator": "Disagreement about vehicle value; comparable vehicles and valuation information",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "MT-L1",
+      "jurisdiction": "MT",
+      "title": "Montana — Producer, adjuster and consultant licensing",
+      "url": "https://csimt.gov/insurance/licensing/",
+      "authority_type": "Regulator licensing program",
+      "locator": "Public Adjuster Requirements; adjuster and consultant categories",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "NE-L1",
+      "jurisdiction": "NE",
+      "title": "Nebraska — Public adjuster license information",
+      "url": "https://doi.nebraska.gov/public-adjuster-license-information",
+      "authority_type": "Regulator guidance",
+      "locator": "Individual and business entity public-adjuster licensing",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "NV-L1",
+      "jurisdiction": "NV",
+      "title": "Nevada — Public adjuster licensing",
+      "url": "https://doi.nv.gov/Licensing/License_Types/Adjuster/Public_Adjuster/",
+      "authority_type": "Regulator guidance",
+      "locator": "Public adjuster category and entity licensing",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "NV-L2",
+      "jurisdiction": "NV",
+      "title": "Nevada — Motor vehicle damage appraiser licensing",
+      "url": "https://doi.nv.gov/Licensing/License_Types/Motor_Vehicle_Damage_Appraiser/",
+      "authority_type": "Regulator guidance",
+      "locator": "Individual/entity licenses and physical Nevada business-location requirement",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "NH-L1",
+      "jurisdiction": "NH",
+      "title": "New Hampshire — Insurance claims adjusters",
+      "url": "https://gc.nh.gov/rsa/html/XXXVII/402-B/402-B-1.htm",
+      "authority_type": "Statute",
+      "locator": "RSA 402-B:1",
+      "accessed_on": "2026-09-22",
+      "limitations": "This retrieved section addresses adjusting for insurance companies, not a resolved insured-side public-adjuster analysis. The attempted public-adjuster chapter retrieval failed."
+    },
+    {
+      "id": "NJ-L1",
+      "jurisdiction": "NJ",
+      "title": "New Jersey — Insurance licensing and education",
+      "url": "https://www.nj.gov/dobi/inslic.htm",
+      "authority_type": "Regulator licensing program",
+      "locator": "Public adjuster licensing notices; individual/organization applications",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page has historical notices as well as licensing routes. Do not treat historical deadlines or fees as independently verified 2026 requirements."
+    },
+    {
+      "id": "NM-L1",
+      "jurisdiction": "NM",
+      "title": "New Mexico — NIPR nonresident licensing requirements",
+      "url": "https://nipr.com/licensing-center/state-requirements/new-mexico-non-resident-licensing-individual",
+      "authority_type": "Licensing-platform instructions",
+      "locator": "Insurance Consultant category and regulator contact",
+      "accessed_on": "2026-09-22",
+      "limitations": "OSI pages failed retrieval; this portal verifies consultant licensing routes, not the complete public-adjuster/appraiser scope."
+    },
+    {
+      "id": "NY-L1",
+      "jurisdiction": "NY",
+      "title": "New York — Independent and public adjuster licensing",
+      "url": "https://www.dfs.ny.gov/apps_and_licensing/agents_and_brokers/lic_app_ia_pa",
+      "authority_type": "Regulator guidance",
+      "locator": "Public Adjuster and Independent Adjuster definitions",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "NC-L1",
+      "jurisdiction": "NC",
+      "title": "North Carolina — Adjuster and motor vehicle damage appraiser definitions",
+      "url": "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_58/GS_58-33-10.html",
+      "authority_type": "Statute",
+      "locator": "G.S. 58-33-10(2), (14)",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "NC-L2",
+      "jurisdiction": "NC",
+      "title": "North Carolina — License requirements",
+      "url": "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_58/GS_58-33-26.html",
+      "authority_type": "Statute",
+      "locator": "G.S. 58-33-26",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "NC-L3",
+      "jurisdiction": "NC",
+      "title": "North Carolina — Public adjuster definitions",
+      "url": "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_58/GS_58-33A-5.html",
+      "authority_type": "Statute",
+      "locator": "G.S. 58-33A-5",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "ND-L1",
+      "jurisdiction": "ND",
+      "title": "North Dakota — Public adjuster licensing",
+      "url": "https://www.insurance.nd.gov/producers/other-licenses/public-adjuster",
+      "authority_type": "Regulator guidance",
+      "locator": "Public adjuster licensing; distinction from insurer staff/independent adjusters",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "OH-L1",
+      "jurisdiction": "OH",
+      "title": "Ohio — Public insurance adjuster definitions",
+      "url": "https://codes.ohio.gov/ohio-revised-code/section-3951.01",
+      "authority_type": "Statute",
+      "locator": "Ohio Rev. Code 3951.01",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "OH-V1",
+      "jurisdiction": "OH",
+      "title": "Ohio — Unfair property/casualty claims practices",
+      "url": "https://codes.ohio.gov/ohio-administrative-code/rule-3901-1-54",
+      "authority_type": "Regulation",
+      "locator": "Ohio Admin. Code 3901-1-54(H)",
+      "accessed_on": "2026-09-22",
+      "limitations": "Selected total-loss paragraphs reviewed; tax reimbursement has conditions. Do not infer a blanket tax payment rule or private cause of action."
+    },
+    {
+      "id": "OK-L1",
+      "jurisdiction": "OK",
+      "title": "Oklahoma — Applying for a license",
+      "url": "https://www.oid.ok.gov/licensing-and-education/applying-for-a-license/",
+      "authority_type": "Regulator licensing directory",
+      "locator": "Licensing directory",
+      "accessed_on": "2026-09-22",
+      "limitations": "The retrieved directory did not establish the specific public-adjuster definition or applicable exceptions."
+    },
+    {
+      "id": "OR-L1",
+      "jurisdiction": "OR",
+      "title": "Oregon — Adjuster licensing",
+      "url": "https://dfr.oregon.gov/business/licensing/insurance/license-types/pages/adjusters.aspx",
+      "authority_type": "Regulator licensing program",
+      "locator": "Individual, business entity and nonresident adjuster licensing",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "PA-L1",
+      "jurisdiction": "PA",
+      "title": "Pennsylvania — Motor Vehicle Physical Damage Appraiser Act",
+      "url": "https://www.legis.state.pa.us/WU01/LI/LI/US/HTM/1972/0/0367..HTM",
+      "authority_type": "Statute",
+      "locator": "Act 367 of 1972",
+      "accessed_on": "2026-09-22",
+      "limitations": "Act located; current amendments and application to Venfour's exact engagement require review."
+    },
+    {
+      "id": "PA-V1",
+      "jurisdiction": "PA",
+      "title": "Pennsylvania — Applicable standards for appraisal",
+      "url": "https://www.pacodeandbulletin.gov/Display/pacode?d=reduce&file=/secure/pacode/data/031/chapter62/s62.3.html",
+      "authority_type": "Regulation",
+      "locator": "31 Pa. Code 62.3(e); appraisal standards",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "RI-L1",
+      "jurisdiction": "RI",
+      "title": "Rhode Island — Motor vehicle damage appraiser license",
+      "url": "https://webserver.rilegislature.gov/Statutes/TITLE27/27-10.1/27-10.1-1.htm",
+      "authority_type": "Statute",
+      "locator": "R.I. Gen. Laws 27-10.1-1",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "SC-L1",
+      "jurisdiction": "SC",
+      "title": "South Carolina — Motor vehicle physical damage appraisers",
+      "url": "https://www.scstatehouse.gov/code/t38c049.php",
+      "authority_type": "Statute",
+      "locator": "S.C. Code 38-49-10 and 38-49-20",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "SC-L2",
+      "jurisdiction": "SC",
+      "title": "South Carolina — Public insurance adjusters",
+      "url": "https://www.scstatehouse.gov/code/t38c048.php",
+      "authority_type": "Statute chapter",
+      "locator": "Chapter 48",
+      "accessed_on": "2026-09-22",
+      "limitations": "Public-adjuster chapter located; all feature-specific exceptions and contract details not analyzed."
+    },
+    {
+      "id": "SD-L1",
+      "jurisdiction": "SD",
+      "title": "South Dakota — Licensing exemptions",
+      "url": "https://dlr.sd.gov/insurance/producers/licensing_exemptions.aspx",
+      "authority_type": "Regulator page; unresolved lead",
+      "locator": "Producer exemptions page",
+      "accessed_on": "2026-09-22",
+      "limitations": "This page did not establish an adjuster exemption. Attempts to retrieve an adjuster-specific FAQ failed; do not treat silence as permission."
+    },
+    {
+      "id": "TN-L1",
+      "jurisdiction": "TN",
+      "title": "Tennessee — Public adjuster requirements",
+      "url": "https://www.tn.gov/content/tn/commerce/insurance/agent-producer-resources/licensing-packets-instructions-forms/public-adjuster.html",
+      "authority_type": "Regulator guidance",
+      "locator": "Licensing Requirements; page updated April 8, 2026",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "TX-L1",
+      "jurisdiction": "TX",
+      "title": "Texas — Public insurance adjuster licensing",
+      "url": "https://www.tdi.texas.gov/agent/adjuster-public-insurance-apply.html",
+      "authority_type": "Regulator licensing program",
+      "locator": "Individual and agency/nonresident applications",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "TX-V1",
+      "jurisdiction": "TX",
+      "title": "Texas — My car was totaled",
+      "url": "https://www.tdi.texas.gov/tips/car-totaled.html",
+      "authority_type": "Regulator consumer guidance",
+      "locator": "Value disagreement; updated July 23, 2026",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "UT-L1",
+      "jurisdiction": "UT",
+      "title": "Utah — Licenses with special requirements",
+      "url": "https://insurance.utah.gov/licensees/producers/special-requirements/",
+      "authority_type": "Regulator guidance",
+      "locator": "Adjuster and Consultant sections; links to 31A-26-201 and 31A-1-301",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "VT-L1",
+      "jurisdiction": "VT",
+      "title": "Vermont — Licensing definitions",
+      "url": "https://legislature.vermont.gov/statutes/section/08/131/04791",
+      "authority_type": "Statute",
+      "locator": "8 V.S.A. 4791(2)–(5)",
+      "accessed_on": "2026-09-22",
+      "limitations": "The site says this compilation includes the 2025 session. 2026 session-law changes were not fully reconciled."
+    },
+    {
+      "id": "VA-L1",
+      "jurisdiction": "VA",
+      "title": "Virginia — Public adjuster contracts",
+      "url": "https://law.lis.virginia.gov/vacode/38.2-1845.13/",
+      "authority_type": "Statute",
+      "locator": "Va. Code 38.2-1845.13",
+      "accessed_on": "2026-09-22",
+      "limitations": "Contract provision reviewed; underlying public-adjuster definition and exemptions require follow-up."
+    },
+    {
+      "id": "WA-L1",
+      "jurisdiction": "WA",
+      "title": "Washington — Adjuster, appraiser and umpire definitions",
+      "url": "https://app.leg.wa.gov/rcw/default.aspx?cite=48.17.010",
+      "authority_type": "Statute",
+      "locator": "RCW 48.17.010(1)",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "WA-V1",
+      "jurisdiction": "WA",
+      "title": "Washington — Total-loss settlement methods",
+      "url": "https://app.leg.wa.gov/wac/default.aspx?cite=284-30-391",
+      "authority_type": "Regulation; current and future versions",
+      "locator": "WAC 284-30-391; versions before/from October 18, 2026",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page includes an adopted future version. Do not apply it early or assume loss date alone determines applicability."
+    },
+    {
+      "id": "WV-L1",
+      "jurisdiction": "WV",
+      "title": "West Virginia — Adjuster definitions",
+      "url": "https://code.wvlegislature.gov/33-12B-1/",
+      "authority_type": "Statute",
+      "locator": "W. Va. Code 33-12B-1(i)",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "WI-L1",
+      "jurisdiction": "WI",
+      "title": "Wisconsin — Public adjuster registration",
+      "url": "https://oci.wi.gov/Pages/Agents/PublicAdjuster.aspx",
+      "authority_type": "Regulator guidance",
+      "locator": "Resident/nonresident registration and adjusting-services definitions",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page updated July 17, 2026. Residents and nonresidents differ; do not convert this into a universal license requirement or exemption."
+    },
+    {
+      "id": "WY-L1",
+      "jurisdiction": "WY",
+      "title": "Wyoming — Public adjuster license requirements",
+      "url": "https://doi.wyo.gov/licensing/adjusters/public-adjusters",
+      "authority_type": "Regulator licensing program",
+      "locator": "Resident and nonresident public-adjuster applications",
+      "accessed_on": "2026-09-22",
+      "limitations": "Page read during this research; later enactments and case-law treatment not exhaustively checked."
+    },
+    {
+      "id": "US-B1",
+      "jurisdiction": "US",
+      "title": "SBA — Registering and qualifying a business",
+      "url": "https://www.sba.gov/counseling/launch-your-business/",
+      "authority_type": "Federal business guidance",
+      "locator": "Register with state agencies; File for foreign qualification",
+      "accessed_on": "2026-09-22",
+      "limitations": "Used only for the distinction between business activity/qualification and other compliance. Unrelated potentially stale BOI material is not relied upon."
+    },
+    {
+      "id": "US-T1",
+      "jurisdiction": "US",
+      "title": "Stripe Tax — Monitoring obligations",
+      "url": "https://docs.stripe.com/tax/monitoring",
+      "authority_type": "Provider documentation",
+      "locator": "Monitoring tax obligations",
+      "accessed_on": "2026-09-22",
+      "limitations": "Operational tool documentation, not state taxability advice or a 51-jurisdiction nexus opinion."
+    },
+    {
+      "id": "US-M1",
+      "jurisdiction": "US",
+      "title": "FTC — CAN-SPAM compliance guide",
+      "url": "https://www.ftc.gov/business-guidance/resources/can-spam-act-compliance-guide-business",
+      "authority_type": "Federal regulator guidance",
+      "locator": "Commercial email obligations",
+      "accessed_on": "2026-09-22",
+      "limitations": "General outbound-email controls; state-specific insurance solicitation/referral restrictions still require separate review."
+    }
+  ]
+}

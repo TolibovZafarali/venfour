@@ -18,6 +18,8 @@ from typing import Any, Callable, Protocol, runtime_checkable
 from urllib.parse import quote
 from uuid import UUID, uuid4
 
+from venfour.jurisdiction_adapter import observe_scope
+
 from venfour.insurer_response_analysis import (
     INSURER_RESPONSE_ANALYSIS_PROMPT_VERSION,
     INSURER_RESPONSE_ANALYSIS_SCHEMA_VERSION,
@@ -211,6 +213,7 @@ def backfill_current_insurer_response_recommendation(
     )
     if not apply:
         return {"outcome": "ready", "analysisResultId": result_id, "recommendation": recommendation}
+    observe_scope(database, case_id, "coaching_release")
     result = _mapping(database.publish_total_loss_insurer_response_recommendation(
         result_id, recommendation, _canonical_json_digest(recommendation),
     ), "Response recommendation publication", keys={"outcome", "recommendationId", "workflowRevision"})
@@ -1717,6 +1720,7 @@ class TotalLossInsurerResponseProcessor:
                 processing_token,
                 canonical_case_id,
             )
+            observe_scope(self._database, canonical_case_id, "coaching_process")
             document = self._document(
                 context_row, context, processing_token
             )
@@ -1747,6 +1751,7 @@ class TotalLossInsurerResponseProcessor:
                 assessment_digest=context_row["assessment_digest"],
                 customer_offer=context_row["customer_offer"],
             )
+            observe_scope(self._database, canonical_case_id, "coaching_release")
             completion = _mapping(
                 self._database.complete_total_loss_insurer_response_analysis(
                     claimed.job_id,

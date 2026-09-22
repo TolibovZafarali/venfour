@@ -565,6 +565,24 @@ class SupabaseHttpGateway:
         except (ValueError, json.JSONDecodeError) as exc:
             raise SupabaseContractError("Supabase RPC response is invalid") from exc
 
+    def get_jurisdiction_context(self, case_id: str, owner_user_id: str | None = None) -> Mapping[str, Any]:
+        value = self._rpc("get_jurisdiction_context", {
+            "requested_case_id": case_id, "requested_user_id": owner_user_id,
+        })
+        if not isinstance(value, Mapping):
+            raise SupabaseContractError("Jurisdiction context is unavailable")
+        return value
+
+    def get_jurisdiction_reference_case(self, reference_id: str, kind: str) -> str | None:
+        return self._rpc("get_jurisdiction_reference_case", {
+            "requested_reference_id": reference_id, "requested_kind": kind,
+        })
+
+    def record_jurisdiction_decision(self, snapshot: Mapping[str, Any], content_digest: str) -> None:
+        self._rpc("record_jurisdiction_decision", {
+            "requested_snapshot": dict(snapshot), "requested_digest": content_digest,
+        }, allow_no_content=True)
+
     def _user_rpc(
         self,
         name: str,

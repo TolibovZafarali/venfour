@@ -18,6 +18,8 @@ from uuid import UUID, uuid4
 
 import stripe
 
+from venfour.jurisdiction_adapter import observe_scope
+
 from venfour.supabase_gateway import (
     SupabaseAuthenticationError,
     SupabaseContractError,
@@ -1552,6 +1554,7 @@ class TotalLossCommerceService:
             _normalized_email(claim.get("contact_email"), "Claim contact email")
             if not self._database.full_review_ready(canonical_case_id, purchaser_id):
                 return CheckoutQuoteProjection("unavailable", None, None)
+            observe_scope(self._database, canonical_case_id, "checkout")
             price = self._provider.retrieve_price(self._configuration.price_id)
             self._validate_price(price)
             return CheckoutQuoteProjection(
@@ -1583,6 +1586,7 @@ class TotalLossCommerceService:
             raise SupabaseContractError("Checkout preflight response is invalid")
         if not checkout_available or not self._database.full_review_ready(canonical_case_id, purchaser_id):
             return CheckoutQuoteProjection("unavailable", None, None)
+        observe_scope(self._database, canonical_case_id, "checkout")
         price = self._provider.retrieve_price(self._configuration.price_id)
         self._validate_price(price)
         return CheckoutQuoteProjection(
@@ -1628,6 +1632,7 @@ class TotalLossCommerceService:
             raise CommerceConflictError("Checkout is unavailable")
         if self._configuration.publishable_key is None:
             raise CommerceUnavailableError("Embedded payment is unavailable")
+        observe_scope(self._database, canonical_case_id, "checkout")
         price = self._provider.retrieve_price(self._configuration.price_id)
         self._validate_price(price)
         row = self._database.reserve_total_loss_checkout(

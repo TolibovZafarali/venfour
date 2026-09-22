@@ -8,6 +8,8 @@ cross the public HTTP boundary.
 
 from __future__ import annotations
 
+from venfour.jurisdiction_adapter import observe_scope
+
 from venfour.analysis_diagnostics import execution, step, capture_failure, failure_diagnostic
 
 import json
@@ -1307,6 +1309,7 @@ class CaseAnalysisService:
             processing_token=processing_token,
         )
         try:
+            observe_scope(self._gateway, case_id, "preview_process")
             creation_service = self._creation_service_factory(repository, run_id)
             if uses_confirmed_snapshot:
                 intake_mode = input_snapshot.get("intake_mode")

@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Case jurisdiction facts v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "assertions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "assertions": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "field",
+          "value",
+          "provenance",
+          "reference",
+          "recorded_at"
+        ],
+        "properties": {
+          "field": {
+            "enum": [
+              "assigned_credential_ref",
+              "claim_type",
+              "customer_residence",
+              "garaging_at_loss",
+              "loss_date",
+              "loss_location",
+              "policy_delivered",
+              "policy_end",
+              "policy_issued",
+              "policy_start",
+              "policy_use",
+              "provider_location",
+              "provider_role",
+              "settlement_date",
+              "vehicle_registration"
+            ]
+          },
+          "value": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 512,
+            "pattern": "^\\S(?:[^\\x00-\\x1f]*\\S)?$"
+          },
+          "provenance": {
+            "enum": [
+              "customer",
+              "document",
+              "staff",
+              "legacy_intake"
+            ]
+          },
+          "reference": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "pattern": "^\\S(?:[^\\x00-\\x1f]*\\S)?$"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "field": {
+                  "const": "claim_type"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "value": {
+                  "enum": [
+                    null,
+                    "first_party",
+                    "third_party"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "field": {
+                  "const": "policy_use"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "value": {
+                  "enum": [
+                    null,
+                    "commercial",
+                    "personal"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "field": {
+                  "const": "provider_role"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "value": {
+                  "enum": [
+                    null,
+                    "appraiser",
+                    "expert",
+                    "licensed_adjuster",
+                    "referral_partner",
+                    "umpire",
+                    "valuation_service"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "field": {
+                  "enum": [
+                    "loss_date",
+                    "policy_end",
+                    "policy_start",
+                    "settlement_date"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "value": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -18,6 +18,8 @@ from uuid import UUID, uuid4
 
 import pymupdf
 
+from venfour.jurisdiction_adapter import observe_scope, observe_reference_scope
+
 from venfour.commerce import (
     CommerceProviderContractError,
     CommerceUnavailableError,
@@ -608,6 +610,7 @@ class TotalLossReportProcessor:
             raise PackageProcessingContractError(
                 "Report generation identity changed after claim"
             )
+        observe_scope(self._database, case_id, "report_process")
         source = _mapping(context.get("source_snapshot"), "Source snapshot")
         assessment = _mapping(
             context.get("final_assessment"), "Final assessment"
@@ -890,6 +893,7 @@ class TotalLossReportProcessor:
         processing_token: str,
         ai_review_run_id: str,
     ) -> Mapping[str, Any]:
+        observe_reference_scope(self._database, work_item_id, "work_item", "report_release")
         released = _mapping(
             self._database.resolve_total_loss_report_release(
                 work_item_id, processing_token, ai_review_run_id
@@ -1318,6 +1322,7 @@ class TotalLossReportProcessor:
                 raise PackageProcessingContractError(
                     "Report review identity changed after claim"
                 )
+        observe_scope(self._database, case_id, "report_process")
         source = _mapping(context.get("source_snapshot"), "Source snapshot")
         assessment = _mapping(
             context.get("final_assessment"), "Final assessment"

@@ -44,6 +44,8 @@ from venfour.analysis_runs import (
     FileAnalysisRunRepository,
     InvalidAnalysisRunArtifactError,
 )
+from venfour.jurisdiction_adapter import configured_mode
+
 from venfour.creation import (
     AnalysisCreationExecutionError,
     AnalysisCreationInputError,
@@ -2681,6 +2683,7 @@ def create_app(
         selected_service = None
         selected_creation_service = None
 
+    configured_mode(os.environ)
     selected_case_service = case_analysis_service
     owned_supabase_gateway: SupabaseHttpGateway | None = None
     selected_gateway: CaseAnalysisGateway | None = None

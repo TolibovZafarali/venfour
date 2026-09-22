@@ -16,6 +16,8 @@ from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 from uuid import UUID
 
+from venfour.jurisdiction_adapter import observe_reference_scope
+
 from venfour.package_processing import (
     PackageProcessingContractError,
     PackageProcessingUnavailableError,
@@ -693,6 +695,8 @@ class StaffReleaseReviewService:
             selected_rationale,
         ) = self._decision_inputs(expected_updated_at, decision, rationale)
         try:
+            if public_decision in {APPROVE_UNCHANGED, NOT_SUPPORTABLE}:
+                observe_reference_scope(self._gateway, selected_review_id, "release_review", "report_release", access_token=selected_access_token)
             row = self._gateway.decide_total_loss_release_review(
                 selected_review_id,
                 selected_timestamp,

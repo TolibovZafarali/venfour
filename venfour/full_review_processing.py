@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 import hashlib
 from uuid import uuid4
 
+from venfour.jurisdiction_adapter import observe_scope
+
 from venfour.analysis_runs import AnalysisRunArtifact
 from venfour.full_review import full_review_readiness
 from venfour.full_review_calculation import calculate_report_review
@@ -48,6 +50,7 @@ class FullReviewWorkProcessor:
         try:
             context = claim["context"]
             case_id, user_id, row = context["case_id"], context["user_id"], context["report"]
+            observe_scope(self.gateway, case_id, "full_review_process")
             if row.get("extraction") is None:
                 with self.gateway.materialize_full_review_report(case_id, row) as path:
                     data = path.read_bytes()

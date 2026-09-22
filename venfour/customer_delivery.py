@@ -17,6 +17,8 @@ from typing import Any, Protocol, runtime_checkable
 from urllib.parse import urlsplit
 from uuid import UUID
 from jsonschema.exceptions import ValidationError
+from venfour.jurisdiction_adapter import observe_scope
+
 from venfour.market_evidence_presentation import validate_market_evidence_display
 
 from venfour.supabase_gateway import (
@@ -1906,6 +1908,7 @@ class CustomerDeliveryService:
             or identity.get("analysisResultId") != existing["analysisResultId"]
             or identity.get("reportId") != existing["reportVersionId"]):
             raise SupabaseContractError("Follow-up source identity is invalid")
+        observe_scope(self.gateway, canonical_case, "draft_process", owner_user_id=user_id)
         generated = build_insurer_response_followup_v1(
             source_identity=identity,
             analysis=context["analysis"], evidence_index=context["evidenceIndex"],
@@ -1934,7 +1937,8 @@ class CustomerDeliveryService:
             _request_uuid(values.get(key), key)
         for key in ("expectedWorkflowRevision", "expectedDraftRevision"):
             _positive_revision(values.get(key), key)
-        self.gateway.authenticate(access_token)
+        user_id = self.gateway.authenticate(access_token)
+        observe_scope(self.gateway, canonical_case, "draft_release", owner_user_id=user_id)
         prepared = self._prepared(
             self.gateway.prepare_total_loss_customer_follow_up(canonical_case, values, access_token),
             purpose="follow_up_reconsideration",
@@ -1995,7 +1999,8 @@ class CustomerDeliveryService:
         canonical_case = _request_uuid(case_id, "Case ID")
         canonical_request = _request_uuid(client_request_id, "Client request ID")
         revision = _positive_revision(workflow_revision, "Workflow revision")
-        self.gateway.authenticate(access_token)
+        user_id = self.gateway.authenticate(access_token)
+        observe_scope(self.gateway, canonical_case, "draft_release", owner_user_id=user_id)
         result = self.gateway.prepare_total_loss_customer_message(
             canonical_case, canonical_request, revision, access_token
         )

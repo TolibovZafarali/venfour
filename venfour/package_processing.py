@@ -26,6 +26,8 @@ from typing import Any, Protocol, runtime_checkable
 from urllib.parse import quote, urlsplit
 from uuid import UUID, uuid4
 
+from venfour.jurisdiction_adapter import observe_scope
+
 from venfour.report_ingestion import (
     ReportDocumentInvalidError,
     validate_canonical_pdf,
@@ -1635,6 +1637,7 @@ class TotalLossPackageProcessor:
                 raise PackageProcessingContractError(
                     "Package source lineage is invalid"
                 )
+            observe_scope(self._database, resolved_context.get("case_id"), "package_process")
             source_snapshot_id = self._source_snapshot_id(
                 claimed, resolved_context
             )
