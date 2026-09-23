@@ -369,3 +369,182 @@ approval or enforcement occurred. Price/refund/commission economics are unchange
 The preparation is executable once the owner supplies verified tariffs/balance,
 accepts the fixtures/layout/labels and explicitly authorizes one bounded run.
 No additional product feature work is required for that evaluation.
+
+## Genuine-run preflight: blocked before execution
+
+September 23, 2026, 15:59 UTC. **Zero genuine runs; no authorization generated
+or consumed. Template 5 remains unqualified.** The owner conditionally authorized
+one run, but explicitly required stopping before provider execution if usable
+quota or pricing could not be verified. That condition was not satisfied.
+
+### Pricing and account readiness
+
+The current public [model tariff](https://developers.openai.com/api/docs/models/gpt-5.6-sol)
+and [pricing table](https://developers.openai.com/api/docs/pricing) were inspected
+on this date. Rates below are USD per million tokens:
+
+| Standard processing | Input | Cached input | Cache writes | Output |
+| --- | ---: | ---: | ---: | ---: |
+| At most 272,000 input tokens | 4.00 | 0.40 | 5.00 | 20.00 |
+| More than 272,000 input tokens | 8.00 | 0.80 | 10.00 | 30.00 |
+
+Long-context pricing applies to the whole request. Cache writes cost 1.25 times
+uncached input. The [Fast mode documentation](https://developers.openai.com/api/docs/guides/fast-mode)
+states that this model's corresponding Fast rates are twice Standard rates and
+that a project setting can select Fast when a request omits `service_tier`.
+The current reviewer omits that field. Therefore the project's tier must be
+verified before choosing authorization rates; public Standard prices alone do
+not establish the configured account's effective tariff. No cache discount is
+assumed for the reserve.
+
+Using the existing exact token ceilings, these are **planning reservations,
+not expected bills or activated spend authorizations**:
+
+| Calculation | 28 attempts, no retries | All 84 possible attempts |
+| --- | ---: | ---: |
+| Headline short-context uncached rates, 4 / 20 | $46.670956 | $140.012868 |
+| Standard conservative rates, 10 / 30 | $107.717390 | $323.152170 |
+| Fast conservative rates, 20 / 60 | $215.434780 | $646.304340 |
+
+The headline row is **not a sufficient safety reserve**. Conservative rows charge
+every reserved input token at the long-context cache-write rate and every output
+token at the long-context rate. Rounded upward, the existing scalar-rate guard
+can represent $323.16 for verified Standard pricing or $646.31 for the listed Fast
+pricing. Account-specific terms and the input-token bound still require confirmation.
+Expected actual dollar cost is unknown: the supplied 28.283217M / 1.344M figures
+are absolute ceilings, not measured or predicted usage. No funded dollar ceiling
+was activated, and actual qualification spend is **$0**.
+
+The available browser reached the provider platform's sign-in page, without an
+authenticated organization/project dashboard. Consequently **account/project
+identity, entitlement to `gpt-5.6-sol`, effective service tier, usable balance,
+remaining spend allowance and rate limits were not verified**. The dedicated
+`VENFOUR_QUALIFICATION_MODEL_KEY` was absent from the inherited environment; no
+credential was printed, obtained from production, or tested with an inference
+request. This is missing readiness evidence, not a finding that the account has
+no funds or lacks model access. Existing application credentials and the earlier
+MarketCheck balance do not establish these prerequisites.
+
+### Local binding and safety review
+
+The working tree was clean at inspection. Actual revision:
+`6d8b6fb7d3451b20013ae4488cc9b57f62fe0381`.
+The prior plan declares `d155c5a`, so it is not an authorization for this revision.
+A fresh plan and single-use authorization are required after account verification.
+The following current digests were recomputed and all matched the prepared files:
+
+| Binding | SHA-256 / canonical digest |
+| --- | --- |
+| Source bundle | `fd74529cb8baa22b13b78a5172165175721333955b55bb561d1e1b954b3e726a` |
+| Manifest | `0ec3ed7ea6230b48a1487b83b2c58f3aa5ccd2f0e49735a59536c6cd51d98e9f` |
+| Rubric | `5437e6815a7f3bdca15926ce11f0a2653b9352729e78fd776942c98bcad6a90e` |
+| Evaluation suite | `ba668548f88123ece29b45f4807d2e33133d9c67086774f950da862841d336b0` |
+
+The current manifest/suite contain 28 cases, prompt 5 and schema 1. Bounds remain
+28 expected/normal requests, 56 additional retries, 84 absolute requests, three
+attempts per case, 16,000 output tokens per attempt and zero MarketCheck transport.
+The existing guards require exact plan/model/case bindings, tariffs verified within
+one day, authorization lasting at most six hours, atomic single-use consumption,
+and a durable reservation before every transport. SDK retries are disabled. No
+guard was changed. Source checks surround preparation and evaluation; a future
+run must also be monitored for source drift while it runs.
+
+`/tmp/venfour-template5-authorized-run` does not exist. No execution ledger,
+authorization expiry, consumption marker or candidate was created for this task.
+Final just-before-execution checks remain pending; they are not represented as
+passed. The isolated runner has no customer admission, checkout/payment, email,
+partner attribution or production publication path. The sole allowed transport
+remains the model responses endpoint.
+
+### Pagination disposition and outcome
+
+**A: cosmetic only, accepted for this qualification.** The prepared
+`nationwide_unknown_context/base-report.pdf` still matches its plan PDF digest.
+Pages 3 and 4 were freshly rendered and inspected. The final customer-next-step
+paragraph alone occupies page 4; page 3 retains complete table rows, limitations
+and settlement disclosures. Text is readable, unclipped and correctly ordered;
+the page totals/references are intact. This pagination issue does not omit
+content, corrupt tables or remove disclosures. Keep paragraph pagination as a
+non-blocking follow-up; no renderer redesign or change was made.
+
+| Genuine execution measure | Result |
+| --- | --- |
+| Runs / attempted cases / completed cases | 0 / 0 / 0 of 28 |
+| PASS / REVIEW REQUIRED / FAIL | Not evaluated; all 28 not run |
+| Critical failures / provider errors | None observed; no execution |
+| Model requests / retries / MarketCheck requests | 0 / 0 / 0 |
+| Input tokens / output tokens / actual cost | 0 / 0 / $0 |
+| Hard ceilings | No consumption or exceedance; runtime exercise not performed |
+| Qualification / candidate location and digest | Blocked; no candidate exists |
+
+The checked-in production artifact is byte-identical to HEAD; file SHA-256 is
+`fa28b2327f4ef5b8cdddbb4100e1eca8327eef2f329fef59c794716e2f45ab75`.
+Production qualification and release pins were not changed. The pilot blocker
+therefore remains, and `pilot-preflight.md` was not changed. This task performed
+local digest/budget/PDF checks and documentation validation; the earlier 54-test
+and 28-case dry-run results above were not rerun or presented as new results.
+
+**Next step:** sign into the intended provider organization/project and make its
+model entitlement, billing balance/remaining spend allowance, rate limits and
+service tier available for read-only verification. Bind the dedicated credential
+through the secure local mechanism without sharing it in chat. Then regenerate
+the current-revision plan, confirm the tariff/token assumptions, issue one expiring
+authorization with the verified dollar ceiling, and execute the single bounded
+run. Do not substitute a trial inference request for missing quota evidence.
+
+No deployment, hosted migration, live payment, email, jurisdiction approval,
+enforcement activation, customer mutation/publication or price/refund/commission
+change occurred.
+
+### Signed-in account follow-up
+
+September 23, 2026, approximately 16:03 UTC. The owner completed sign-in and
+requested continuation. The authentication blocker above is resolved. Fresh
+read-only account observations:
+
+| Account control | Observed value |
+| --- | --- |
+| Organization | Personal, `org-dNBvmRo4AsEAHfLXrmM96Z8S` |
+| Project | Default project, `proj_aw1IsTEvr2VluK9UM7mbmSfV` |
+| Project residency / default tier | Global / Standard |
+| Project model policy | Allow all models; `gpt-5.6-sol` explicitly displayed as Allowed |
+| Account usage tier | Tier 2 |
+| Model rate limits | `gpt-5.6-sol`: 1,000,000 TPM and 5,000 RPM |
+| Project spend limit | None set; organization controls still apply |
+| Organization September spend / configured limit | $33.18 / $100.00; $66.82 remaining |
+| Available prepaid credit | $7.52 |
+| Existing auto-reload | Enabled; below $5 restore balance to $10, no monthly auto-reload limit |
+
+Sources were the authenticated project General/Limits pages and organization
+General, Billing Overview and Limits pages. No settings were saved, no credits
+were purchased and no inference request was used to test entitlement. The rate
+table also displayed `1,350,000 TPD` in its **Batch queue limits** column; this is
+not treated as evidence of remaining synchronous inference quota. The dedicated
+execution credential's association with this project remains to be verified
+before execution; browser identity alone does not establish that binding.
+
+**Execution remains blocked by insufficient verified spending headroom.** Standard
+pricing selects the $323.16 conservative whole-run reserve above. Existing
+auto-reload does not increase the separate $100 organization spend limit. The
+remaining $66.82 is $256.34 below that reserve. The dashboard cautions that actual
+costs may exceed the configured limit; that is not permission to exceed it, and
+the local hard ceiling must remain authoritative.
+
+The next owner action is to provide at least $323.16 of available spending
+headroom for this bounded run: with the observed $33.18 already spent, a total
+monthly limit of at least **$356.34**, plus any allowance for unrelated traffic,
+would be needed. Verify sufficient funding through credits or the existing
+auto-reload arrangement and bind the dedicated credential to the inspected
+project. This is a reserve, not an expected $323.16 bill. No budget or billing
+change is authorized or performed by this follow-up. Recheck current spend,
+funding, rate limits and credential binding before issuing the one-use permit.
+
+Revision remains `6d8b6fb7d3451b20013ae4488cc9b57f62fe0381`; the only working-tree
+change is this runbook. Pagination acceptance and all prior limits remain intact.
+No authorization or candidate was generated. Cumulative genuine runs remain
+**zero**, completed cases **0/28**, model/market requests and retries **zero**,
+input/output tokens **zero**, and cost **$0**. All cases remain unevaluated, no
+ceiling was exceeded, production qualification remains unchanged, and the pilot
+blocker is unchanged. No deployment, migration, live payment, email, jurisdiction
+approval, enforcement activation, customer mutation/publication or economics
+change occurred.
