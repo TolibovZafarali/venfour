@@ -9,7 +9,8 @@ describe("public intake entry point", () => {
   it("offers customer intake while keeping the public site independent of application credentials", () => {
     renderTestApp(["/"], { authService: null });
     expect(screen.getAllByRole("link", { name: /Start Total Loss review/ }).length).toBeGreaterThan(0);
-    expect(screen.getByText("Available now")).toBeVisible();
+    expect(screen.getAllByRole("link", { name: /Start Total Loss review/ }).every(link => link.getAttribute("href") === "/start?service=total-loss")).toBe(true);
+    expect(screen.getByRole("heading", { name: "Your Vehicle’s Value, Made Clear." })).toBeVisible();
     expect(screen.queryByText("Online reviews are opening soon.")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Admin|Payment approvals/ })).not.toBeInTheDocument();
     expect(environment.supabaseUrl).toBe("");

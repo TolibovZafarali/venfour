@@ -19,6 +19,7 @@ scripts/prepare_local_showcase.py
 !tests/fixtures/
 !tests/fixtures/report_review/
 !tests/fixtures/report_review/eval_cases_v1.json
+!tests/fixtures/report_review/template5_manifest.json
 
 **/__pycache__/
 **/*.py[cod]
