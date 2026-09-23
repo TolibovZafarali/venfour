@@ -1,0 +1,335 @@
+{
+  "provenance": "tests/test_insurer_response_followup.py::_inputs; analyzer result is an existing test double, not a model call; deterministic recommendation and follow-up generated with current functions; contact names replaced before generation",
+  "analysis": {
+    "schemaVersion": "1",
+    "analysisSummary": {
+      "whatInsurerSaid": "The insurer reviewed the request and explained its current position.",
+      "whatThisMeans": "The response changes part of the offer but leaves the comparable issue unresolved.",
+      "responseEvidenceRefs": [
+        "response_c502cbf0e97f86859b256bafb5ccf5c188f3c49e1894f8c177bca2254820342d"
+      ],
+      "caseEvidenceRefs": [
+        "case_a20b125dec100f0fc399968f688f004c6a315d1b804fb4b1840f0584e17722c9"
+      ]
+    },
+    "insurerPosition": {
+      "category": "REVISED_OFFER",
+      "summary": "The insurer revised part of its position.",
+      "responseEvidenceRefs": [
+        "response_c502cbf0e97f86859b256bafb5ccf5c188f3c49e1894f8c177bca2254820342d"
+      ]
+    },
+    "revisedOffer": {
+      "status": "PRESENT",
+      "amountMinorUnits": 2000000,
+      "currency": "USD",
+      "source": "BOTH",
+      "responseEvidenceRefs": [
+        "response_c502cbf0e97f86859b256bafb5ccf5c188f3c49e1894f8c177bca2254820342d",
+        "response_1727a3165cbd23ae33a50aedcb75a49b143de17bc40b3b0fbee09eafe5caec21"
+      ],
+      "visualSourceInterpretation": null
+    },
+    "requestDisposition": {
+      "category": "PARTIALLY_ACCEPTED",
+      "summary": "The offer changed, but the comparable request was not accepted.",
+      "responseEvidenceRefs": [
+        "response_c502cbf0e97f86859b256bafb5ccf5c188f3c49e1894f8c177bca2254820342d"
+      ],
+      "caseEvidenceRefs": [
+        "case_06656b03cba9c19a5b52b56b8605bae7c54b4edab148a73244927196fa72bf50"
+      ]
+    },
+    "responsePoints": [
+      {
+        "topic": "Comparable vehicle selection",
+        "disposition": "REJECTED",
+        "whatInsurerSaid": "The insurer did not change its comparable selection.",
+        "whatThisMeans": "The existing disagreement about market evidence remains unresolved.",
+        "responseEvidenceRefs": [
+          "response_c502cbf0e97f86859b256bafb5ccf5c188f3c49e1894f8c177bca2254820342d"
+        ],
+        "caseEvidenceRefs": [
+          "case_a20b125dec100f0fc399968f688f004c6a315d1b804fb4b1840f0584e17722c9"
+        ],
+        "confidence": "HIGH"
+      }
+    ],
+    "insurerArguments": [
+      {
+        "argument": "The current comparable selection remains appropriate.",
+        "whatItReliesOn": "The insurer's stated review of the request.",
+        "responseEvidenceRefs": [
+          "response_c502cbf0e97f86859b256bafb5ccf5c188f3c49e1894f8c177bca2254820342d"
+        ],
+        "caseEvidenceRefs": [
+          "case_a20b125dec100f0fc399968f688f004c6a315d1b804fb4b1840f0584e17722c9"
+        ]
+      }
+    ],
+    "importantChanges": [
+      {
+        "description": "The insurer's offer changed from its prior position.",
+        "responseEvidenceRefs": [
+          "response_c502cbf0e97f86859b256bafb5ccf5c188f3c49e1894f8c177bca2254820342d"
+        ],
+        "caseEvidenceRefs": [
+          "case_3bb24c7e49635435c71230ad9abe540820d4cb20841284de1e44efd95980edc1"
+        ]
+      }
+    ],
+    "unresolvedIssues": [
+      {
+        "description": "The comparable-selection issue remains unresolved.",
+        "responseEvidenceRefs": [
+          "response_c502cbf0e97f86859b256bafb5ccf5c188f3c49e1894f8c177bca2254820342d"
+        ],
+        "caseEvidenceRefs": [
+          "case_a20b125dec100f0fc399968f688f004c6a315d1b804fb4b1840f0584e17722c9"
+        ]
+      }
+    ],
+    "recommendedNextStep": {
+      "category": "REVIEW_REVISED_OFFER",
+      "explanation": "Review the response against the existing case evidence before deciding what to do next.",
+      "responseEvidenceRefs": [
+        "response_c502cbf0e97f86859b256bafb5ccf5c188f3c49e1894f8c177bca2254820342d"
+      ],
+      "caseEvidenceRefs": [
+        "case_a20b125dec100f0fc399968f688f004c6a315d1b804fb4b1840f0584e17722c9"
+      ]
+    },
+    "confidence": "HIGH",
+    "uncertainties": [],
+    "inputCoverage": {
+      "pastedText": "AVAILABLE",
+      "document": "NOT_PROVIDED",
+      "limitations": []
+    },
+    "untrustedInstructionDetected": false,
+    "untrustedInstructionFollowed": false
+  },
+  "recommendation": {
+    "schemaVersion": "1",
+    "policyVersion": "2",
+    "state": "NO_CLEAR_RECOMMENDATION",
+    "summary": "Venfour has no clear recommendation yet.",
+    "reasons": [
+      "The response analysis leaves uncertainty or incomplete response material that prevents a reliable recommendation."
+    ],
+    "reasonCodes": [
+      "RESPONSE_UNCERTAINTY_UNRESOLVED"
+    ],
+    "limitations": [
+      "The saved assessment's evidence limitations still apply. Advertised listing prices are not verified sale prices, an assessed settlement target, or legal entitlement. No revised vehicle valuation is calculated here."
+    ],
+    "responseEvidenceRefs": [
+      "response_1727a3165cbd23ae33a50aedcb75a49b143de17bc40b3b0fbee09eafe5caec21",
+      "response_c502cbf0e97f86859b256bafb5ccf5c188f3c49e1894f8c177bca2254820342d"
+    ],
+    "caseEvidenceRefs": [
+      "case_7673ef9dd39b4ad89229d16a1224f45ec0916209a13a60c217bb296fced4dd31",
+      "case_974afc1eb32f8ecbc3efcb14612850734489a8914930032aa43bd7a9335a8f6b",
+      "case_a20b125dec100f0fc399968f688f004c6a315d1b804fb4b1840f0584e17722c9"
+    ],
+    "offer": {
+      "amountMinorUnits": 2000000,
+      "currency": "USD",
+      "source": "CUSTOMER_RECORDED"
+    },
+    "policyInput": {
+      "assessmentDigest": "e76873c2d8fdd3bb896cd860f628c731fd56bfd2fe7526ea3a3e19cf7b8d3930",
+      "finalClassification": "MATERIAL_UNDERVALUE_SIGNAL",
+      "evidenceStrength": "STRONG",
+      "evidenceBasis": "LOSS_DATE_HISTORICAL",
+      "continuationStatus": "SUPPORTS_CONTINUATION",
+      "supportedRange": {
+        "semantics": "SELECTED_ADVERTISED_PRICE_RANGE",
+        "evidenceBasis": "LOSS_DATE_HISTORICAL",
+        "lowMinorUnits": 2180000,
+        "medianMinorUnits": 2220000,
+        "highMinorUnits": 2260000,
+        "currency": "USD",
+        "evidenceIds": [
+          "ev_8ae07c7b905cb123b217acb3764cc2a3440515c167805b924bcabcd7f57f1bd3"
+        ]
+      },
+      "insurerValuationReviewed": {
+        "source": "REPORT",
+        "valueMinorUnits": 2000000,
+        "currency": "USD",
+        "evidenceIds": [
+          "ev_ade035076319340e6c2036a9d263e710139583581e54effe31ba133f523aa68e"
+        ]
+      },
+      "preliminaryToFinalComparison": {
+        "preliminary": {
+          "classification": "MATERIAL_UNDERVALUE_SIGNAL",
+          "supportedRange": {
+            "lowMinorUnits": 2180000,
+            "medianMinorUnits": 2220000,
+            "highMinorUnits": 2260000,
+            "currency": "USD"
+          }
+        },
+        "final": {
+          "classification": "MATERIAL_UNDERVALUE_SIGNAL",
+          "supportedRange": {
+            "lowMinorUnits": 2180000,
+            "medianMinorUnits": 2220000,
+            "highMinorUnits": 2260000,
+            "currency": "USD"
+          }
+        },
+        "absoluteChangesMinorUnits": {
+          "lowMinorUnits": 0,
+          "medianMinorUnits": 0,
+          "highMinorUnits": 0
+        },
+        "percentageChangesBasisPoints": {
+          "lowMinorUnits": 0,
+          "medianMinorUnits": 0,
+          "highMinorUnits": 0
+        },
+        "classificationChanged": false,
+        "rangeAvailabilityChanged": false,
+        "materialChange": false,
+        "reasonCodes": [
+          "UNCHANGED_EVIDENCE"
+        ]
+      },
+      "validationIssues": [],
+      "limitations": [
+        {
+          "code": "NOT_AN_INDEPENDENT_APPRAISAL",
+          "label": "Not an independent appraisal",
+          "description": "This evidence comparison is not an independent vehicle appraisal.",
+          "evidenceIds": [
+            "ev_14d633d38bdf60fd35fb37153ec93dc4b1af8ab02e1642302f8cfe44977953e6"
+          ]
+        },
+        {
+          "code": "DOES_NOT_CALCULATE_LEGAL_SETTLEMENT",
+          "label": "Does not calculate a legal settlement",
+          "description": "This analysis does not calculate a legally owed settlement amount.",
+          "evidenceIds": [
+            "ev_6c82702ef2cb2c7c507436249edc14e90b6688249ec3016954eb57c1b44a9e56"
+          ]
+        },
+        {
+          "code": "POLICY_THRESHOLDS_NOT_LEGAL_STANDARDS",
+          "label": "Policy thresholds are not legal standards",
+          "description": "Classification thresholds are screening-policy thresholds, not legal or industry standards.",
+          "evidenceIds": [
+            "ev_717c0f3313540e0287595d282b2fc5b07e0242aacc43b17f2b6f34d963b6180b"
+          ]
+        },
+        {
+          "code": "NEGOTIATION_OUTPUT_NOT_INCLUDED",
+          "label": "Negotiation output is not included",
+          "description": "Negotiation, demand, and action guidance are not included.",
+          "evidenceIds": [
+            "ev_0de08a418171a03e1f83f59bcc7918a8d494a6e0d7dd94333b828913e52aeb8b"
+          ]
+        },
+        {
+          "code": "ADVERTISED_PRICES_NOT_TRANSACTIONS",
+          "label": "Advertised prices are not completed transactions",
+          "description": "Advertised listing prices are not verified completed-sale prices.",
+          "evidenceIds": [
+            "ev_0cec8604bbc17167bceddc9662a3b40ff96aa8e33bae6a52b6c92b3a38d9b1c8"
+          ]
+        },
+        {
+          "code": "NO_INDEPENDENT_MILEAGE_ADJUSTMENT",
+          "label": "No independent mileage adjustment",
+          "description": "Mileage differences are reported without an independent dollar-per-mile adjustment.",
+          "evidenceIds": [
+            "ev_ba9a01d93c5a1e7148096077143202de744f866884024fea6abde7c2737b28b5"
+          ]
+        },
+        {
+          "code": "NO_INDEPENDENT_CONDITION_ADJUSTMENT",
+          "label": "No independent condition adjustment",
+          "description": "No independently invented vehicle-condition adjustment is applied.",
+          "evidenceIds": [
+            "ev_02ee3769e644557128303eb3a1a980cbd7e9c3775775569462613685721d8947"
+          ]
+        },
+        {
+          "code": "NO_INDEPENDENT_OPTIONS_ADJUSTMENT",
+          "label": "No independent options adjustment",
+          "description": "No independently invented option, package, or equipment adjustment is applied.",
+          "evidenceIds": [
+            "ev_f130aaec3f318a4bdf79dd63685bb9c334b58ba2b76fa7bc21d5c609e47a428f"
+          ]
+        },
+        {
+          "code": "PROVIDER_COVERAGE_LIMITED",
+          "label": "Provider coverage is limited",
+          "description": "Provider evidence may not capture every vehicle available in the relevant market.",
+          "evidenceIds": [
+            "ev_0f4a48668e091c219f052b248f470abf3f4ba6bb5dcdbc3073fe6972796f3dc9"
+          ]
+        },
+        {
+          "code": "CURRENT_LISTINGS_NOT_LOSS_DATE_EVIDENCE",
+          "label": "Current listings are not loss-date evidence",
+          "description": "Current inventory is current-market context and is not proof of loss-date conditions.",
+          "evidenceIds": [
+            "ev_284cca678419940e02e4369176ecdffbdc49d325016fdeafb361403376a5b91c"
+          ]
+        },
+        {
+          "code": "HISTORICAL_DATE_LEVEL_ONLY",
+          "label": "Historical evidence is date-level only",
+          "description": "Historical activity is established at calendar-date level; the exact loss time within that day is unavailable.",
+          "evidenceIds": [
+            "ev_678a796482017b42f363e697b1edbc3847c4e1475d73a647b4f91cdb0179b40e"
+          ]
+        },
+        {
+          "code": "BOUNDED_EXTERNAL_COMPARISON_SET",
+          "label": "External comparison set is bounded",
+          "description": "External statistics use the bounded best-ranked eligible set selected without reference to price.",
+          "evidenceIds": [
+            "ev_6a1912f26287a88ba536eb46fd123277ef432ebfb3d117bb64d096108eeccbc8"
+          ]
+        }
+      ],
+      "assumptions": []
+    }
+  },
+  "follow_up": {
+    "schemaVersion": "1",
+    "templateVersion": "2",
+    "status": "READY",
+    "generationDigest": "71cb3b27ef0f3e18d6939bef886295f64ed972a91516b32033f6568a8918d72c",
+    "recipientEmail": "adjuster@example.invalid",
+    "subject": "Follow-up on vehicle valuation — claim CLAIM-782",
+    "body": "Hello Fictional Adjuster,\n\nThank you for reviewing my request for claim CLAIM-782.\n\nYou noted: “We are maintaining the comparable selection.” I have recorded $20,000.00 as the vehicle valuation amount. Could you please confirm that amount?\n\nThe report includes a 2024 Synthetic Sedan listing advertised at $21,800.00. I understand this is an asking price. Could you please explain how this listing was considered, including any relevant differences from my vehicle?\n\nI've attached the report again for convenience. Could you please reconsider the valuation in light of this evidence and reply with any updated valuation? If it remains unchanged, a brief explanation would help me understand.\n\nThank you for your time and help,\nFictional Customer",
+    "grounding": {
+      "responseEvidenceRefs": [
+        "response_1727a3165cbd23ae33a50aedcb75a49b143de17bc40b3b0fbee09eafe5caec21",
+        "response_c502cbf0e97f86859b256bafb5ccf5c188f3c49e1894f8c177bca2254820342d"
+      ],
+      "caseEvidenceRefs": [
+        "case_06656b03cba9c19a5b52b56b8605bae7c54b4edab148a73244927196fa72bf50",
+        "case_a20b125dec100f0fc399968f688f004c6a315d1b804fb4b1840f0584e17722c9"
+      ],
+      "assessmentEvidenceIds": [
+        "ev_0227e6286c7eb28a9f1543781c7e2e4cbc588dc8df53e0fc245b260741991a49",
+        "ev_15f0f21549a6c9239c864ae84de6a60c7058475a65aafa7fa2579cc396637d21",
+        "ev_41810891ec9c151c1b2d7d38ef7b61992bc964fb3bd8033e57539d4aa548a478",
+        "ev_528d3924bd6e42103209b2f2cf426ecf54f4f2d744493dcacf41046764e83426",
+        "ev_8629a4e00f9ab4e270dd9dfbf1c9183cc3fd56444a5e7e5daa3fb08d22512a8d",
+        "ev_a85d9696e9fec15242fba82295ed77bbaf662a0a5aa5eec5ccea0873c9e84d05",
+        "ev_be4b8ce93ee3f294d62035daef86e3b21d68c36d7000ad88f49d7f9829adf056",
+        "ev_d34da97c1e34b6ff60d78d33fd7512163bd66bcc10d08e196e928f97ddc1ac5b",
+        "ev_f86c07e17281012d9757c6807e919fc5408ecc115e522cc9cf8bd5db1b2c76b4"
+      ]
+    },
+    "blockedReasonCode": null,
+    "blockedMessage": null
+  }
+}

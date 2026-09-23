@@ -1,0 +1,67 @@
+{
+  "provenance": "tests/test_preliminary_result.py::test_strong_and_good_existing_evidence_can_support_range_without_offer; VIN identity redacted after projection; not a replay input",
+  "result": {
+    "version": "1",
+    "outcome": "ESTIMATE",
+    "evidenceBasis": "CURRENT_MARKET",
+    "evidenceDate": "2026-09-09",
+    "sampleSize": 3,
+    "estimatedRange": {
+      "lowCents": 2000000,
+      "highCents": 2040000
+    },
+    "listingPriceSpan": null,
+    "listings": [
+      {
+        "identity": "vin:REDACTED-FICTIONAL-1",
+        "year": 2022,
+        "make": "Synthetic",
+        "model": "Sedan",
+        "trim": "Touring",
+        "askingPriceCents": 2000000,
+        "mileage": 50000,
+        "distanceMiles": 10,
+        "certified": false,
+        "source": "synthetic-provider",
+        "listingUrl": "https://synthetic.invalid/0",
+        "limitations": []
+      },
+      {
+        "identity": "vin:REDACTED-FICTIONAL-2",
+        "year": 2022,
+        "make": "Synthetic",
+        "model": "Sedan",
+        "trim": "Touring",
+        "askingPriceCents": 2020000,
+        "mileage": 50000,
+        "distanceMiles": 10,
+        "certified": false,
+        "source": "synthetic-provider",
+        "listingUrl": "https://synthetic.invalid/1",
+        "limitations": []
+      },
+      {
+        "identity": "vin:REDACTED-FICTIONAL-3",
+        "year": 2022,
+        "make": "Synthetic",
+        "model": "Sedan",
+        "trim": "Touring",
+        "askingPriceCents": 2040000,
+        "mileage": 50000,
+        "distanceMiles": 10,
+        "certified": false,
+        "source": "synthetic-provider",
+        "listingUrl": "https://synthetic.invalid/2",
+        "limitations": []
+      }
+    ],
+    "limitations": [
+      "Asking prices are not completed sale prices or a guaranteed settlement.",
+      "These listings reflect current inventory, not verified prices on the date of loss."
+    ],
+    "reasonCodes": [
+      "EXISTING_QUALIFIED_SAMPLE_WITH_SIMILAR_MILEAGE_AND_BOUNDED_DISPERSION"
+    ],
+    "insurerComparison": null
+  }
+}

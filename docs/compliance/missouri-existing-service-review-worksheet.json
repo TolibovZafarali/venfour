@@ -1,0 +1,383 @@
+{
+  "format": "review-intake-worksheet-1",
+  "status": "blank_non_authoritative",
+  "purpose": "Missouri existing-service review intake; null means unanswered, not not-required or permitted. Not compatible with the authority compiler or publication input.",
+  "runtime_contract_reference": "schemas/jurisdiction/reviewed-authority-v1.schema.json",
+  "field_choices": {
+    "capability": [
+      "case_specific_preview",
+      "customer_reconsideration_draft",
+      "insurer_response_coaching",
+      "market_evidence_report",
+      "personalized_valuation",
+      "referral_compensation",
+      "referral_marketing"
+    ],
+    "claim_type": [
+      "first_party",
+      "third_party"
+    ],
+    "policy_use": [
+      "commercial",
+      "personal"
+    ],
+    "provider_role": [
+      "appraiser",
+      "expert",
+      "licensed_adjuster",
+      "referral_partner",
+      "umpire",
+      "valuation_service"
+    ],
+    "determination": [
+      "permitted",
+      "limited",
+      "prohibited",
+      "not_applicable",
+      "unresolved"
+    ],
+    "credential_policy": [
+      "required",
+      "reviewed_not_required"
+    ],
+    "terms_policy": [
+      "required",
+      "reviewed_not_required"
+    ],
+    "date_anchor": [
+      "service_date",
+      "loss_date",
+      "policy_end",
+      "policy_start",
+      "settlement_date"
+    ]
+  },
+  "typed_condition_shape": {
+    "field": "FACT_FIELDS member",
+    "equals": "reviewed exact value"
+  },
+  "credential_shape": {
+    "id": null,
+    "type": null,
+    "jurisdiction": null,
+    "holder": null,
+    "provider": null
+  },
+  "document_shape": {
+    "type": null,
+    "version": null,
+    "digest": null
+  },
+  "worksheets": [
+    {
+      "capability": "case_specific_preview",
+      "determination": null,
+      "jurisdictions": null,
+      "claim_type": null,
+      "policy_use": null,
+      "provider_role": null,
+      "required_facts": null,
+      "conditions": null,
+      "credential_policy": null,
+      "credentials": null,
+      "terms_policy": null,
+      "documents": null,
+      "date_anchor": null,
+      "effective_from": null,
+      "effective_until": null,
+      "review_due_at": null,
+      "revocation_conditions_notes": null,
+      "revocation": null,
+      "sources": [
+        {
+          "id": null,
+          "kind": null,
+          "url": null,
+          "locator": null,
+          "document_digest": null,
+          "retained_evidence": null
+        }
+      ],
+      "reviewer_notes": null
+    },
+    {
+      "capability": "market_evidence_report",
+      "determination": null,
+      "jurisdictions": null,
+      "claim_type": null,
+      "policy_use": null,
+      "provider_role": null,
+      "required_facts": null,
+      "conditions": null,
+      "credential_policy": null,
+      "credentials": null,
+      "terms_policy": null,
+      "documents": null,
+      "date_anchor": null,
+      "effective_from": null,
+      "effective_until": null,
+      "review_due_at": null,
+      "revocation_conditions_notes": null,
+      "revocation": null,
+      "sources": [
+        {
+          "id": null,
+          "kind": null,
+          "url": null,
+          "locator": null,
+          "document_digest": null,
+          "retained_evidence": null
+        }
+      ],
+      "reviewer_notes": null
+    },
+    {
+      "capability": "personalized_valuation",
+      "determination": null,
+      "jurisdictions": null,
+      "claim_type": null,
+      "policy_use": null,
+      "provider_role": null,
+      "required_facts": null,
+      "conditions": null,
+      "credential_policy": null,
+      "credentials": null,
+      "terms_policy": null,
+      "documents": null,
+      "date_anchor": null,
+      "effective_from": null,
+      "effective_until": null,
+      "review_due_at": null,
+      "revocation_conditions_notes": null,
+      "revocation": null,
+      "sources": [
+        {
+          "id": null,
+          "kind": null,
+          "url": null,
+          "locator": null,
+          "document_digest": null,
+          "retained_evidence": null
+        }
+      ],
+      "reviewer_notes": null
+    },
+    {
+      "capability": "customer_reconsideration_draft",
+      "determination": null,
+      "jurisdictions": null,
+      "claim_type": null,
+      "policy_use": null,
+      "provider_role": null,
+      "required_facts": null,
+      "conditions": null,
+      "credential_policy": null,
+      "credentials": null,
+      "terms_policy": null,
+      "documents": null,
+      "date_anchor": null,
+      "effective_from": null,
+      "effective_until": null,
+      "review_due_at": null,
+      "revocation_conditions_notes": null,
+      "revocation": null,
+      "sources": [
+        {
+          "id": null,
+          "kind": null,
+          "url": null,
+          "locator": null,
+          "document_digest": null,
+          "retained_evidence": null
+        }
+      ],
+      "reviewer_notes": null
+    },
+    {
+      "capability": "insurer_response_coaching",
+      "determination": null,
+      "jurisdictions": null,
+      "claim_type": null,
+      "policy_use": null,
+      "provider_role": null,
+      "required_facts": null,
+      "conditions": null,
+      "credential_policy": null,
+      "credentials": null,
+      "terms_policy": null,
+      "documents": null,
+      "date_anchor": null,
+      "effective_from": null,
+      "effective_until": null,
+      "review_due_at": null,
+      "revocation_conditions_notes": null,
+      "revocation": null,
+      "sources": [
+        {
+          "id": null,
+          "kind": null,
+          "url": null,
+          "locator": null,
+          "document_digest": null,
+          "retained_evidence": null
+        }
+      ],
+      "reviewer_notes": null
+    },
+    {
+      "capability": "insurer_contact_negotiation",
+      "determination": null,
+      "jurisdictions": null,
+      "claim_type": null,
+      "policy_use": null,
+      "provider_role": null,
+      "required_facts": null,
+      "conditions": null,
+      "credential_policy": null,
+      "credentials": null,
+      "terms_policy": null,
+      "documents": null,
+      "date_anchor": null,
+      "effective_from": null,
+      "effective_until": null,
+      "review_due_at": null,
+      "revocation_conditions_notes": null,
+      "revocation": null,
+      "sources": [
+        {
+          "id": null,
+          "kind": null,
+          "url": null,
+          "locator": null,
+          "document_digest": null,
+          "retained_evidence": null
+        }
+      ],
+      "reviewer_notes": null
+    },
+    {
+      "capability": "formal_appraisal_clause",
+      "determination": null,
+      "jurisdictions": null,
+      "claim_type": null,
+      "policy_use": null,
+      "provider_role": null,
+      "required_facts": null,
+      "conditions": null,
+      "credential_policy": null,
+      "credentials": null,
+      "terms_policy": null,
+      "documents": null,
+      "date_anchor": null,
+      "effective_from": null,
+      "effective_until": null,
+      "review_due_at": null,
+      "revocation_conditions_notes": null,
+      "revocation": null,
+      "sources": [
+        {
+          "id": null,
+          "kind": null,
+          "url": null,
+          "locator": null,
+          "document_digest": null,
+          "retained_evidence": null
+        }
+      ],
+      "reviewer_notes": null
+    },
+    {
+      "capability": "umpire_expert_role",
+      "determination": null,
+      "jurisdictions": null,
+      "claim_type": null,
+      "policy_use": null,
+      "provider_role": null,
+      "required_facts": null,
+      "conditions": null,
+      "credential_policy": null,
+      "credentials": null,
+      "terms_policy": null,
+      "documents": null,
+      "date_anchor": null,
+      "effective_from": null,
+      "effective_until": null,
+      "review_due_at": null,
+      "revocation_conditions_notes": null,
+      "revocation": null,
+      "sources": [
+        {
+          "id": null,
+          "kind": null,
+          "url": null,
+          "locator": null,
+          "document_digest": null,
+          "retained_evidence": null
+        }
+      ],
+      "reviewer_notes": null
+    },
+    {
+      "capability": "referral_marketing",
+      "determination": null,
+      "jurisdictions": null,
+      "claim_type": null,
+      "policy_use": null,
+      "provider_role": null,
+      "required_facts": null,
+      "conditions": null,
+      "credential_policy": null,
+      "credentials": null,
+      "terms_policy": null,
+      "documents": null,
+      "date_anchor": null,
+      "effective_from": null,
+      "effective_until": null,
+      "review_due_at": null,
+      "revocation_conditions_notes": null,
+      "revocation": null,
+      "sources": [
+        {
+          "id": null,
+          "kind": null,
+          "url": null,
+          "locator": null,
+          "document_digest": null,
+          "retained_evidence": null
+        }
+      ],
+      "reviewer_notes": null
+    },
+    {
+      "capability": "referral_compensation",
+      "determination": null,
+      "jurisdictions": null,
+      "claim_type": null,
+      "policy_use": null,
+      "provider_role": null,
+      "required_facts": null,
+      "conditions": null,
+      "credential_policy": null,
+      "credentials": null,
+      "terms_policy": null,
+      "documents": null,
+      "date_anchor": null,
+      "effective_from": null,
+      "effective_until": null,
+      "review_due_at": null,
+      "revocation_conditions_notes": null,
+      "revocation": null,
+      "sources": [
+        {
+          "id": null,
+          "kind": null,
+          "url": null,
+          "locator": null,
+          "document_digest": null,
+          "retained_evidence": null
+        }
+      ],
+      "reviewer_notes": null
+    }
+  ]
+}

@@ -1,0 +1,526 @@
+{
+  "source_commit": "f8a3f7a3fd90da914e9d9f6692e7972d6a965e21",
+  "fictional": true,
+  "network_guard_probes_blocked": 3,
+  "unexpected_network_attempts": 0,
+  "reports": [
+    {
+      "file": "supported-review.pdf",
+      "template": "4",
+      "pages": 2,
+      "sha256": "5e64f4a69be739c659d7e821fe6f5f602d4ffe9714716aaeafe80c6ec0425855",
+      "validation": {
+        "schemaVersion": "1",
+        "status": "PASS",
+        "reportVersionId": "00000000-0000-4000-8000-000000000132",
+        "reportDigest": "d145c0637f903ca4cd424f52873d8f601b1677b8b34a86b7fd30f65eeff67201",
+        "rendererVersion": "4",
+        "templateVersion": "4",
+        "filename": "valuation-evidence-package.pdf",
+        "mediaType": "application/pdf",
+        "pdfSha256": "5e64f4a69be739c659d7e821fe6f5f602d4ffe9714716aaeafe80c6ec0425855",
+        "byteSize": 7396,
+        "pageCount": 2,
+        "extractedTextDigest": "be8033381172a88c591898ebfcb5a3e899e9f086670a17ac1df562ea5f8daba6",
+        "mandatorySectionChecks": [
+          {
+            "code": "REVIEW_SUMMARY",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_EVIDENCE",
+            "status": "PASS"
+          },
+          {
+            "code": "SOURCES",
+            "status": "PASS"
+          }
+        ],
+        "requiredContentChecks": [
+          {
+            "code": "REPORT_TITLE",
+            "status": "PASS"
+          },
+          {
+            "code": "REPORT_REFERENCE",
+            "status": "PASS"
+          },
+          {
+            "code": "REPORT_VERSION",
+            "status": "PASS"
+          },
+          {
+            "code": "ISSUE_DATE",
+            "status": "PASS"
+          },
+          {
+            "code": "SUBJECT_VEHICLE",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_VALUATION",
+            "status": "PASS"
+          },
+          {
+            "code": "PRICE_SCOPE",
+            "status": "PASS"
+          },
+          {
+            "code": "ADJUSTMENT_SCOPE",
+            "status": "PASS"
+          },
+          {
+            "code": "APPRAISAL_SCOPE",
+            "status": "PASS"
+          },
+          {
+            "code": "INSPECTION_SCOPE",
+            "status": "PASS"
+          },
+          {
+            "code": "RANGE_LOW",
+            "status": "PASS"
+          },
+          {
+            "code": "RANGE_MEDIAN",
+            "status": "PASS"
+          },
+          {
+            "code": "RANGE_HIGH",
+            "status": "PASS"
+          },
+          {
+            "code": "CLAIM_REFERENCE",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_0",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_VEHICLE_0",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_ID_0",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_1",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_VEHICLE_1",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_ID_1",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_2",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_VEHICLE_2",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_ID_2",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_3",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_VEHICLE_3",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_ID_3",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_4",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_VEHICLE_4",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_ID_4",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_5",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_6",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_7",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_8",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_9",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_COMPARABLE_0",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTEDVALUE_0",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_NETADJUSTMENT_0",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_0_PACKAGE",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_0_OPTIONS",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_0_MILEAGE",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_0_CONDITION",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_COMPARABLE_1",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTEDVALUE_1",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_NETADJUSTMENT_1",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_1_PACKAGE",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_1_OPTIONS",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_1_MILEAGE",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_1_CONDITION",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_COMPARABLE_2",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTEDVALUE_2",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_NETADJUSTMENT_2",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_2_PACKAGE",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_2_OPTIONS",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_2_MILEAGE",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_2_CONDITION",
+            "status": "PASS"
+          }
+        ],
+        "blankPages": [],
+        "unresolvedPlaceholders": [],
+        "manifestDigest": "cad6e6bad862181d47e5a520f7c7007a3254722c8fd836d9fa10ff0482873cad"
+      }
+    },
+    {
+      "file": "no-support-review.pdf",
+      "template": "4",
+      "pages": 2,
+      "sha256": "d95c3d8e89b746c5bc4530ec4875ab1f7c5b9013d756c7af912f69a0b523cfd2",
+      "validation": {
+        "schemaVersion": "1",
+        "status": "PASS",
+        "reportVersionId": "00000000-0000-4000-8000-000000000132",
+        "reportDigest": "5ea8c5247e6d457d2cde5f3f31143a3875f4e07a4a0095a813870759896a865f",
+        "rendererVersion": "4",
+        "templateVersion": "4",
+        "filename": "valuation-evidence-package.pdf",
+        "mediaType": "application/pdf",
+        "pdfSha256": "d95c3d8e89b746c5bc4530ec4875ab1f7c5b9013d756c7af912f69a0b523cfd2",
+        "byteSize": 7370,
+        "pageCount": 2,
+        "extractedTextDigest": "273b1f0502b451000ce367b062269cd483266e82d1b546d12d42a6e1fb7414c6",
+        "mandatorySectionChecks": [
+          {
+            "code": "REVIEW_SUMMARY",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_EVIDENCE",
+            "status": "PASS"
+          },
+          {
+            "code": "SOURCES",
+            "status": "PASS"
+          }
+        ],
+        "requiredContentChecks": [
+          {
+            "code": "REPORT_TITLE",
+            "status": "PASS"
+          },
+          {
+            "code": "REPORT_REFERENCE",
+            "status": "PASS"
+          },
+          {
+            "code": "REPORT_VERSION",
+            "status": "PASS"
+          },
+          {
+            "code": "ISSUE_DATE",
+            "status": "PASS"
+          },
+          {
+            "code": "SUBJECT_VEHICLE",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_VALUATION",
+            "status": "PASS"
+          },
+          {
+            "code": "PRICE_SCOPE",
+            "status": "PASS"
+          },
+          {
+            "code": "ADJUSTMENT_SCOPE",
+            "status": "PASS"
+          },
+          {
+            "code": "APPRAISAL_SCOPE",
+            "status": "PASS"
+          },
+          {
+            "code": "INSPECTION_SCOPE",
+            "status": "PASS"
+          },
+          {
+            "code": "RANGE_LOW",
+            "status": "PASS"
+          },
+          {
+            "code": "RANGE_MEDIAN",
+            "status": "PASS"
+          },
+          {
+            "code": "RANGE_HIGH",
+            "status": "PASS"
+          },
+          {
+            "code": "CLAIM_REFERENCE",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_0",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_VEHICLE_0",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_ID_0",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_1",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_VEHICLE_1",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_ID_1",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_2",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_VEHICLE_2",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_ID_2",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_3",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_VEHICLE_3",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_ID_3",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_4",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_VEHICLE_4",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_ID_4",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_5",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_6",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_7",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_8",
+            "status": "PASS"
+          },
+          {
+            "code": "COMPARABLE_PRICE_9",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_COMPARABLE_0",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTEDVALUE_0",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_NETADJUSTMENT_0",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_0_PACKAGE",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_0_OPTIONS",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_0_MILEAGE",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_0_CONDITION",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_COMPARABLE_1",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTEDVALUE_1",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_NETADJUSTMENT_1",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_1_PACKAGE",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_1_OPTIONS",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_1_MILEAGE",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_1_CONDITION",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_COMPARABLE_2",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTEDVALUE_2",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_NETADJUSTMENT_2",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_2_PACKAGE",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_2_OPTIONS",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_2_MILEAGE",
+            "status": "PASS"
+          },
+          {
+            "code": "INSURER_ADJUSTMENT_2_CONDITION",
+            "status": "PASS"
+          }
+        ],
+        "blankPages": [],
+        "unresolvedPlaceholders": [],
+        "manifestDigest": "8b8a876d64156a9387f67797d98848e051c78fe5a6311fc65e078333e493cd2e"
+      }
+    }
+  ]
+}

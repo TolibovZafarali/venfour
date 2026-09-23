@@ -1,0 +1,113 @@
+VENFOUR / FICTIONAL TEST DATA - NOT A CUSTOMER REPORT
+Vehicle Valuation Review
+2024 Synthetic Sedan SEL
+VIN: SYNTHETICLOSS0001 | Mileage: 50,000 miles
+Date of loss: May 19, 2026
+Insurer: Synthetic Insurance | Claim: SYNTHETIC-CLAIM-001
+Issued: Aug 26, 2026 | Ref. 000000000132 / v1
+Valuation comparison
+Insurer vehicle valuation reviewed
+$20,000.00
+Selected comparable advertised-price range
+$21,800.00 - $22,600.00
+Median advertised price
+$22,200.00
+Advertised prices are asking amounts, not verified completed sales or an independently adjusted vehicle value.
+Advertised-price median minus insurer valuation: $2,200.00 (11.00%); not a settlement determination.
+Market comparison
+Search filters: 2024 Synthetic Sedan SEL. Ranked by year, trim, mileage, distance; price was not a selection criterion.
+Historical search: 100 miles around ZIP 63026. Current-market search: 250 miles around ZIP 63026. Selected: 5 vehicles
+(distinct VINs); observed mileages: 50,000-52,000 miles. Loss-date evidence: May 19, 2026. Source: Fictional historical market
+records.
+Reason for review
+The 5 listings for 2024 Synthetic Sedan SEL vehicles have asking prices above the insurer's $20,000.00
+valuation. Their mileages are 50,000-52,000 versus 50,000 for the reviewed vehicle; no mileage dollar
+adjustments were made.
+Insurer values and adjustments appear below; the records do not fully explain the difference between the two sets.
+Please reconsider the vehicle valuation in light of the documented comparable listings. If a different valuation
+is maintained, please explain the material differences or adjustments supporting it.
+Customer-reported context (not independently inspected): Condition: Good pre-loss condition; Equipment: Synthetic Safety
+Package.
+Comparable evidence
+The figures above use all 5 comparable vehicles listed below. Recorded active on May 19, 2026, the loss date.
+Ref.
+Comparable vehicle and source
+Advertised price
+C1
+2024 Synthetic Sedan SEL
+50,000 miles | 6 mi from ZIP 63026
+Synthetic Dealer 1, Test City, MO, 63026
+VIN SYNTHETICVIN00001 | View listing
+$21,800.00
+Ref. 000000000132 / v1 / FICTIONAL TEST DATA
+Page 1 of 2
+
+
+Ref.
+Comparable vehicle and source
+Advertised price
+C2
+2024 Synthetic Sedan SEL
+50,500 miles (500 higher) | 7 mi from ZIP 63026
+Synthetic Dealer 2, Test City, MO, 63026
+VIN SYNTHETICVIN00002 | View listing
+$22,000.00
+C3
+2024 Synthetic Sedan SEL
+51,000 miles (1,000 higher) | 8 mi from ZIP 63026
+Synthetic Dealer 3, Test City, MO, 63026
+VIN SYNTHETICVIN00003 | View listing
+$22,200.00
+C4
+2024 Synthetic Sedan SEL
+51,500 miles (1,500 higher) | 9 mi from ZIP 63026
+Synthetic Dealer 4, Test City, MO, 63026
+VIN SYNTHETICVIN00004 | View listing
+$22,400.00
+C5
+2024 Synthetic Sedan SEL
+52,000 miles (2,000 higher) | 10 mi from ZIP 63026
+Synthetic Dealer 5, Test City, MO, 63026
+VIN SYNTHETICVIN00005 | View listing
+$22,600.00
+Sources and qualifications
+Current-market context
+Observed Aug 10, 2026: C1: $21,800.00; C2: $22,000.00; C3: $22,200.00; C4: $22,400.00; C5: $22,600.00. Source: Fictional
+current market records.
+These are later observations of the same vehicles, not additional independent vehicles. They are separate from the loss-date
+comparison and are not combined with its statistics.
+Insurer's comparable values
+Insurer-reported values, adjustments and contributions; reproduced without independent adjustment or endorsement.
+Ref.
+Insurer comparable and disclosed adjustments
+Reported values
+I1
+2024 Synthetic Sedan SEL | 49,500 miles
+VIN SYNTHETICCCCVIN01 | Synthetic CCC Dealer 1, Test City, MO 63026
+Package: $100.00; Options: $50.00; Mileage: $25.00; Condition: $25.00; Net:
+$200.00; Insurer contribution: 34%
+Advertised: $19,800.00
+Insurer-adjusted: $20,000.00
+I2
+2024 Synthetic Sedan SEL | 50,000 miles
+VIN SYNTHETICCCCVIN02 | Synthetic CCC Dealer 2, Test City, MO 63026
+Package: -$50.00; Options: -$25.00; Mileage: -$25.00; Condition: $0.00; Net:
+-$100.00; Insurer contribution: 33%
+Advertised: $20,100.00
+Insurer-adjusted: $20,000.00
+I3
+2024 Synthetic Sedan SEL | 50,500 miles
+VIN SYNTHETICCCCVIN03 | Synthetic CCC Dealer 3, Test City, MO 63026
+Package: -$100.00; Options: -$100.00; Mileage: -$100.00; Condition:
+-$100.00; Net: -$400.00; Insurer contribution: 33%
+Advertised: $20,400.00
+Insurer-adjusted: $20,000.00
+Insurer source: valuation-report.pdf. Report provider: CCC. Page-specific source citations were not retained.
+No independent dollar adjustments have been made for mileage, condition, equipment, location, certification or warranty. No
+physical inspection was performed. This is an evidence review, not an independent appraisal or a determination of the
+settlement owed.
+Distances are approximate. Live links may change or disappear and may not reproduce historical prices. Historical activity is
+verified by date, not the time of loss. The selected vehicles do not represent the entire market.
+Ref. 000000000132 / v1 / FICTIONAL TEST DATA
+Page 2 of 2
+Vehicle Valuation Review
