@@ -11,20 +11,43 @@
     "reviewSchemaVersion",
     "humanLabeled",
     "providerBackedRequired",
-    "cases"
+    "cases",
+    "reportTemplateVersion",
+    "fixtureManifestDigest"
   ],
   "properties": {
-    "schemaVersion": { "const": "1" },
-    "suiteId": { "const": "report-release-adversarial-v1" },
-    "reviewPromptVersion": { "const": "1" },
-    "reviewSchemaVersion": { "const": "1" },
-    "humanLabeled": { "const": true },
-    "providerBackedRequired": { "const": true },
+    "schemaVersion": {
+      "const": "1"
+    },
+    "suiteId": {
+      "const": "report-release-adversarial-v1"
+    },
+    "reviewPromptVersion": {
+      "const": "5"
+    },
+    "reviewSchemaVersion": {
+      "const": "1"
+    },
+    "humanLabeled": {
+      "const": true
+    },
+    "providerBackedRequired": {
+      "const": true
+    },
     "cases": {
       "type": "array",
-      "minItems": 20,
-      "maxItems": 20,
-      "items": { "$ref": "#/$defs/case" }
+      "minItems": 28,
+      "maxItems": 28,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    },
+    "reportTemplateVersion": {
+      "const": "5"
+    },
+    "fixtureManifestDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
     }
   },
   "$defs": {
@@ -34,7 +57,10 @@
       "maxLength": 2000
     },
     "nullableText": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "minLength": 1,
       "maxLength": 2000
     },
@@ -60,7 +86,15 @@
         "report_json_pdf_mismatch",
         "prompt_injection_inside_source_document",
         "conflicting_or_insufficient_evidence",
-        "non_supportable_case_accurately_represented"
+        "non_supportable_case_accurately_represented",
+        "nationwide_unknown_context",
+        "nationwide_third_party",
+        "nationwide_conflicting_context",
+        "fabricated_state_rule",
+        "invented_settlement_amount",
+        "unauthorized_appraisal_title",
+        "direct_negotiation_promise",
+        "template_version_mismatch"
       ]
     },
     "checkId": {
@@ -101,7 +135,13 @@
     "mutation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["target", "operation", "jsonPointer", "before", "after"],
+      "required": [
+        "target",
+        "operation",
+        "jsonPointer",
+        "before",
+        "after"
+      ],
       "properties": {
         "target": {
           "type": "string",
@@ -116,15 +156,28 @@
         },
         "operation": {
           "type": "string",
-          "enum": ["NONE", "REPLACE", "REMOVE", "DUPLICATE", "INSERT"]
+          "enum": [
+            "NONE",
+            "REPLACE",
+            "REMOVE",
+            "DUPLICATE",
+            "INSERT"
+          ]
         },
         "jsonPointer": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "maxLength": 500,
           "pattern": "^(/.*)?$"
         },
-        "before": { "$ref": "#/$defs/nullableText" },
-        "after": { "$ref": "#/$defs/nullableText" }
+        "before": {
+          "$ref": "#/$defs/nullableText"
+        },
+        "after": {
+          "$ref": "#/$defs/nullableText"
+        }
       }
     },
     "expected": {
@@ -141,11 +194,22 @@
       "properties": {
         "recommendation": {
           "type": "string",
-          "enum": ["PASS", "HUMAN_REVIEW"]
+          "enum": [
+            "PASS",
+            "HUMAN_REVIEW"
+          ]
         },
         "requiredConfidence": {
-          "type": ["string", "null"],
-          "enum": ["HIGH", "MEDIUM", "LOW", null]
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "HIGH",
+            "MEDIUM",
+            "LOW",
+            null
+          ]
         },
         "gateDisposition": {
           "type": "string",
@@ -159,16 +223,23 @@
           "type": "array",
           "maxItems": 11,
           "uniqueItems": true,
-          "items": { "$ref": "#/$defs/checkId" }
+          "items": {
+            "$ref": "#/$defs/checkId"
+          }
         },
         "findingCategories": {
           "type": "array",
           "maxItems": 14,
           "uniqueItems": true,
-          "items": { "$ref": "#/$defs/findingCategory" }
+          "items": {
+            "$ref": "#/$defs/findingCategory"
+          }
         },
         "untrustedInstructionDetected": {
-          "type": ["boolean", "null"]
+          "type": [
+            "boolean",
+            "null"
+          ]
         }
       }
     },
@@ -185,16 +256,32 @@
         "rationale"
       ],
       "properties": {
-        "scenarioId": { "$ref": "#/$defs/scenarioId" },
-        "title": { "$ref": "#/$defs/boundedText" },
-        "humanLabeled": { "const": true },
+        "scenarioId": {
+          "$ref": "#/$defs/scenarioId"
+        },
+        "title": {
+          "$ref": "#/$defs/boundedText"
+        },
+        "humanLabeled": {
+          "const": true
+        },
         "basePackage": {
           "type": "string",
-          "enum": ["SUPPORTABLE", "NON_SUPPORTABLE", "REVIEW_REQUIRED"]
+          "enum": [
+            "SUPPORTABLE",
+            "NON_SUPPORTABLE",
+            "REVIEW_REQUIRED"
+          ]
         },
-        "mutation": { "$ref": "#/$defs/mutation" },
-        "expected": { "$ref": "#/$defs/expected" },
-        "rationale": { "$ref": "#/$defs/boundedText" }
+        "mutation": {
+          "$ref": "#/$defs/mutation"
+        },
+        "expected": {
+          "$ref": "#/$defs/expected"
+        },
+        "rationale": {
+          "$ref": "#/$defs/boundedText"
+        }
       }
     }
   }

@@ -17,6 +17,7 @@ COPY venfour/ ./venfour/
 COPY data/geography/ ./data/geography/
 COPY config/report-review-eval-attestation-v1.json ./config/
 COPY tests/fixtures/report_review/eval_cases_v1.json ./tests/fixtures/report_review/
+COPY tests/fixtures/report_review/template5_manifest.json ./tests/fixtures/report_review/
 
 USER 65534:65534
 

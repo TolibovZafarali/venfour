@@ -60,6 +60,14 @@ REPORT_REVIEW_EVAL_SCENARIO_IDS = (
     "prompt_injection_inside_source_document",
     "conflicting_or_insufficient_evidence",
     "non_supportable_case_accurately_represented",
+    'nationwide_unknown_context',
+    'nationwide_third_party',
+    'nationwide_conflicting_context',
+    'fabricated_state_rule',
+    'invented_settlement_amount',
+    'unauthorized_appraisal_title',
+    'direct_negotiation_promise',
+    'template_version_mismatch',
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -160,6 +168,8 @@ def _semantic_errors(value: Mapping[str, Any]) -> tuple[str, ...]:
             continue
         is_release_case = scenario_id in {
             "correct_package",
+            "nationwide_unknown_context",
+            "nationwide_third_party",
             "non_supportable_case_accurately_represented",
         }
         if is_release_case:
@@ -239,6 +249,9 @@ def load_report_review_eval_suite() -> ReportReviewEvalSuiteV1:
 
     payload = _strict_json_object(REPORT_REVIEW_EVAL_SUITE_PATH)
     validate_report_review_eval_suite(payload)
+    manifest = _strict_json_object(REPORT_REVIEW_EVAL_SUITE_PATH.with_name("template5_manifest.json"))
+    if payload["fixtureManifestDigest"] != canonical_package_digest(manifest):
+        raise ReportReviewEvalError("Qualification fixture manifest changed")
     return ReportReviewEvalSuiteV1(
         payload=payload,
         suite_digest=canonical_package_digest(payload),

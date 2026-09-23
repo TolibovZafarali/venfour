@@ -51,11 +51,11 @@ from venfour.report_review_evals import (
 
 
 EXPECTED_SUITE_DIGEST = (
-    "e21eddff7a987662ac6bbfcdefd314ce77f56b1391f3c7f14da5dfc0602a2f24"
+    "ba668548f88123ece29b45f4807d2e33133d9c67086774f950da862841d336b0"
 )
 RELEASE_QUALIFIED_MODEL = "gpt-5.6-sol"
 EXPECTED_PROMPT_TEMPLATE_DIGEST = (
-    "3d2eabf4381acf77bf72d9bccb124d5fa0752d5e452e48d8be7dce1dc4ce69ae"
+    "5437e6815a7f3bdca15926ce11f0a2653b9352729e78fd776942c98bcad6a90e"
 )
 EXPECTED_REVIEW_SCHEMA_DIGEST = (
     "11839c12f40f8212c41cd2e3736baa131f46a963fdd83a25bbca1b41e92280f6"
@@ -64,7 +64,7 @@ EXPECTED_REVIEW_INPUT_CONTRACT_DIGEST = (
     "dcd0dfe6e0888dd3271e08323dcc1a3221732eb18a1b3eed0eefe804f4b9be30"
 )
 EXPECTED_EVAL_SUITE_SCHEMA_DIGEST = (
-    "756f18b9f395c8b3fdd40667e5286d3f04e46ad06598bff63520e101d7b79f2a"
+    "52619f9a217329db6cb009ce3bef341d57e84323dd050be199dc243c68205088"
 )
 RELEASE_ATTESTATION_DIGEST = (
     "0a2ad93d844d6d68447adb1036f13dc06260b236288c6244e83cca15bc26f131"
@@ -173,7 +173,7 @@ class ReportReviewEvalSuiteTests(_review_fixture.ReportReviewFixture):
             expected = cases[scenario_id]["expected"]
             self.assertEqual(expected["recommendation"], "PASS")
             self.assertEqual(expected["requiredConfidence"], "HIGH")
-        for scenario_id in REPORT_REVIEW_EVAL_SCENARIO_IDS[1:-1]:
+        for scenario_id in (c['scenarioId'] for c in cases.values() if c['expected']['recommendation'] != 'PASS'):
             expected = cases[scenario_id]["expected"]
             self.assertEqual(expected["recommendation"], HUMAN_REVIEW)
             self.assertEqual(expected["gateDisposition"], HUMAN_REVIEW)
@@ -277,7 +277,7 @@ class ReportReviewEvalSuiteTests(_review_fixture.ReportReviewFixture):
 
         self.assertTrue(all(result.passed for result in results))
         self.assertTrue(attestation.all_passed)
-        self.assertEqual(attestation.total_case_count, 20)
+        self.assertEqual(attestation.total_case_count, len(REPORT_REVIEW_EVAL_SCENARIO_IDS))
         self.assertTrue(suite.payload["providerBackedRequired"])
         self.assertNotIn("mock", attestation.to_dict())
 
@@ -406,8 +406,8 @@ class ReportReviewEvalSuiteTests(_review_fixture.ReportReviewFixture):
             prompt_version=REPORT_REVIEW_PROMPT_VERSION,
             review_schema_version=REPORT_REVIEW_SCHEMA_VERSION,
             eval_suite_digest=EXPECTED_SUITE_DIGEST,
-            passed_case_count=20,
-            total_case_count=20,
+            passed_case_count=len(REPORT_REVIEW_EVAL_SCENARIO_IDS),
+            total_case_count=len(REPORT_REVIEW_EVAL_SCENARIO_IDS),
             evaluated_at="2026-08-26T23:00:00Z",
         )
         payload = attestation.to_dict()
@@ -505,36 +505,15 @@ class ReportReviewEvalSuiteTests(_review_fixture.ReportReviewFixture):
                             expected_model_identifier=RELEASE_QUALIFIED_MODEL,
                         )
 
-    def test_checked_in_attestation_qualifies_current_report_and_rejects_stale_prompt(self) -> None:
+    def test_prior_attestation_is_preserved_but_does_not_qualify_template5(self) -> None:
         persisted = json.loads(REPORT_REVIEW_EVAL_ATTESTATION_PATH.read_text())
         self.assertEqual(persisted["artifactDigest"], RELEASE_ATTESTATION_DIGEST)
         self.assertEqual(persisted["passedCaseCount"], 20)
         self.assertEqual(persisted["totalCaseCount"], 20)
-        self.assertTrue(persisted["allPassed"])
+        self.assertEqual(persisted["promptVersion"], "4")
         self.assertTrue(persisted["providerBacked"])
-        self.assertEqual(persisted["returnedModelIdentifier"], RELEASE_QUALIFIED_MODEL)
-        self.assertEqual(persisted["reviewSchemaVersion"], REPORT_REVIEW_SCHEMA_VERSION)
-        self.assertEqual(persisted["reviewSchemaDigest"], EXPECTED_REVIEW_SCHEMA_DIGEST)
-        self.assertEqual(persisted["reviewInputContractDigest"], EXPECTED_REVIEW_INPUT_CONTRACT_DIGEST)
-        self.assertEqual(persisted["evalSuiteDigest"], EXPECTED_SUITE_DIGEST)
-        self.assertEqual(persisted["evalSuiteSchemaDigest"], EXPECTED_EVAL_SUITE_SCHEMA_DIGEST)
-        self.assertEqual(persisted["promptVersion"], REPORT_REVIEW_PROMPT_VERSION)
-        self.assertEqual(persisted["promptTemplateDigest"], report_review_prompt_template_digest())
-        self.assertEqual(
-            load_report_review_eval_attestation(expected_model_identifier=RELEASE_QUALIFIED_MODEL).to_dict(),
-            persisted,
-        )
-        stale = copy.deepcopy(persisted)
-        stale["promptVersion"] = "3"
-        stale["promptTemplateDigest"] = "2561eac1eff04ad596cc49c18b1a252e04e56836960b829f5ce62cf2b27a0cf1"
-        stale["artifactDigest"] = canonical_package_digest({
-            key: value for key, value in stale.items() if key != "artifactDigest"
-        })
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "stale-prompt-qualification.json"
-            path.write_text(json.dumps(stale), encoding="utf-8")
-            with self.assertRaises(ReportReviewEvalError):
-                load_report_review_eval_attestation(expected_model_identifier=RELEASE_QUALIFIED_MODEL, path=path)
+        with self.assertRaises(ReportReviewEvalError):
+            load_report_review_eval_attestation(expected_model_identifier=RELEASE_QUALIFIED_MODEL)
 
     def test_checked_in_attestation_fails_closed_for_release_identity_drift(
         self,
@@ -572,7 +551,7 @@ class ReportReviewEvalSuiteTests(_review_fixture.ReportReviewFixture):
             review_schema_version=REPORT_REVIEW_SCHEMA_VERSION,
             eval_suite_digest=EXPECTED_SUITE_DIGEST,
             passed_case_count=19,
-            total_case_count=20,
+            total_case_count=len(REPORT_REVIEW_EVAL_SCENARIO_IDS),
             evaluated_at="2026-08-27T03:38:51.726245Z",
         ).to_dict()
         cases = {
@@ -608,8 +587,8 @@ class ReportReviewEvalSuiteTests(_review_fixture.ReportReviewFixture):
                 prompt_version=REPORT_REVIEW_PROMPT_VERSION,
                 review_schema_version=REPORT_REVIEW_SCHEMA_VERSION,
                 eval_suite_digest=EXPECTED_SUITE_DIGEST,
-                passed_case_count=20,
-                total_case_count=20,
+                passed_case_count=len(REPORT_REVIEW_EVAL_SCENARIO_IDS),
+                total_case_count=len(REPORT_REVIEW_EVAL_SCENARIO_IDS),
                 evaluated_at="2026-08-26T23:00:00Z",
             )
             path.write_text(

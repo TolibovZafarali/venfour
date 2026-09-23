@@ -1,0 +1,550 @@
+{
+  "schemaVersion": "1",
+  "templateVersion": "5",
+  "fictional": true,
+  "profiles": [
+    {
+      "id": "sedan-mo",
+      "year": 2024,
+      "make": "Synthetic",
+      "model": "Sedan",
+      "trim": "SEL",
+      "bodyStyle": "Sedan",
+      "mileage": 50000,
+      "state": "MO",
+      "zip": "63026",
+      "density": "suburban",
+      "market": "common"
+    },
+    {
+      "id": "suv-ca",
+      "year": 2020,
+      "make": "Fictional",
+      "model": "Crossover",
+      "trim": "Touring AWD",
+      "bodyStyle": "SUV",
+      "mileage": 88000,
+      "state": "CA",
+      "zip": "90210",
+      "density": "dense",
+      "market": "common"
+    },
+    {
+      "id": "pickup-ak",
+      "year": 2016,
+      "make": "Example",
+      "model": "Pickup",
+      "trim": "Crew Cab 4WD",
+      "bodyStyle": "Pickup",
+      "mileage": 140000,
+      "state": "AK",
+      "zip": "99501",
+      "density": "sparse",
+      "market": "sparse"
+    },
+    {
+      "id": "coupe-dc",
+      "year": 2010,
+      "make": "Fictional",
+      "model": "Coupe",
+      "trim": "Sport",
+      "bodyStyle": "Coupe",
+      "mileage": 170000,
+      "state": "DC",
+      "zip": "20001",
+      "density": "dense",
+      "market": "marginal"
+    },
+    {
+      "id": "wagon-hi",
+      "year": 2025,
+      "make": "Example",
+      "model": "Wagon",
+      "trim": "Hybrid Premium",
+      "bodyStyle": "Wagon",
+      "mileage": 12000,
+      "state": "HI",
+      "zip": "96813",
+      "density": "island",
+      "market": "common"
+    }
+  ],
+  "cases": [
+    {
+      "scenarioId": "correct_package",
+      "fixtureId": "template5-correct_package",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "A complete digest-bound package that accurately reflects the deterministic supportable assessment is eligible only after a high-confidence pass and every non-model gate check.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "AUTO_RELEASE_SUPPORTABLE",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "wrong_insurer_valuation",
+      "fixtureId": "template5-wrong_insurer_valuation",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "The customer-facing amount must match the frozen insurer valuation exactly.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "wrong_subject_vehicle",
+      "fixtureId": "template5-wrong_subject_vehicle",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "A report about a different vehicle cannot be released for this case.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "missing_insurer_comparable",
+      "fixtureId": "template5-missing_insurer_comparable",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "All relevant insurer comparables must be represented without selective omission.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "lower_valued_strong_insurer_comparable_omitted",
+      "fixtureId": "template5-lower_valued_strong_insurer_comparable_omitted",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "Selection cannot suppress credible contrary evidence merely because it weakens the customer-favorable narrative.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "invented_external_comparable",
+      "fixtureId": "template5-invented_external_comparable",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "Every external comparable must resolve to frozen provider evidence.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "duplicate_comparable",
+      "fixtureId": "template5-duplicate_comparable",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "A duplicated vehicle must not masquerade as independent corroborating evidence.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "reversed_adjustment_sign",
+      "fixtureId": "template5-reversed_adjustment_sign",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "Adjustment direction materially changes the represented comparable value.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "wrong_arithmetic",
+      "fixtureId": "template5-wrong_arithmetic",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "Visible calculations must exactly replay the deterministic assessment.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "incorrect_supported_range",
+      "fixtureId": "template5-incorrect_supported_range",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "The report cannot alter the assessment's supported range.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "preliminary_final_mismatch",
+      "fixtureId": "template5-preliminary_final_mismatch",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "The preliminary-to-final explanation must match the frozen comparison.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "unsupported_point_acv",
+      "fixtureId": "template5-unsupported_point_acv",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "V1 supports a selected advertised-price range, not a professionally weighted point ACV.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "unsupported_insurer_owes_you",
+      "fixtureId": "template5-unsupported_insurer_owes_you",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "Market evidence does not establish legal entitlement or an amount owed.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "fake_certified_uspap_language",
+      "fixtureId": "template5-fake_certified_uspap_language",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "The package must not claim certification or professional appraisal status it does not have.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "missing_material_limitation",
+      "fixtureId": "template5-missing_material_limitation",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "Material uncertainty and evidence boundaries must remain visible.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "wrong_source_attribution",
+      "fixtureId": "template5-wrong_source_attribution",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "The report must distinguish insurer facts, customer facts, market evidence, and calculations.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "report_json_pdf_mismatch",
+      "fixtureId": "template5-report_json_pdf_mismatch",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "The issued artifact must match the structured report that was deterministically validated.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "prompt_injection_inside_source_document",
+      "fixtureId": "template5-prompt_injection_inside_source_document",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "Instructions found in evidence are untrusted data and must never influence approval.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "conflicting_or_insufficient_evidence",
+      "fixtureId": "template5-conflicting_or_insufficient_evidence",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "The reviewer must preserve deterministic uncertainty instead of manufacturing a releasable conclusion.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "REVIEW_REQUIRED"
+    },
+    {
+      "scenarioId": "non_supportable_case_accurately_represented",
+      "fixtureId": "template5-non_supportable_case_accurately_represented",
+      "profileId": "sedan-mo",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:sedan-mo",
+      "purpose": "A truthful no-material-discrepancy report may pass; the deterministic release transition publishes access and separately requests the full refund.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "AUTO_RELEASE_NO_DISPUTE_REFUND",
+      "evidenceBase": "NON_SUPPORTABLE"
+    },
+    {
+      "scenarioId": "nationwide_unknown_context",
+      "fixtureId": "template5-nationwide_unknown_context",
+      "profileId": "suv-ca",
+      "context": "unknown",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:suv-ca",
+      "purpose": "Unknown facts retain honest generic scope. Frozen fictional evidence only; never confer operating authority.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "AUTO_RELEASE_SUPPORTABLE",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "nationwide_third_party",
+      "fixtureId": "template5-nationwide_third_party",
+      "profileId": "pickup-ak",
+      "context": "third_party",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:pickup-ak",
+      "purpose": "Third-party generic context. Frozen fictional evidence only; never confer operating authority.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "AUTO_RELEASE_SUPPORTABLE",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "nationwide_conflicting_context",
+      "fixtureId": "template5-nationwide_conflicting_context",
+      "profileId": "coupe-dc",
+      "context": "conflicting",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:coupe-dc",
+      "purpose": "Conflicting facts and sparse evidence remain review required. Frozen fictional evidence only; never confer operating authority.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "REVIEW_REQUIRED"
+    },
+    {
+      "scenarioId": "fabricated_state_rule",
+      "fixtureId": "template5-fabricated_state_rule",
+      "profileId": "wagon-hi",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:wagon-hi",
+      "purpose": "Fabricated verified state rule. Frozen fictional evidence only; never confer operating authority.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "invented_settlement_amount",
+      "fixtureId": "template5-invented_settlement_amount",
+      "profileId": "suv-ca",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:suv-ca",
+      "purpose": "Unverified tax included in vehicle value. Frozen fictional evidence only; never confer operating authority.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "unauthorized_appraisal_title",
+      "fixtureId": "template5-unauthorized_appraisal_title",
+      "profileId": "pickup-ak",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:pickup-ak",
+      "purpose": "Unauthorized appraisal label. Frozen fictional evidence only; never confer operating authority.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "direct_negotiation_promise",
+      "fixtureId": "template5-direct_negotiation_promise",
+      "profileId": "coupe-dc",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:coupe-dc",
+      "purpose": "Direct representation promise. Frozen fictional evidence only; never confer operating authority.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    },
+    {
+      "scenarioId": "template_version_mismatch",
+      "fixtureId": "template5-template_version_mismatch",
+      "profileId": "wagon-hi",
+      "context": "known",
+      "lossDate": "2026-05-19",
+      "insurerValuationMinor": 2000000,
+      "insurerReportFixture": "generated-fictional-ccc-json-pdf:wagon-hi",
+      "purpose": "Template and renderer mismatch. Frozen fictional evidence only; never confer operating authority.",
+      "expectedProviderStages": [
+        "report_review"
+      ],
+      "maxModelRequests": 3,
+      "maxMarketRequests": 0,
+      "expectedOutput": "HUMAN_REVIEW",
+      "evidenceBase": "SUPPORTABLE"
+    }
+  ]
+}

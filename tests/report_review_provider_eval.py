@@ -1,13 +1,6 @@
-"""Run the fixed report-review suite against the configured live provider.
+"""Bounded fictional report qualification; defaults to provider-disabled dry run.
 
-This local-only entrypoint materializes synthetic report-package mutations,
-calls the real report reviewer for all 20 cases, applies the deterministic gate,
-and prints a non-secret qualification artifact only when every human label
-passes. It never writes the qualification file or any application data.
-
-Run from the repository root with the normal secure local environment:
-
-    .venv/bin/python -m tests.report_review_provider_eval
+See docs/engineering/template5-provider-qualification.md for authorization.
 """
 
 from __future__ import annotations
@@ -15,9 +8,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
-import os
 import sys
-from pathlib import Path
 from typing import Any
 
 import pymupdf
@@ -93,6 +84,10 @@ class SyntheticReportReviewEvalMaterializer:
         )
         helper.setUp()
         self._helper = helper
+        from tests.template5_qualification_fixtures import load_manifest
+        self.manifest = load_manifest()
+        self._extra_bases = {}
+        self.candidate_pdfs = {}
         self._bases = {
             "SUPPORTABLE": self._build_base(MATERIAL_PRICES),
             "NON_SUPPORTABLE": self._build_base(CONSISTENT_PRICES),
@@ -113,18 +108,23 @@ class SyntheticReportReviewEvalMaterializer:
         prices: tuple[int, ...],
         *,
         source_document_instruction: str | None = None,
+        profile=None, context_kind="known",
     ) -> dict[str, Any]:
-        source, assessment, report = self._helper._report(
-            prices=prices,
-            source_document_instruction=source_document_instruction,
-        )
+        from tests.template5_qualification_fixtures import build_base
+        source, assessment, report, insurer_pdf = build_base(
+            self._helper, prices, profile or self.manifest['profiles'][0],
+            context_kind, source_document_instruction)
+
         pdf = render_valuation_evidence_report_pdf_v1(report)
+        if pdf != render_valuation_evidence_report_pdf_v1(report):
+            raise ValueError("Report PDF replay changed")
         pdf_manifest = validate_valuation_evidence_report_pdf_v1(
             pdf, report
         ).to_dict()
         with pymupdf.open(stream=pdf, filetype="pdf") as document:
             pdf_text = "\n".join(page.get_text("text") for page in document)
         return {
+            "insurerPdf": insurer_pdf,
             "source": source.to_dict(),
             "assessment": assessment.to_dict(),
             "report": report.to_dict(),
@@ -158,12 +158,26 @@ class SyntheticReportReviewEvalMaterializer:
     ) -> str:
         if scenario_id in {
             "correct_package",
+            "nationwide_unknown_context",
+            "nationwide_third_party",
+            "nationwide_conflicting_context",
             "conflicting_or_insufficient_evidence",
             "non_supportable_case_accurately_represented",
             "prompt_injection_inside_source_document",
         }:
             return pdf_text
-        if scenario_id == "wrong_insurer_valuation":
+        if scenario_id == "fabricated_state_rule":
+            report['productContext']['applied_overrides'] = [{'rule': 'All states require a 10 percent vehicle uplift', 'verified': True}]
+        elif scenario_id == "invented_settlement_amount":
+            report['productContext']['settlement_components'][0].update(amount_minor=150000, included_in_vehicle_value=True)
+            report['productContext']['settlement_total_minor'] = 150000
+        elif scenario_id == "unauthorized_appraisal_title":
+            report['identity']['title'] = 'Total-Loss Appraisal'
+        elif scenario_id == "direct_negotiation_promise":
+            report['purposeAndScope']['scopeStatement'] += ' Venfour will represent you and negotiate directly with your insurer.'
+        elif scenario_id == "template_version_mismatch":
+            report['identity']['rendererVersion'] = '4'
+        elif scenario_id == "wrong_insurer_valuation":
             for value in (
                 report["insurerValuationReviewed"]["valuation"],
                 report["executiveConclusion"]["insurerValuation"]["value"],
@@ -252,14 +266,24 @@ class SyntheticReportReviewEvalMaterializer:
             raise ValueError(f"Unsupported eval scenario: {scenario_id}")
         return pdf_text
 
+    def base_for_case(self, case):
+        entry = next(c for c in self.manifest['cases'] if c['scenarioId'] == case['scenarioId'])
+        if entry['profileId'] == self.manifest['profiles'][0]['id']:
+            return self._bases['PROMPT_INJECTION' if case['scenarioId'] == 'prompt_injection_inside_source_document' else case['basePackage']]
+        key = (entry['profileId'], entry['context'], case['basePackage'])
+        if key not in self._extra_bases:
+            profile = next(p for p in self.manifest['profiles'] if p['id'] == entry['profileId'])
+            prices = {'SUPPORTABLE': MATERIAL_PRICES, 'NON_SUPPORTABLE': CONSISTENT_PRICES,
+                      'REVIEW_REQUIRED': CONFLICTING_PRICES}[case['basePackage']]
+            if profile['market'] == 'common':
+                prices = tuple(2180000+i*10000 for i in range(10))
+            if entry['context'] == 'conflicting':
+                prices = prices[:2]
+            self._extra_bases[key] = self._build_base(prices, profile=profile, context_kind=entry['context'])
+        return self._extra_bases[key]
+
     def materialize(self, case: dict[str, Any]):
-        base_key = (
-            "PROMPT_INJECTION"
-            if case["scenarioId"]
-            == "prompt_injection_inside_source_document"
-            else case["basePackage"]
-        )
-        selected = copy.deepcopy(self._bases[base_key])
+        selected = copy.deepcopy(self.base_for_case(case))
         report = selected["report"]
         pdf_text = self._mutate(case["scenarioId"], report, selected["pdfText"])
         pdf = selected["pdf"]
@@ -301,6 +325,7 @@ class SyntheticReportReviewEvalMaterializer:
             pdf_validation_manifest=selected["pdfManifest"],
             source_document_included=False,
         )
+        self.candidate_pdfs[case["scenarioId"]] = pdf
         return request, report["executiveConclusion"]["continuationStatus"]
 
     @staticmethod
@@ -326,10 +351,13 @@ class LiveProviderEvalExecutor:
         materializer: SyntheticReportReviewEvalMaterializer,
         reviewer: OpenAIReportReviewer,
         configuration: ReportReviewConfiguration,
+        before_case=None, after_case=None,
     ) -> None:
         self._materializer = materializer
         self._reviewer = reviewer
         self._configuration = configuration
+        self._before_case = before_case
+        self._after_case = after_case
         self._suite = load_report_review_eval_suite()
         self._provisional_attestation = build_report_review_eval_attestation_v1(
             returned_model_identifier=configuration.model_identifier or "missing",
@@ -344,6 +372,8 @@ class LiveProviderEvalExecutor:
     def __call__(self, case):
         print(f"reviewing {case['scenarioId']}", file=sys.stderr)
         request, continuation_status = self._materializer.materialize(case)
+        if self._before_case:
+            self._before_case(case, request)
         completed = _review_with_operational_retries(
             self._reviewer,
             request,
@@ -390,61 +420,14 @@ class LiveProviderEvalExecutor:
             completed_review=completed,
             configuration=self._configuration,
         )
+        if self._after_case:
+            self._after_case(case, request, completed, decision)
         return completed, decision
 
 
 def main() -> int:
-    model = os.environ.get(REPORT_REVIEW_MODEL_ENV)
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not model or not api_key:
-        print(
-            "A secure local OPENAI_API_KEY and explicit "
-            f"{REPORT_REVIEW_MODEL_ENV} are required.",
-            file=sys.stderr,
-        )
-        return 2
-    suite = load_report_review_eval_suite()
-    configuration = ReportReviewConfiguration(
-        model_identifier=model,
-        approved_model_identifier=model,
-        approved_prompt_version=REPORT_REVIEW_PROMPT_VERSION,
-        approved_schema_version=REPORT_REVIEW_SCHEMA_VERSION,
-        approved_eval_suite_digest=suite.suite_digest,
-        release_gate_enabled=True,
-    )
-    materializer = SyntheticReportReviewEvalMaterializer()
-    try:
-        reviewer = OpenAIReportReviewer(configuration, api_key=api_key)
-        executor = LiveProviderEvalExecutor(
-            materializer=materializer,
-            reviewer=reviewer,
-            configuration=configuration,
-        )
-        from datetime import UTC, datetime
-
-        evaluated_at = (
-            datetime.now(UTC).isoformat().replace("+00:00", "Z")
-        )
-        attestation, results = run_provider_backed_report_review_eval(
-            executor,
-            evaluated_at=evaluated_at,
-            suite=suite,
-        )
-    finally:
-        materializer.close()
-    failures = [
-        {
-            "scenarioId": result.scenario_id,
-            "mismatchCodes": list(result.mismatch_codes),
-        }
-        for result in results
-        if not result.passed
-    ]
-    if failures:
-        print(json.dumps({"allPassed": False, "failures": failures}, indent=2))
-        return 1
-    print(json.dumps(attestation.to_dict(), indent=2, sort_keys=True))
-    return 0
+    from tests.template5_qualification import main as qualification_main
+    return qualification_main()
 
 
 if __name__ == "__main__":
