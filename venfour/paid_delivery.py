@@ -66,12 +66,16 @@ class PaidDeliveryRecoveryService:
                 ),))
             now = self.clock()
             registry = self.registry_loader()
-            snapshot = decide(case_id=case_id, facts=facts,
-                facts_revision=context["revision"], boundary="checkout",
-                registry=registry, evaluated_at=now, existing_eligible=True)
+            bundle = review_context.get("authority_bundle")
+            if bundle is not None:
+                from venfour.jurisdiction_authority import attested_snapshot
+                snapshot = attested_snapshot(case_id=case_id, facts=facts,
+                    facts_revision=context["revision"], bundle=bundle, now=now)
+            else:
+                snapshot = decide(case_id=case_id, facts=facts,
+                    facts_revision=context["revision"], boundary="checkout",
+                    registry=registry, evaluated_at=now, existing_eligible=True)
             payload = snapshot.to_dict()
-            # Conditions remain empty until a reviewed, case-bound credential /
-            # terms provider exists. Staff membership cannot satisfy them.
             payload["delivery_context"] = dict(context)
             payload["delivery_authority_revision"] = review_context["authority_revision"]
             from venfour.jurisdiction import digest

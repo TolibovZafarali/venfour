@@ -1,0 +1,630 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:venfour:reviewed-authority:1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "enum": [
+        "reviewed-authority-1"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "previous_epoch": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "previous_digest": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reviewer_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "reviewer_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "prepared_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "publisher": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "release": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[^\\x00-\\x1f]+$"
+    },
+    "operation": {
+      "enum": [
+        "publish",
+        "revoke"
+      ]
+    },
+    "reviews": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "reviewer": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+          },
+          "approved_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "Z$"
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "pattern": "^[^\\x00-\\x1f]+$"
+          }
+        },
+        "required": [
+          "reviewer",
+          "approved_at",
+          "evidence"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "jurisdictions": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "AK",
+                "AL",
+                "AR",
+                "AZ",
+                "CA",
+                "CO",
+                "CT",
+                "DC",
+                "DE",
+                "FL",
+                "GA",
+                "HI",
+                "IA",
+                "ID",
+                "IL",
+                "IN",
+                "KS",
+                "KY",
+                "LA",
+                "MA",
+                "MD",
+                "ME",
+                "MI",
+                "MN",
+                "MO",
+                "MS",
+                "MT",
+                "NC",
+                "ND",
+                "NE",
+                "NH",
+                "NJ",
+                "NM",
+                "NV",
+                "NY",
+                "OH",
+                "OK",
+                "OR",
+                "PA",
+                "RI",
+                "SC",
+                "SD",
+                "TN",
+                "TX",
+                "UT",
+                "VA",
+                "VT",
+                "WA",
+                "WI",
+                "WV",
+                "WY"
+              ]
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "capability": {
+            "enum": [
+              "case_specific_preview",
+              "customer_reconsideration_draft",
+              "insurer_response_coaching",
+              "market_evidence_report",
+              "personalized_valuation",
+              "referral_compensation",
+              "referral_marketing"
+            ]
+          },
+          "claim_type": {
+            "enum": [
+              "first_party",
+              "third_party"
+            ]
+          },
+          "policy_use": {
+            "enum": [
+              "commercial",
+              "personal"
+            ]
+          },
+          "provider_role": {
+            "enum": [
+              "appraiser",
+              "expert",
+              "licensed_adjuster",
+              "referral_partner",
+              "umpire",
+              "valuation_service"
+            ]
+          },
+          "required_facts": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "assigned_credential_ref",
+                "claim_type",
+                "customer_residence",
+                "garaging_at_loss",
+                "loss_date",
+                "loss_location",
+                "policy_delivered",
+                "policy_end",
+                "policy_issued",
+                "policy_start",
+                "policy_use",
+                "provider_location",
+                "provider_role",
+                "settlement_date",
+                "vehicle_registration"
+              ]
+            },
+            "uniqueItems": true
+          },
+          "conditions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "enum": [
+                    "assigned_credential_ref",
+                    "claim_type",
+                    "customer_residence",
+                    "garaging_at_loss",
+                    "loss_date",
+                    "loss_location",
+                    "policy_delivered",
+                    "policy_end",
+                    "policy_issued",
+                    "policy_start",
+                    "policy_use",
+                    "provider_location",
+                    "provider_role",
+                    "settlement_date",
+                    "vehicle_registration"
+                  ]
+                },
+                "equals": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "pattern": "^[^\\x00-\\x1f]+$"
+                }
+              },
+              "required": [
+                "field",
+                "equals"
+              ],
+              "additionalProperties": false
+            },
+            "uniqueItems": true
+          },
+          "determination": {
+            "enum": [
+              "permitted",
+              "limited",
+              "prohibited",
+              "not_applicable",
+              "unresolved"
+            ]
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "pattern": "^[^\\x00-\\x1f]+$"
+            },
+            "maxItems": 0
+          },
+          "credential_policy": {
+            "enum": [
+              "required",
+              "reviewed_not_required"
+            ]
+          },
+          "credentials": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+                },
+                "type": {
+                  "enum": [
+                    "company_license",
+                    "individual_license",
+                    "provider_relationship",
+                    "entity_registration"
+                  ]
+                },
+                "jurisdiction": {
+                  "enum": [
+                    "AK",
+                    "AL",
+                    "AR",
+                    "AZ",
+                    "CA",
+                    "CO",
+                    "CT",
+                    "DC",
+                    "DE",
+                    "FL",
+                    "GA",
+                    "HI",
+                    "IA",
+                    "ID",
+                    "IL",
+                    "IN",
+                    "KS",
+                    "KY",
+                    "LA",
+                    "MA",
+                    "MD",
+                    "ME",
+                    "MI",
+                    "MN",
+                    "MO",
+                    "MS",
+                    "MT",
+                    "NC",
+                    "ND",
+                    "NE",
+                    "NH",
+                    "NJ",
+                    "NM",
+                    "NV",
+                    "NY",
+                    "OH",
+                    "OK",
+                    "OR",
+                    "PA",
+                    "RI",
+                    "SC",
+                    "SD",
+                    "TN",
+                    "TX",
+                    "UT",
+                    "VA",
+                    "VT",
+                    "WA",
+                    "WI",
+                    "WV",
+                    "WY"
+                  ]
+                },
+                "holder": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+                },
+                "provider": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+                }
+              },
+              "required": [
+                "id",
+                "type",
+                "jurisdiction",
+                "holder",
+                "provider"
+              ],
+              "additionalProperties": false
+            },
+            "uniqueItems": true
+          },
+          "terms_policy": {
+            "enum": [
+              "required",
+              "reviewed_not_required"
+            ]
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "enum": [
+                    "terms",
+                    "privacy",
+                    "refund",
+                    "scope",
+                    "jurisdiction_disclosure"
+                  ]
+                },
+                "version": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+                },
+                "digest": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "required": [
+                "type",
+                "version",
+                "digest"
+              ],
+              "additionalProperties": false
+            },
+            "uniqueItems": true
+          },
+          "date_anchor": {
+            "enum": [
+              "service_date",
+              "loss_date",
+              "policy_end",
+              "policy_start",
+              "settlement_date"
+            ]
+          },
+          "effective_from": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "effective_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "review_due_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "Z$"
+          },
+          "revocation": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "Z$"
+                  },
+                  "by": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+                  },
+                  "reference": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512,
+                    "pattern": "^[^\\x00-\\x1f]+$"
+                  }
+                },
+                "required": [
+                  "at",
+                  "by",
+                  "reference"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+                },
+                "kind": {
+                  "enum": [
+                    "primary"
+                  ]
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri",
+                  "pattern": "^https://"
+                },
+                "locator": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "pattern": "^[^\\x00-\\x1f]+$"
+                },
+                "document_digest": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "retained_evidence": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "pattern": "^[^\\x00-\\x1f]+$"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "url",
+                "locator",
+                "document_digest",
+                "retained_evidence"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "reviews": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "reviewer": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+                },
+                "approved_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "Z$"
+                },
+                "evidence": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "pattern": "^[^\\x00-\\x1f]+$"
+                }
+              },
+              "required": [
+                "reviewer",
+                "approved_at",
+                "evidence"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 2,
+            "maxItems": 2,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "jurisdictions",
+          "capability",
+          "claim_type",
+          "policy_use",
+          "provider_role",
+          "required_facts",
+          "conditions",
+          "determination",
+          "limitations",
+          "credential_policy",
+          "credentials",
+          "terms_policy",
+          "documents",
+          "date_anchor",
+          "effective_from",
+          "effective_until",
+          "review_due_at",
+          "revocation",
+          "sources",
+          "reviews"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 512
+    }
+  },
+  "required": [
+    "schema_version",
+    "revision",
+    "previous_epoch",
+    "previous_digest",
+    "reviewer_revision",
+    "reviewer_digest",
+    "prepared_at",
+    "request_id",
+    "publisher",
+    "release",
+    "operation",
+    "reviews",
+    "rules"
+  ],
+  "additionalProperties": false
+}

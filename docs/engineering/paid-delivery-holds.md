@@ -1,5 +1,9 @@
 # Paid-delivery hold and operator recovery contract
 
+The subsequent [trusted publication and attestation foundation](jurisdiction-authority.md)
+adds independently authenticated publication and current credential/document checks.
+Its empty configuration grants no operating approvals.
+
 This follows [the jurisdiction foundation](jurisdiction-foundation.md). It does
 not approve a jurisdiction, activate enforcement, change the existing footprint,
 or turn a research observation into operating permission. The registry and

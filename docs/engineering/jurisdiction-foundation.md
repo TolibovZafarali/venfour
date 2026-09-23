@@ -1,5 +1,9 @@
 # Jurisdiction foundation — Phase 1
 
+The subsequent [trusted publication and attestation foundation](jurisdiction-authority.md)
+adds independently authenticated publication and current credential/document checks.
+Its empty configuration grants no operating approvals.
+
 This is a non-activating foundation. The supplied September 22, 2026 research
 inventory has 51 jurisdictions, 67 sources, and **zero operating approvals**.
 Neither the existing footprint nor any new jurisdiction is approved by this patch.

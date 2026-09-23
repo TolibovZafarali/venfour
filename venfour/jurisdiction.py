@@ -329,14 +329,12 @@ def load_packaged_registry() -> Registry:
     # maintained through the repository's restricted release review process.
     research = ResearchInventory.from_dict(json.loads((DATA / "jurisdiction_research_seed.json").read_text()))
     reviewers = json.loads((DATA / "jurisdiction_reviewers.json").read_text())
-    if set(reviewers) != {"schema_version", "authorized_reviewers"} or reviewers["schema_version"] != "1":
-        raise ValueError("Invalid reviewer authority manifest")
-    authority = reviewers["authorized_reviewers"]
-    if not isinstance(authority, list) or any(not isinstance(v, str) for v in authority) or len(set(authority)) != len(authority):
-        raise ValueError("Invalid reviewer identities")
-    for reviewer in authority:
-        _text(reviewer)
+    from venfour.jurisdiction_authority import validate_manifest
+    validate_manifest(reviewers)
+    authority = []
     raw = json.loads((DATA / "jurisdiction_registry.json").read_text())
+    if raw["interpretations"] or raw["rules"]:
+        raise ValueError("Packaged research registry cannot publish operating authority")
     registry = Registry.from_dict(raw, authorized_reviewers=frozenset(authority), source_ids=frozenset(s.id for s in research.sources))
     return replace(registry, content_digest=digest({
         "registry": raw, "reviewer_authority": reviewers, "research_digest": research.content_digest,

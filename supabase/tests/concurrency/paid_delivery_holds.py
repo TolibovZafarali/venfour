@@ -19,7 +19,8 @@ sys.path[:0] = [str(ROOT), str(ROOT / "scripts"), str(ROOT / "tests")]
 from rehearse_production_migrations import Rehearsal
 from venfour.jurisdiction import Registry, CaseFacts, Assertion, digest
 from venfour.jurisdiction_adapter import decide
-from test_jurisdiction import registry_payload
+from jurisdiction_authority_fixtures import source, manifest, install_sql, publish_sql, PUBLISHER, stamp
+from venfour.jurisdiction_authority import compile_authority, attested_snapshot
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--container", required=True)
@@ -73,24 +74,10 @@ def snapshot(allowed=True):
     if context["date_of_loss"]:
         facts = CaseFacts(facts.assertions + (Assertion("loss_date", context["date_of_loss"], "legacy_intake", "total_loss_case_details.date_of_loss", context["intake_updated_at"]),))
     current = datetime.now(timezone.utc)
-    raw = registry_payload()
-    scope, rule = raw["interpretations"][0], raw["rules"][0]
-    scope["reviewed_at"] = (current-timedelta(days=2)).isoformat()
-    rule.update(approved_at=(current-timedelta(days=1)).isoformat(), review_due_at=(current+timedelta(days=1)).isoformat(),
-                effective_from=(current-timedelta(days=2)).date().isoformat(), effective_until=(current+timedelta(days=2)).date().isoformat())
-    raw["interpretations"], raw["rules"] = [], []
-    for cap in ("market_evidence_report", "personalized_valuation", "customer_reconsideration_draft", "insurer_response_coaching"):
-        raw["interpretations"].append({**scope, "id": cap, "capability": cap})
-        raw["rules"].append({**rule, "id": cap, "applicability_id": cap})
-    # Keep the version fixed through this rehearsal unless deliberately revoked.
-    global synthetic_registry
-    if synthetic_registry is None:
-        synthetic_registry = Registry.from_dict(raw, authorized_reviewers=frozenset({"fixture-reviewer"}), source_ids=frozenset({"MO-L1"}))
-    registry = synthetic_registry
+    payload = attested_snapshot(case_id=CASE, facts=facts, facts_revision=context["revision"],
+        bundle=review_context["authority_bundle"], now=current).to_dict()
     if not allowed:
-        registry = Registry("unresolved", (), (), registry.content_digest)
-    payload = decide(case_id=CASE, facts=facts, facts_revision=context["revision"], boundary="checkout",
-                     registry=registry, evaluated_at=current, existing_eligible=True).to_dict()
+        payload["proposed_allowed"] = False
     payload["delivery_context"] = context
     payload["delivery_authority_revision"] = review_context["authority_revision"]
     r.sql(f"select public.record_jurisdiction_decision({sqltext(json.dumps(payload))}::jsonb,'{digest(payload)}');")
@@ -98,6 +85,23 @@ def snapshot(allowed=True):
 
 
 synthetic_registry = None
+fixture_now = datetime.now(timezone.utc)
+fixture_config = manifest(fixture_now)
+
+def publish_next(revoke=False):
+    global synthetic_registry
+    epoch = synthetic_registry.payload["revision"] if synthetic_registry else 0
+    raw = source(fixture_now, epoch=epoch,
+        previous_digest=synthetic_registry.digest if synthetic_registry else None,
+        config=fixture_config, all_capabilities=True)
+    for rule in raw["rules"]:
+        rule["version"] = epoch + 1
+        if revoke:
+            rule["revocation"] = dict(at=stamp(fixture_now), by="review-a", reference="synthetic-revocation")
+    raw["operation"] = "revoke" if revoke else "publish"
+    synthetic_registry = compile_authority(raw, fixture_config, now=datetime.now(timezone.utc))
+    return publish_sql(synthetic_registry)
+
 # Existing financial suite runs with holds installed at sandbox-order creation,
 # proving that reconciliation, duplicate events and refund accounting ignore holds.
 commerce = (ROOT / "supabase/tests/database/015_total_loss_stripe_commerce.test.sql").read_text()
@@ -156,8 +160,9 @@ check("199 dollar order unchanged", r.sql(f"select amount_minor_units from publi
 # Append facts through the owner RPC, then use the real Phase 1 evaluator.
 facts = {"schema_version": "1", "assertions": [{"field": k, "value": v, "provenance": "customer", "reference": "synthetic", "recorded_at": datetime.now(timezone.utc).isoformat()} for k,v in {"customer_residence":"US-MO","claim_type":"first_party","policy_use":"personal","provider_role":"valuation_service"}.items()]}
 r.sql(f"set role authenticated; set request.jwt.claim.sub='{OWNER}'; select public.append_case_jurisdiction_facts('{CASE}',0,{sqltext(json.dumps(facts))}::jsonb);")
+r.sql(install_sql(fixture_now))
+r.sql(f"set session authorization {PUBLISHER}; " + publish_next())
 unresolved = snapshot(False)
-r.sql(f"insert into public.jurisdiction_delivery_authority(revision,registry_digest) values(1,'{synthetic_registry.content_digest}')")
 check("unresolved current rule refuses release", query(resolve(unresolved))["state"] == "held")
 approved = snapshot()
 request = str(uuid4())
@@ -186,9 +191,9 @@ def block_then(mutation):
         assert process.returncode == 0, process.stderr.read()
         return waiting.result()
 
-check("rule revocation between observation and mutation refuses release", block_then(f"insert into public.jurisdiction_delivery_authority(revision,registry_digest) values(2,repeat('f',64))")["state"] == "held")
-r.sql(f"insert into public.jurisdiction_delivery_authority(revision,registry_digest) values(3,'{synthetic_registry.content_digest}')")
-check("restoring same registry digest does not revive an old authority epoch", query(resolve(stale))["state"] == "held")
+check("rule revocation between observation and mutation refuses release", block_then(f"set session authorization {PUBLISHER}; " + publish_next(True))["state"] == "held")
+r.sql(f"set session authorization {PUBLISHER}; " + publish_next())
+check("a newly reviewed successor does not revive an old authority epoch", query(resolve(stale))["state"] == "held")
 stale = snapshot()
 changed = json.loads(json.dumps(facts))
 changed["assertions"][0]["value"] = "US-IL"
