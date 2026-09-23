@@ -139,6 +139,9 @@ class _FakeReportDatabase:
     def check_paid_delivery(self, reference, kind="case", owner_user_id=None):
         return "unenrolled"
 
+    def capture_report_product_facts(self, report_version_id: str):
+        raise AssertionError("Product facts must not be captured while disabled")
+
     def __init__(
         self,
         *,

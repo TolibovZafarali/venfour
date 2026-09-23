@@ -1,10 +1,14 @@
 """Frozen nationwide presentation preserves the existing monetary conclusions."""
 import copy
 import unittest
+from dataclasses import replace
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pymupdf
 from tests import test_valuation_evidence_report as fixtures
+from tests.test_analysis_runs import MATERIAL_PRICES, CONSISTENT_PRICES, CONFLICTING_PRICES
+from venfour.jurisdiction import Assertion, CaseFacts
 from venfour.nationwide_product import product_context, REPORT_LABEL
 from venfour.package_assessment import canonical_package_digest
 from venfour.valuation_evidence_report import (
@@ -63,3 +67,66 @@ class NationwideReportTests(unittest.TestCase):
             report['productContext'][key] = value
             report['reportDigest'] = canonical_package_digest({k:v for k,v in report.items() if k != 'reportDigest'})
             with self.assertRaises(ValuationEvidenceReportError): validate_valuation_evidence_report_v1(report)
+
+    def test_release_variants_preserve_evidence_replay_and_presentation(self):
+        helper = fixtures.ValuationEvidenceReportTests()
+        helper.setUp()
+        self.addCleanup(helper.doCleanups)
+        conflicting = CaseFacts(facts().assertions + (
+            Assertion('vehicle_registration', 'US-IL', 'document', 'fictional-document', '2026-09-22T00:00:00Z'),
+        ))
+        variants = (
+            ('supportable', MATERIAL_PRICES, facts()),
+            ('no-support', CONSISTENT_PRICES, facts()),
+            ('conflicting', CONFLICTING_PRICES, conflicting),
+            ('unknown', MATERIAL_PRICES, CaseFacts()),
+            ('third-party', MATERIAL_PRICES, CaseFacts(tuple(
+                replace(a, value='third_party') if a.field == 'claim_type' else a
+                for a in facts().assertions))),
+        )
+        for name, prices, case_facts in variants:
+            with self.subTest(variant=name):
+                source, assessment, legacy = helper._report(prices=prices)
+                identity = legacy.to_dict()['identity']
+                context = product_context({'case_id': identity['caseId'], 'revision': 7,
+                    'facts': case_facts.to_dict(), 'date_of_loss': '2026-09-01'}, as_of='2026-09-22')
+                report = build_valuation_evidence_report_v1(source_snapshot=source, final_assessment=assessment,
+                    report_series_id=identity['reportSeriesId'], report_version_id=identity['reportVersionId'],
+                    final_assessment_id=identity['finalAssessmentId'], version_number=identity['versionNumber'],
+                    generated_at=identity['generatedAt'], product_context=context)
+                payload = report.to_dict()
+                validate_valuation_evidence_report_v1(payload, source_snapshot=source, final_assessment=assessment)
+                for key in ('subjectVehicle', 'insurerValuationReviewed', 'insurerComparableReview',
+                            'independentMarketEvidence', 'adjustmentsAndCalculations', 'executiveConclusion',
+                            'sourceEvidenceIndex', 'lineage'):
+                    self.assertEqual(payload[key], legacy.to_dict()[key])
+                pdf = render_valuation_evidence_report_pdf_v1(report, fictional=True)
+                self.assertEqual(pdf, render_valuation_evidence_report_pdf_v1(payload, fictional=True))
+                self.assertEqual(validate_valuation_evidence_report_pdf_v1(pdf, report).to_dict()['status'], 'PASS')
+                with pymupdf.open(stream=pdf, filetype='pdf') as document:
+                    text = ' '.join(' '.join(page.get_text() for page in document).split())
+                    for phrase in (REPORT_LABEL, 'not an independent appraisal',
+                                   'No independent dollar adjustments', 'No tax or fee amount has been added',
+                                   'not a claim about a state requirement', 'You control all insurer communications'):
+                        self.assertIn(phrase, text)
+                    for component in ('Sales tax', 'Title', 'Registration transfer', 'Replacement credit'):
+                        self.assertIn(component + ': treatment has not been verified for this case.', text)
+                    if context['review_reasons']:
+                        self.assertIn('no state-specific rule has been applied', text)
+                    self.assertNotIn('Total-Loss Appraisal', text)
+                    self.assertNotIn('\ufffd', text)
+                    for page in document:
+                        self.assertTrue(page.get_fonts())
+                        for link in page.get_links():
+                            if 'uri' in link:
+                                url = urlsplit(link['uri'])
+                                self.assertEqual(url.scheme, 'https')
+                                self.assertIsNone(url.username)
+                                self.assertNotRegex(url.query.lower(), r'token|signature|credential|api.key')
+                        for block in page.get_text('dict')['blocks']:
+                            for line in block.get('lines', []):
+                                for span in line['spans']:
+                                    self.assertGreaterEqual(span['bbox'][0], 0)
+                                    self.assertGreaterEqual(span['bbox'][1], 0)
+                                    self.assertLessEqual(span['bbox'][2], 559)
+                                    self.assertLessEqual(span['bbox'][3], 771)
