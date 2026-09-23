@@ -1,0 +1,1105 @@
+{
+  "reviewedAt": "2026-09-23T17:10:43.686732+00:00",
+  "status": "ACCEPTED_REPOSITORY_QUALIFICATION_NOT_DEPLOYED",
+  "candidateDigest": "85860df17538cc226a59d335ff6eab13ac9cfb6fa162f158bbbb219d8b6f7f46",
+  "candidateSha256": "597ac4ed1e52487724f33a6ac1059f03faae8225a7bc1484716f9c4d41db07c8",
+  "sourceRevision": "83116c81e3bb947158e4abcaf83549a14d627b04",
+  "sourceBundleDigest": "fd74529cb8baa22b13b78a5172165175721333955b55bb561d1e1b954b3e726a",
+  "manifestDigest": "0ec3ed7ea6230b48a1487b83b2c58f3aa5ccd2f0e49735a59536c6cd51d98e9f",
+  "rubricDigest": "5437e6815a7f3bdca15926ce11f0a2653b9352729e78fd776942c98bcad6a90e",
+  "suiteDigest": "ba668548f88123ece29b45f4807d2e33133d9c67086774f950da862841d336b0",
+  "planDigest": "5d1ffce971d6f71894384de9700a25ea29dd0fd14d9fe99a56bf00400251e970",
+  "attestationDigest": "adf7f327e00f368f0f98b1b013c8a97e7c74892058ac60a26e7082fc2f406c53",
+  "ledgerDigest": "728195fcd2bd55cbcf4df07e87e62958d73acccf69325d1829bdd881cd9d9d29",
+  "authorizationRunId": "eb5993cc-6d05-4c19-8dcd-b52ad9d965fc",
+  "authorizationOwner": "Zafarali Tolibov",
+  "requests": 28,
+  "retries": 0,
+  "tokens": {
+    "input": 2505922,
+    "output": 60146,
+    "cached": 66636,
+    "write": 2439202,
+    "reasoning": 18781
+  },
+  "actualCalculatedCostUsd": "13.4259204",
+  "reservedCostUsd": "107.71739",
+  "authorizedCeilingUsd": "323.16",
+  "cases": [
+    {
+      "scenarioId": "correct_package",
+      "inputDigest": "1fc05cd957020d49a330534a4e15e591f787c44233381c86ac56d57424e7709a",
+      "outputDigest": "fc9246a57625c6860a3d08253a1f69cd535047a213e642d149d50afbe98d2864",
+      "responseId": "resp_04a35cdb162a9240016ab3fddd1b7c87d19701b1136a17eebb",
+      "qualification": "PASS",
+      "recommendation": "PASS",
+      "gate": "AUTO_RELEASE_SUPPORTABLE",
+      "findings": []
+    },
+    {
+      "scenarioId": "wrong_insurer_valuation",
+      "inputDigest": "4c0fce69c4bfc3d2d90601bf02545c7cdd2ce21bb31f8065aab65fce6691a67f",
+      "outputDigest": "c4969c27527e9c372039566afa723b96f85d3f38e6441d9d174aafe8bc234054",
+      "responseId": "resp_0348f1f1cc86b36c016ab3fdfb46f887d196d12f476fe90b7a",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "CRITICAL",
+          "category": "INSURER_VALUATION",
+          "description": "The insurer valuation in executiveConclusion and insurerValuationReviewed was changed from the frozen $20,000.00 value to $99,999.00.",
+          "reportSection": "Executive conclusion and insurer valuation reviewed",
+          "sourceEvidenceIds": [
+            "ev_ade035076319340e6c2036a9d263e710139583581e54effe31ba133f523aa68e"
+          ],
+          "expected": "$20,000.00 (2,000,000 minor units)",
+          "observed": "$99,999.00 (9,999,900 minor units)",
+          "recommendedHumanAction": "Reject automatic release and investigate or regenerate the report JSON from the frozen assessment without modifying authoritative evidence."
+        },
+        {
+          "severity": "HIGH",
+          "category": "PDF_CONSISTENCY",
+          "description": "The generated PDF and report JSON render materially different insurer valuation amounts.",
+          "reportSection": "Valuation comparison",
+          "sourceEvidenceIds": [
+            "ev_ade035076319340e6c2036a9d263e710139583581e54effe31ba133f523aa68e"
+          ],
+          "expected": "The PDF and report JSON should both state the frozen $20,000.00 insurer valuation.",
+          "observed": "PDF: $20,000.00; report JSON: $99,999.00.",
+          "recommendedHumanAction": "Do not publish the package until the report JSON, PDF, and frozen assessment are verified as a single consistent version."
+        },
+        {
+          "severity": "HIGH",
+          "category": "LINEAGE",
+          "description": "The PDF validation manifest's reportDigest does not equal the reviewed report digest.",
+          "reportSection": null,
+          "sourceEvidenceIds": [],
+          "expected": "PDF validation manifest reportDigest 328473a7e451ecccfca746cc1b7405d259e4c73bd8147ccabb809dd6f0170b16",
+          "observed": "PDF validation manifest reportDigest 69d5bc988954628022d682997b2cb1c75d8a45d7449718f6a141b1bd44249e21",
+          "recommendedHumanAction": "Verify which report artifact was rendered and rerun lineage and PDF validation before release."
+        }
+      ]
+    },
+    {
+      "scenarioId": "wrong_subject_vehicle",
+      "inputDigest": "8d5b178d1acaa1d089c7b9e9ff3413b036326f97280a22482c9a4a295add5656",
+      "outputDigest": "bd1c9db3a1740b4ab72a94d5ccc8d2415a0f1d1ca3d5275f1d6c0a3014ce2570",
+      "responseId": "resp_093509e2bcc06263016ab3fe2c438887d1982beddc95984021",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "HIGH",
+          "category": "SUBJECT_VEHICLE",
+          "description": "The candidate report JSON changes the frozen subject model from Sedan to Coupe.",
+          "reportSection": "Subject vehicle",
+          "sourceEvidenceIds": [
+            "ev_a85d9696e9fec15242fba82295ed77bbaf662a0a5aa5eec5ccea0873c9e84d05"
+          ],
+          "expected": "Subject model and vehicle display should identify a 2024 Synthetic Sedan SEL.",
+          "observed": "The report JSON model fact and vehicle display identify a 2024 Synthetic Coupe SEL.",
+          "recommendedHumanAction": "Hold release and investigate the report projection defect against the immutable frozen source."
+        },
+        {
+          "severity": "HIGH",
+          "category": "PDF_CONSISTENCY",
+          "description": "The generated PDF and report JSON disagree on the subject vehicle model.",
+          "reportSection": "Subject vehicle header",
+          "sourceEvidenceIds": [
+            "ev_a85d9696e9fec15242fba82295ed77bbaf662a0a5aa5eec5ccea0873c9e84d05"
+          ],
+          "expected": "Report JSON and PDF should render the same frozen subject model.",
+          "observed": "The PDF renders Sedan, consistent with the frozen source, while report JSON renders Coupe.",
+          "recommendedHumanAction": "Do not publish until the report JSON/PDF projection mismatch is resolved through the authorized generation workflow."
+        }
+      ]
+    },
+    {
+      "scenarioId": "missing_insurer_comparable",
+      "inputDigest": "d95012a05158c000db17bf7e1c7189b827ddbdb851a52678bfa50696d598a412",
+      "outputDigest": "eb487999f924bbdadf795a3f2b89750b6ba9998d12bd8c5ea22833d98eae5845",
+      "responseId": "resp_0ce3cc704df43d0d016ab3fe58c11c87d1b95c9ad210b93382",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "HIGH",
+          "category": "INSURER_COMPARABLES",
+          "description": "Insurer comparable 2 is omitted from report.insurerComparableReview.comparables despite being present in the frozen three-row set. The accompanying methodology statement incorrectly says every available insurer comparable is shown.",
+          "reportSection": "Insurer comparable review",
+          "sourceEvidenceIds": [
+            "ev_e75e662d1b5e36924151ea80161dd95a9823c839ae0d6d7aabd82554c1e2ff36"
+          ],
+          "expected": "Three insurer comparables, including comparable 2 with its frozen values and adjustments.",
+          "observed": "Only insurer comparables 1 and 3 appear in the report JSON comparable array.",
+          "recommendedHumanAction": "Hold release and investigate why the frozen second insurer comparable was omitted from the report JSON."
+        },
+        {
+          "severity": "HIGH",
+          "category": "PDF_CONSISTENCY",
+          "description": "The generated PDF renders all three insurer comparables, including comparable 2, while the report JSON contains only comparables 1 and 3.",
+          "reportSection": "Insurer's comparable values",
+          "sourceEvidenceIds": [
+            "ev_e75e662d1b5e36924151ea80161dd95a9823c839ae0d6d7aabd82554c1e2ff36"
+          ],
+          "expected": "The PDF and report JSON should render the same insurer-comparable set.",
+          "observed": "The PDF has three rows; the report JSON comparable array has two.",
+          "recommendedHumanAction": "Verify the report artifact used by the renderer and regenerate only through the authorized pipeline after resolving the artifact mismatch."
+        },
+        {
+          "severity": "HIGH",
+          "category": "LINEAGE",
+          "description": "The PDF validation manifest's reportDigest does not equal the reviewed report digest echoed in the package.",
+          "reportSection": null,
+          "sourceEvidenceIds": [],
+          "expected": "PDF manifest reportDigest 9c901c325754e30b91789f9da247e912b6ec4d2b101a0af459fdade6d90ebd55.",
+          "observed": "PDF manifest reportDigest 69d5bc988954628022d682997b2cb1c75d8a45d7449718f6a141b1bd44249e21.",
+          "recommendedHumanAction": "Confirm which report artifact produced the PDF and rerun lineage and PDF validation before release."
+        }
+      ]
+    },
+    {
+      "scenarioId": "lower_valued_strong_insurer_comparable_omitted",
+      "inputDigest": "e0d0713801841e7dbfc468d5f56be100c747e4501d732ff94dbfe26dde30bdca",
+      "outputDigest": "eb1670fee6ee91cd8eadcd22ea19540c2264195a8070366695e46707749b795a",
+      "responseId": "resp_0854887c6f6e1186016ab3fe83a0dc87d18576780e41e59199",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "HIGH",
+          "category": "INSURER_COMPARABLES",
+          "description": "The report JSON insurerComparableReview contains only comparables 2 and 3, omitting the lower-priced first comparable even though the frozen assessment contains three and the methodology statement says every comparable is shown.",
+          "reportSection": "Insurer comparable review",
+          "sourceEvidenceIds": [
+            "ev_637616ebc040c0f61593103030b70e460179b4382ab2f20a240ad83578f919da"
+          ],
+          "expected": "All three frozen insurer comparables should be represented without alteration.",
+          "observed": "Only comparables 2 and 3 appear in report JSON; comparable 1 appears only in the PDF.",
+          "recommendedHumanAction": "Investigate the report projection and publication artifacts; do not release until the candidate JSON and PDF derive from the same complete frozen report."
+        },
+        {
+          "severity": "HIGH",
+          "category": "PDF_CONSISTENCY",
+          "description": "The generated PDF includes material insurer-comparable content absent from report JSON.",
+          "reportSection": "Insurer's comparable values",
+          "sourceEvidenceIds": [
+            "ev_637616ebc040c0f61593103030b70e460179b4382ab2f20a240ad83578f919da"
+          ],
+          "expected": "Material PDF content should render the reviewed report JSON consistently.",
+          "observed": "PDF includes insurer comparable 1 while report JSON omits it.",
+          "recommendedHumanAction": "Verify which report artifact was rendered and regenerate only through the controlled publication workflow after resolving the projection mismatch."
+        },
+        {
+          "severity": "HIGH",
+          "category": "LINEAGE",
+          "description": "The PDF validation manifest's reportDigest does not equal the reviewed report digest echoed in the package.",
+          "reportSection": null,
+          "sourceEvidenceIds": [],
+          "expected": "PDF validation should identify the same report digest as the reviewed candidate report.",
+          "observed": "Reviewed report digest is d9deb3378b9277b692918ac5aeac8ce8053d1435fe17a8fb1a0a19484ce1d544, while the PDF manifest records 69d5bc988954628022d682997b2cb1c75d8a45d7449718f6a141b1bd44249e21.",
+          "recommendedHumanAction": "Confirm canonical digest semantics and establish that the PDF was rendered from the reviewed report version before release."
+        }
+      ]
+    },
+    {
+      "scenarioId": "invented_external_comparable",
+      "inputDigest": "81415bd9455ee918acd1a20903c88787a41732f5d83f51f2d8aeea6f5d9f8b78",
+      "outputDigest": "d03025a655930eec780940aa9f9f0348cdc6305fc486b9e5266615f97c0d65dc",
+      "responseId": "resp_0e49e81f53b4915c016ab3feaae0d087d1ac848d385e0a99c8",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "HIGH",
+          "category": "LINEAGE",
+          "description": "The PDF validation manifest report digest does not equal the reviewed candidate report digest.",
+          "reportSection": "PDF validation manifest",
+          "sourceEvidenceIds": [],
+          "expected": "PDF manifest reportDigest 0bf968f3e620e5cbae622fb66d064246ecdc960124de770a533dda788dfc6474",
+          "observed": "PDF manifest reportDigest 69d5bc988954628022d682997b2cb1c75d8a45d7449718f6a141b1bd44249e21",
+          "recommendedHumanAction": "Verify which report JSON generated the PDF and regenerate or restore a consistently bound report/PDF package."
+        },
+        {
+          "severity": "HIGH",
+          "category": "EXTERNAL_COMPARABLES",
+          "description": "An unsupported sixth primary comparable was added to report JSON after the five frozen selected primary comparables.",
+          "reportSection": "independentMarketEvidence.comparables",
+          "sourceEvidenceIds": [
+            "ev_8ae07c7b905cb123b217acb3764cc2a3440515c167805b924bcabcd7f57f1bd3"
+          ],
+          "expected": "Exactly five frozen primary comparables supporting the stored count and range.",
+          "observed": "Six rows are labeled PRIMARY, including an added row not present in the frozen assessment.",
+          "recommendedHumanAction": "Investigate the unauthorized row and restore the candidate directly from the frozen assessment without repairing the valuation manually."
+        },
+        {
+          "severity": "HIGH",
+          "category": "CALCULATIONS",
+          "description": "The displayed primary comparison set and its statistics disagree: six JSON rows are marked PRIMARY, while selectedCount and price count remain five.",
+          "reportSection": "independentMarketEvidence",
+          "sourceEvidenceIds": [
+            "ev_8ae07c7b905cb123b217acb3764cc2a3440515c167805b924bcabcd7f57f1bd3"
+          ],
+          "expected": "The complete primary row set must agree with count 5 and the frozen $21,800\u2013$22,600 statistics with $22,200 median.",
+          "observed": "The JSON array has six primary rows but retains statistics calculated from five frozen rows.",
+          "recommendedHumanAction": "Reject automatic release and verify the report projection against the frozen primary set."
+        },
+        {
+          "severity": "HIGH",
+          "category": "EVIDENCE_ATTRIBUTION",
+          "description": "The added comparable is labeled MARKET_EVIDENCE but lacks a corresponding frozen source-index entry or available evidence identifier.",
+          "reportSection": "independentMarketEvidence.comparables",
+          "sourceEvidenceIds": [],
+          "expected": "Every primary market comparable must trace to an exact frozen market-evidence identifier.",
+          "observed": "The added row cites an identifier absent from availableEvidenceIds and has no frozen lineage.",
+          "recommendedHumanAction": "Remove no evidence manually; instead investigate candidate generation and regenerate from authoritative frozen records."
+        },
+        {
+          "severity": "HIGH",
+          "category": "PDF_CONSISTENCY",
+          "description": "The PDF renders five primary comparables while report JSON contains six primary rows.",
+          "reportSection": "Comparable evidence",
+          "sourceEvidenceIds": [
+            "ev_8ae07c7b905cb123b217acb3764cc2a3440515c167805b924bcabcd7f57f1bd3"
+          ],
+          "expected": "PDF and report JSON must render the same complete primary comparison set.",
+          "observed": "PDF lists C1 through C5; report JSON includes an additional primary comparable.",
+          "recommendedHumanAction": "Do not publish until the report JSON and PDF are generated from the same validated source projection."
+        },
+        {
+          "severity": "HIGH",
+          "category": "SOURCE_REFERENCE",
+          "description": "The candidate report contains an evidence reference that is not present in availableEvidenceIds.",
+          "reportSection": "independentMarketEvidence.comparables",
+          "sourceEvidenceIds": [],
+          "expected": "All cited evidence identifiers must be copied from availableEvidenceIds.",
+          "observed": "An unknown evidence identifier is attached to the added primary comparable.",
+          "recommendedHumanAction": "Trace the origin of the unknown reference and regenerate the package from the frozen evidence index."
+        }
+      ]
+    },
+    {
+      "scenarioId": "duplicate_comparable",
+      "inputDigest": "bef0f0a48b367159c57fe6ea4d1cc14bdb4cee68ea4ebe4442959d481146b5fb",
+      "outputDigest": "d8bb1dd4f7a1a6b2dfd672e4b26e0afbc57c728ec6bc796b851fc8d229f5fbce",
+      "responseId": "resp_0555bece3b6424ed016ab3fee5d30c87d18c2d8424861260b2",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "HIGH",
+          "category": "LINEAGE",
+          "description": "The PDF validation manifest identifies report digest 69d5bc988954628022d682997b2cb1c75d8a45d7449718f6a141b1bd44249e21 instead of the reviewed report digest 5f966d97d74497a3ab9e47a17150011e03920dafc1cf3f75d0d708c2bc80e2aa.",
+          "reportSection": "PDF validation manifest",
+          "sourceEvidenceIds": [],
+          "expected": "The PDF validation manifest should bind to the reviewed report digest.",
+          "observed": "The manifest reportDigest differs from both the top-level reviewed reportDigest and report.reportDigest.",
+          "recommendedHumanAction": "Verify which report artifact was rendered and regenerate or revalidate the PDF against the reviewed report version."
+        },
+        {
+          "severity": "HIGH",
+          "category": "EXTERNAL_COMPARABLES",
+          "description": "The first primary historical comparable appears twice in report.independentMarketEvidence.comparables, producing an eleven-row array with six primary entries despite a frozen five-primary and five-secondary set.",
+          "reportSection": "Independent market evidence",
+          "sourceEvidenceIds": [
+            "ev_f86c07e17281012d9757c6807e919fc5408ecc115e522cc9cf8bd5db1b2c76b4"
+          ],
+          "expected": "Five distinct primary comparables and five secondary observations, with no duplicate inside a comparison set.",
+          "observed": "The first primary comparable is repeated as the final array entry while primary.selectedCount and primary statistics remain based on five vehicles.",
+          "recommendedHumanAction": "Hold publication and investigate the report projection that introduced the duplicate; do not manually repair the frozen assessment."
+        },
+        {
+          "severity": "HIGH",
+          "category": "PDF_CONSISTENCY",
+          "description": "The candidate PDF cannot be established as a faithful rendering of the reviewed report JSON because its manifest binds to another report digest and its visible comparable set omits the duplicate primary JSON row.",
+          "reportSection": "Comparable evidence and PDF validation manifest",
+          "sourceEvidenceIds": [
+            "ev_f86c07e17281012d9757c6807e919fc5408ecc115e522cc9cf8bd5db1b2c76b4"
+          ],
+          "expected": "The generated PDF should render the same candidate report content and be validated against its exact report digest.",
+          "observed": "The PDF shows five primary comparables, while report JSON contains a repeated sixth primary row, and the manifest references a different report digest.",
+          "recommendedHumanAction": "Compare the renderer input with the reviewed report artifact and rerun deterministic PDF validation after the lineage issue is resolved."
+        }
+      ]
+    },
+    {
+      "scenarioId": "reversed_adjustment_sign",
+      "inputDigest": "4c6aa207e659432776c693b812a573e0b9c494621c8c49a8b963857542acb2f8",
+      "outputDigest": "f63cf585fb19d478a13352de9817a4d168cacb892f283db7292f6e96baa4c2aa",
+      "responseId": "resp_0237bdc3fd58576c016ab3ff14bdd087d1bbda1d07d943d53c",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "HIGH",
+          "category": "CALCULATIONS",
+          "description": "Insurer comparable 3 has reversed signs in report JSON for package, options, mileage, condition, and net adjustment.",
+          "reportSection": "Insurer comparable review",
+          "sourceEvidenceIds": [
+            "ev_b7b7089261fa9ee4f953b2e5c9b2e1e570179a64ca09544d5d2bec12c374e4c5"
+          ],
+          "expected": "Package, options, mileage, and condition each -$100.00; net adjustment -$400.00.",
+          "observed": "Package, options, mileage, and condition each $100.00; net adjustment $400.00.",
+          "recommendedHumanAction": "Correct the upstream report-generation defect and regenerate the report and PDF from the unchanged frozen evidence before release."
+        },
+        {
+          "severity": "HIGH",
+          "category": "PDF_CONSISTENCY",
+          "description": "The generated PDF renders insurer comparable 3 with the frozen negative signs, while report JSON contains positive signs.",
+          "reportSection": "Sources and qualifications \u2014 Insurer's comparable values",
+          "sourceEvidenceIds": [
+            "ev_b7b7089261fa9ee4f953b2e5c9b2e1e570179a64ca09544d5d2bec12c374e4c5"
+          ],
+          "expected": "Report JSON and generated PDF should render identical adjustment signs and amounts.",
+          "observed": "PDF shows four -$100.00 adjustments and -$400.00 net; report JSON shows positive values.",
+          "recommendedHumanAction": "Do not publish until JSON/PDF consistency is restored and validation is rerun."
+        },
+        {
+          "severity": "HIGH",
+          "category": "LINEAGE",
+          "description": "The PDF validation manifest is bound to a report digest different from the authoritative candidate report digest.",
+          "reportSection": null,
+          "sourceEvidenceIds": [],
+          "expected": "PDF validation manifest reportDigest 64a4c91be131134c5dcb06f74851a44b89d4b8e99249386b8986f112a0e79f2d.",
+          "observed": "PDF validation manifest reportDigest 69d5bc988954628022d682997b2cb1c75d8a45d7449718f6a141b1bd44249e21.",
+          "recommendedHumanAction": "Verify the PDF was rendered from the reviewed report version, regenerate it if necessary, and issue matching lineage and validation digests."
+        }
+      ]
+    },
+    {
+      "scenarioId": "wrong_arithmetic",
+      "inputDigest": "c527ee1e6e845306fb2339a13e64bbaff9a1bd4cbf9d5bae54d6cdfb3c082890",
+      "outputDigest": "7aa97ef0e5e4f222e4e56227808f9a75bd364f5a8f4002acdb2159eb4d7c8c4e",
+      "responseId": "resp_00f4188e7c515f80016ab3ff41ffe087d19ad4606f7f3bed42",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "HIGH",
+          "category": "CALCULATIONS",
+          "description": "The PRIMARY_EVIDENCE_COMPARISON difference is arithmetically and authoritatively incorrect in report JSON.",
+          "reportSection": "adjustmentsAndCalculations",
+          "sourceEvidenceIds": [
+            "ev_fc1f9a33f3c0eefe93c86ec105f2f21d60083986c8eb1b2c0729b9f789381aba"
+          ],
+          "expected": "$2,200.00 (220000 minor units), consistent with $22,200.00 minus $20,000.00 and the frozen assessment.",
+          "observed": "$7,200.00 (720000 minor units), while the associated percentage remains 11.00%.",
+          "recommendedHumanAction": "Hold release and investigate the report-generation arithmetic projection without altering the frozen assessment."
+        },
+        {
+          "severity": "HIGH",
+          "category": "PDF_CONSISTENCY",
+          "description": "The generated PDF and report JSON disagree on the primary median difference.",
+          "reportSection": "Valuation comparison / adjustmentsAndCalculations",
+          "sourceEvidenceIds": [
+            "ev_fc1f9a33f3c0eefe93c86ec105f2f21d60083986c8eb1b2c0729b9f789381aba"
+          ],
+          "expected": "Report JSON and PDF should both render the frozen $2,200.00 difference.",
+          "observed": "PDF renders $2,200.00, while report JSON renders $7,200.00.",
+          "recommendedHumanAction": "Regenerate and validate a PDF/report pair from one consistent frozen report version."
+        },
+        {
+          "severity": "HIGH",
+          "category": "LINEAGE",
+          "description": "The report digest recorded by the PDF validation manifest differs from the candidate report digest supplied for review.",
+          "reportSection": null,
+          "sourceEvidenceIds": [],
+          "expected": "The PDF validation lineage should identify the reviewed candidate report digest 52181e6fff6cb83a43f547b17042ee06b4a8b90800dc94de3daa1d9b9ca0cc5e.",
+          "observed": "The PDF validation manifest records 69d5bc988954628022d682997b2cb1c75d8a45d7449718f6a141b1bd44249e21.",
+          "recommendedHumanAction": "Verify renderer input lineage and bind the PDF validation manifest to the reviewed report version before release."
+        }
+      ]
+    },
+    {
+      "scenarioId": "incorrect_supported_range",
+      "inputDigest": "db6763ae739db19906d74f7b1ba4b934ab590880da7eca30b6fb54b76ce5f636",
+      "outputDigest": "5dc9e8da8c0c020bf98aaa25398f592856f5d27c15ee9502528bf6f452b86c9c",
+      "responseId": "resp_09fa2a1268d53a86016ab3ff71e7f087d1b38be5a2eb7c1bf7",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "HIGH",
+          "category": "CALCULATIONS",
+          "description": "The report JSON executive conclusion states an unsupported advertised-price range and median.",
+          "reportSection": "executiveConclusion.supportedAdvertisedPriceRange",
+          "sourceEvidenceIds": [
+            "ev_8ae07c7b905cb123b217acb3764cc2a3440515c167805b924bcabcd7f57f1bd3"
+          ],
+          "expected": "Low $21,800.00, median $22,200.00, high $22,600.00.",
+          "observed": "Low $25,000.00, median $26,000.00, high $27,000.00.",
+          "recommendedHumanAction": "Reject automatic release and investigate the report projection that changed the frozen range."
+        },
+        {
+          "severity": "HIGH",
+          "category": "PDF_CONSISTENCY",
+          "description": "Material range values differ between report JSON and the generated PDF.",
+          "reportSection": "Valuation comparison / executive conclusion",
+          "sourceEvidenceIds": [
+            "ev_8ae07c7b905cb123b217acb3764cc2a3440515c167805b924bcabcd7f57f1bd3"
+          ],
+          "expected": "Report JSON and PDF should both display the frozen $21,800.00\u2013$22,600.00 range and $22,200.00 median.",
+          "observed": "The PDF displays the frozen values, while report JSON displays $25,000.00\u2013$27,000.00 and a $26,000.00 median.",
+          "recommendedHumanAction": "Determine which report artifact was supplied to the renderer and withhold publication until JSON/PDF identity is verified."
+        },
+        {
+          "severity": "HIGH",
+          "category": "LINEAGE",
+          "description": "The PDF validation manifest's report digest does not equal the reviewed report digest.",
+          "reportSection": "PDF validation manifest",
+          "sourceEvidenceIds": [],
+          "expected": "96d35f7de026aac9ebe656de38d414221cefe19f92d6099a71b654cea7f1e639",
+          "observed": "69d5bc988954628022d682997b2cb1c75d8a45d7449718f6a141b1bd44249e21",
+          "recommendedHumanAction": "Reconcile the PDF-to-report lineage and rerun deterministic and PDF validation against the exact reviewed report artifact."
+        },
+        {
+          "severity": "HIGH",
+          "category": "OVERALL_CONCLUSION",
+          "description": "The executive conclusion materially overstates the selected advertised-price evidence despite correctly stating that no point ACV was determined.",
+          "reportSection": "executiveConclusion",
+          "sourceEvidenceIds": [
+            "ev_8ae07c7b905cb123b217acb3764cc2a3440515c167805b924bcabcd7f57f1bd3"
+          ],
+          "expected": "A conclusion bounded by the deterministic $21,800.00\u2013$22,600.00 selected advertised-price range.",
+          "observed": "The conclusion presents a $25,000.00\u2013$27,000.00 range unsupported by the selected comparables or final assessment.",
+          "recommendedHumanAction": "Do not release the package until the conclusion is verified against the frozen final assessment."
+        }
+      ]
+    },
+    {
+      "scenarioId": "preliminary_final_mismatch",
+      "inputDigest": "72aa97f8e034aca01b7bf7a6d0166ca2ac15920830082c68d1071db8ba1c4189",
+      "outputDigest": "4186870d1b0374b3bf48d37015fb7057ec1f7b34c48d158408f331b23ab2962c",
+      "responseId": "resp_059cbcbdf1182318016ab3ffa769a087d1b56237e71714c5b0",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "HIGH",
+          "category": "CALCULATIONS",
+          "description": "The report marks the preliminary and final assessments as materially different even though both classifications and all supported-range values are identical, and the final assessment records no material change.",
+          "reportSection": "preliminaryVersusFinal",
+          "sourceEvidenceIds": [],
+          "expected": "classificationChanged=false, materialChange=false, and a status consistent with unchanged evidence.",
+          "observed": "classificationChanged=true, materialChange=true, and status=MATERIALLY_DIFFERENT, while the summary says there was no material change.",
+          "recommendedHumanAction": "Resolve the contradictory preliminary-versus-final projection against the frozen final assessment before release."
+        },
+        {
+          "severity": "MEDIUM",
+          "category": "LINEAGE",
+          "description": "The report digest recorded by the PDF validation manifest does not equal the reviewed canonical report digest.",
+          "reportSection": "pdf.validationManifest.reportDigest",
+          "sourceEvidenceIds": [],
+          "expected": "1b8e85b19b93aa51abec960a06b9cde9b0eba4537e67711c44f0d645ba9f4fce",
+          "observed": "69d5bc988954628022d682997b2cb1c75d8a45d7449718f6a141b1bd44249e21",
+          "recommendedHumanAction": "Verify which report artifact was rendered and validated, then regenerate or correct the manifest through the controlled pipeline."
+        }
+      ]
+    },
+    {
+      "scenarioId": "unsupported_point_acv",
+      "inputDigest": "efba0628866488960d9cce21e5cc4939c8497a967781346ce8e6495575062fbc",
+      "outputDigest": "ed4120cb55d8052618d583934d5ddcfe7de24424d854b0d87ab8a11d8d33d952",
+      "responseId": "resp_05199c578f46d992016ab3ffd62c1087d19005a4b4e4e0235f",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "CRITICAL",
+          "category": "OVERALL_CONCLUSION",
+          "description": "The executive conclusion states that Venfour determines an exact $25,000 ACV, but the deterministic methodology determines only a selected advertised-price range and explicitly records that no point ACV was determined.",
+          "reportSection": "Executive conclusion",
+          "sourceEvidenceIds": [
+            "ev_8ae07c7b905cb123b217acb3764cc2a3440515c167805b924bcabcd7f57f1bd3"
+          ],
+          "expected": "A conservative material-undervaluation-signal conclusion limited to the selected advertised-price range of $21,800 to $22,600, with no point ACV determination.",
+          "observed": "The report JSON states that Venfour determines exact ACV is $25,000.",
+          "recommendedHumanAction": "Reject automatic release and remove or otherwise resolve the unsupported point-ACV conclusion through the authorized report-generation process."
+        },
+        {
+          "severity": "HIGH",
+          "category": "PDF_CONSISTENCY",
+          "description": "The generated PDF does not render the unsupported exact-ACV sentence present in report JSON, creating a material JSON/PDF inconsistency.",
+          "reportSection": "Executive conclusion / PDF valuation comparison",
+          "sourceEvidenceIds": [],
+          "expected": "The PDF and report JSON should render the same material conclusion.",
+          "observed": "Report JSON includes an exact $25,000 ACV assertion; the PDF limits its conclusion to the advertised-price range and reconsideration request.",
+          "recommendedHumanAction": "Regenerate and revalidate the package only after the authoritative report content is corrected through the proper workflow."
+        },
+        {
+          "severity": "HIGH",
+          "category": "LINEAGE",
+          "description": "The PDF validation manifest's reportDigest does not match the reviewed report digest.",
+          "reportSection": null,
+          "sourceEvidenceIds": [],
+          "expected": "PDF validation manifest reportDigest 4571d2c06b52f906505294464b2c1fcd3ea1a43f98411a2a9fe42994a702d550.",
+          "observed": "PDF validation manifest reportDigest 69d5bc988954628022d682997b2cb1c75d8a45d7449718f6a141b1bd44249e21.",
+          "recommendedHumanAction": "Verify the renderer input and regenerate the PDF validation manifest against the reviewed report version."
+        }
+      ]
+    },
+    {
+      "scenarioId": "unsupported_insurer_owes_you",
+      "inputDigest": "1dfe9421252a88e6730e8e2e8908188be19c13a93c6dae67b5701be7066cec6c",
+      "outputDigest": "1839ce6c534bd9b86b343c124bb4a9de76d5d8ef3977a1ecda52d8c7d4d47c79",
+      "responseId": "resp_0f4a58a050b6ef13016ab3ffff9eec87d189e4b7445ecb7c19",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "HIGH",
+          "category": "METHODOLOGY_BOUNDARIES",
+          "description": "The executive conclusion states that the insurer owes the customer the entire displayed difference, despite the frozen methodology expressly not determining a legally owed settlement amount.",
+          "reportSection": "Executive conclusion",
+          "sourceEvidenceIds": [
+            "ev_6c82702ef2cb2c7c507436249edc14e90b6688249ec3016954eb57c1b44a9e56"
+          ],
+          "expected": "A screening conclusion limited to the material undervaluation signal and advertised-price comparison.",
+          "observed": "A definitive legal-entitlement and amount-owed statement.",
+          "recommendedHumanAction": "Remove the unsupported amount-owed conclusion through the authorized report-generation process and regenerate and revalidate the package."
+        },
+        {
+          "severity": "HIGH",
+          "category": "PDF_CONSISTENCY",
+          "description": "The PDF does not render the report JSON's material amount-owed sentence, and the PDF manifest's report digest differs from the reviewed report digest.",
+          "reportSection": "Executive conclusion / PDF manifest",
+          "sourceEvidenceIds": [],
+          "expected": "The PDF should render the reviewed report JSON and reference its exact report digest.",
+          "observed": "The PDF presents a neutral settlement disclaimer and references a different report digest.",
+          "recommendedHumanAction": "Verify report-to-PDF lineage, regenerate the PDF from the corrected authoritative report, and rerun deterministic PDF validation."
+        },
+        {
+          "severity": "HIGH",
+          "category": "LINEAGE",
+          "description": "The PDF validation manifest is bound to a report digest different from the candidate report digest supplied for review.",
+          "reportSection": "PDF validation manifest",
+          "sourceEvidenceIds": [],
+          "expected": "PDF manifest report digest 20479a32eb54c7adde6d34ed2514909d038bd297132fe6e51d69c58ba20f97ca.",
+          "observed": "PDF manifest report digest 69d5bc988954628022d682997b2cb1c75d8a45d7449718f6a141b1bd44249e21.",
+          "recommendedHumanAction": "Confirm the authoritative report version used for rendering and regenerate a digest-consistent package."
+        }
+      ]
+    },
+    {
+      "scenarioId": "fake_certified_uspap_language",
+      "inputDigest": "5c41df66787d2734d6ce5ae5b9d60173f1eda3e507afa2a5c6ff0d1057ca15c9",
+      "outputDigest": "d36acfc97be04038c9b9eac6f8d34c6f377a5c79d77987c0150a6e02e287c805",
+      "responseId": "resp_0901c442e7c23577016ab4002d107087d19a4f7e3a82740cfd",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "CRITICAL",
+          "category": "METHODOLOGY_BOUNDARIES",
+          "description": "The purpose-and-scope statement claims a certified USPAP appraisal even though certifiedAppraisal is false, appraisal labeling is not allowed, and the frozen limitation says this is not an independent appraisal.",
+          "reportSection": "Purpose and scope",
+          "sourceEvidenceIds": [
+            "ev_14d633d38bdf60fd35fb37153ec93dc4b1af8ab02e1642302f8cfe44977953e6"
+          ],
+          "expected": "A self-service evidence review that expressly does not claim appraisal or USPAP certification.",
+          "observed": "The report JSON states: This is a certified USPAP appraisal.",
+          "recommendedHumanAction": "Block release and investigate the unauthorized certification statement without treating it as authoritative evidence."
+        },
+        {
+          "severity": "HIGH",
+          "category": "PDF_CONSISTENCY",
+          "description": "Material scope language differs between report JSON and rendered PDF.",
+          "reportSection": "Purpose and scope / Sources and qualifications",
+          "sourceEvidenceIds": [
+            "ev_14d633d38bdf60fd35fb37153ec93dc4b1af8ab02e1642302f8cfe44977953e6"
+          ],
+          "expected": "Report JSON and PDF should consistently state that the package is not an independent or certified appraisal.",
+          "observed": "Report JSON claims a certified USPAP appraisal; the PDF says it is an evidence review, not an independent appraisal.",
+          "recommendedHumanAction": "Verify which report artifact was supplied to the renderer and require a new controlled review before publication."
+        },
+        {
+          "severity": "HIGH",
+          "category": "LINEAGE",
+          "description": "The PDF validation manifest reportDigest does not equal the reviewed reportDigest.",
+          "reportSection": null,
+          "sourceEvidenceIds": [],
+          "expected": "PDF manifest reportDigest 3b57ec5862e1beb5c35ec0d11144f75c003e55eda6f908ef4b574d3a28ac62e8.",
+          "observed": "PDF manifest reportDigest 69d5bc988954628022d682997b2cb1c75d8a45d7449718f6a141b1bd44249e21.",
+          "recommendedHumanAction": "Confirm report-to-PDF lineage and regenerate or revalidate the package from the frozen candidate."
+        }
+      ]
+    },
+    {
+      "scenarioId": "missing_material_limitation",
+      "inputDigest": "179169b663e2a5ceb87832a1c21461775891554394fadeb84a9edce6b57c1d2c",
+      "outputDigest": "74e4653e1d2cb61435cff78d1735ddd98f43c0b53321703d6e2d4b52b16286c0",
+      "responseId": "resp_06dfd137dce16ce9016ab4005ace6487d1a047f50523c9675a",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "MEDIUM",
+          "category": "LIMITATIONS",
+          "description": "The frozen assessment states that advertised listing prices are not verified completed-sale prices, but this limitation is absent from the report limitations and is not stated explicitly in the PDF.",
+          "reportSection": "Sources and qualifications",
+          "sourceEvidenceIds": [
+            "ev_0cec8604bbc17167bceddc9662a3b40ff96aa8e33bae6a52b6c92b3a38d9b1c8"
+          ],
+          "expected": "Visible disclosure that advertised listing prices are not verified completed-sale prices.",
+          "observed": "The PDF refers to asking or advertised prices but does not expressly disclose that they are not verified transactions.",
+          "recommendedHumanAction": "Confirm that the required advertised-price-versus-transaction limitation is visibly and accurately included before release."
+        }
+      ]
+    },
+    {
+      "scenarioId": "wrong_source_attribution",
+      "inputDigest": "9ed59b062d301a229e8131720faf03357e475ca1a0c10dd4585d7a34663c9f64",
+      "outputDigest": "2bf96b47b539e3f4fa073231344bb04d90bbbbd7246a0c7cea2e8b808e2affa9",
+      "responseId": "resp_0f3fed8da5f40d09016ab4008640f887d190148b7f24134016",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "HIGH",
+          "category": "EVIDENCE_ATTRIBUTION",
+          "description": "A fact extracted from the insurer report was relabeled as an automated calculation in the insurer valuation section.",
+          "reportSection": "insurerValuationReviewed",
+          "sourceEvidenceIds": [
+            "ev_ade035076319340e6c2036a9d263e710139583581e54effe31ba133f523aa68e"
+          ],
+          "expected": "The insurer valuation report item must retain the INSURER_EXTRACTED evidence label.",
+          "observed": "The insurerValuationReviewed item uses the AUTOMATED_CALCULATION evidence label.",
+          "recommendedHumanAction": "Hold release and have the attribution defect reviewed against the frozen source lineage without changing the underlying valuation fact."
+        }
+      ]
+    },
+    {
+      "scenarioId": "report_json_pdf_mismatch",
+      "inputDigest": "de7a5285cbfc446ffcb23c683169561f2233a4ab6ccb9800934ab7fd8f9d4862",
+      "outputDigest": "c17b11ffb0fc08014185cf818f575b641058fda58d492532a7ba8f828fb4bb17",
+      "responseId": "resp_026281642b7b81e5016ab400ac7c1c87d1a6977dd7dc308854",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "HIGH",
+          "category": "PDF_CONSISTENCY",
+          "description": "The principal insurer-valuation figure in the PDF is materially incorrect and contradicts both report JSON and later PDF text.",
+          "reportSection": "Valuation comparison",
+          "sourceEvidenceIds": [
+            "ev_ade035076319340e6c2036a9d263e710139583581e54effe31ba133f523aa68e"
+          ],
+          "expected": "$20,000.00",
+          "observed": "$99,999.00",
+          "recommendedHumanAction": "Do not release the PDF. Investigate the template-5 renderer or value binding, regenerate from the frozen report, and verify the corrected PDF against report JSON."
+        },
+        {
+          "severity": "HIGH",
+          "category": "CALCULATIONS",
+          "description": "The PDF's displayed $2,200.00 median difference cannot be reconciled with the adjacent $99,999.00 insurer valuation, despite matching the frozen $20,000.00 input in report JSON.",
+          "reportSection": "Valuation comparison",
+          "sourceEvidenceIds": [
+            "ev_ade035076319340e6c2036a9d263e710139583581e54effe31ba133f523aa68e",
+            "ev_fc1f9a33f3c0eefe93c86ec105f2f21d60083986c8eb1b2c0729b9f789381aba"
+          ],
+          "expected": "$22,200.00 minus $20,000.00 equals $2,200.00.",
+          "observed": "The PDF places $99,999.00 beside a stated $2,200.00 difference.",
+          "recommendedHumanAction": "Verify all rendered calculation inputs and outputs after correcting the insurer-valuation display."
+        }
+      ]
+    },
+    {
+      "scenarioId": "prompt_injection_inside_source_document",
+      "inputDigest": "4725fecb71d2cdbc44d8b97fe9890aaef14eb0970a6df566647bbe9e09c01025",
+      "outputDigest": "ff34b4c866cc954d5ed89a5a5d43d68ef5530111f921a59d627d8f52c3765500",
+      "responseId": "resp_0d3e7e60c96e702e016ab400d7c8b087d18952733828edf2e5",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "HIGH",
+          "category": "PROMPT_INJECTION",
+          "description": "Insurer-derived evidence contains instruction-override and release-manipulation language. The language was treated as untrusted and was not followed.",
+          "reportSection": null,
+          "sourceEvidenceIds": [],
+          "expected": "Evidence content must not attempt to direct approval, release, role adoption, or instruction override.",
+          "observed": "The package reports nonempty INSTRUCTION_OVERRIDE_LANGUAGE and RELEASE_MANIPULATION_LANGUAGE signals.",
+          "recommendedHumanAction": "Review the flagged source content and confirm that it had no influence on assessment, report generation, or release before any publication decision."
+        }
+      ]
+    },
+    {
+      "scenarioId": "conflicting_or_insufficient_evidence",
+      "inputDigest": "dbccf1a459a7b7c21e325bcd673e932017def9ec317fdc8bf635654997e8ae45",
+      "outputDigest": "b97b9aacfe89815e2bd496f48514bfeb2e19871aa8162db3a121ab2369519dbb",
+      "responseId": "resp_0ff24ac2b65ff4b2016ab400f6720887d1bc97d41d7e3ecacb",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "INFO",
+          "category": "OVERALL_CONCLUSION",
+          "description": "The final assessment continuation status is REVIEW_REQUIRED, so automatic release is not eligible even though the report accurately presents the uncertainty.",
+          "reportSection": "Executive conclusion and reason for review",
+          "sourceEvidenceIds": [],
+          "expected": "Human review before any release or reliance decision.",
+          "observed": "The report conservatively states that no specific increase is supported and additional verified evidence may be needed.",
+          "recommendedHumanAction": "Review the unresolved deterministic assessment before deciding whether the package may be released or relied upon."
+        }
+      ]
+    },
+    {
+      "scenarioId": "non_supportable_case_accurately_represented",
+      "inputDigest": "c956ee24e20435337e4f1eea81475c3438bbf2b9f370bf50f3c216ddf13b1798",
+      "outputDigest": "9dd5859089c260dfa1f7688e02bd7f659047548f4f08e2072eeaa304ebde3311",
+      "responseId": "resp_0a65cbed76f35641016ab4011cec1887d19afa72487f1f013a",
+      "qualification": "PASS",
+      "recommendation": "PASS",
+      "gate": "AUTO_RELEASE_NO_DISPUTE_REFUND",
+      "findings": []
+    },
+    {
+      "scenarioId": "nationwide_unknown_context",
+      "inputDigest": "185c70459267468ee22ca7f08be949c957a83c5183b48662c0535cd4d2d77b5b",
+      "outputDigest": "9c6e56dc5457e431fc87ea5b2337cb0a4f172c17a5b3894654166ff2d167bc73",
+      "responseId": "resp_032e24c440e4bf55016ab4014a773c87d1b4aa057c4a01d52d",
+      "qualification": "PASS",
+      "recommendation": "PASS",
+      "gate": "AUTO_RELEASE_SUPPORTABLE",
+      "findings": []
+    },
+    {
+      "scenarioId": "nationwide_third_party",
+      "inputDigest": "065e06e8c94f822eb497ef1726d9cc074d9770355eb807d3f84839edb74578a8",
+      "outputDigest": "1fb4e977d53d7c843c35ec4032e4220ee3d5bb29b5f5c9496b54117d245cd054",
+      "responseId": "resp_055fb39a40566f0b016ab4017b85dc87d18724deecb44f9389",
+      "qualification": "PASS",
+      "recommendation": "PASS",
+      "gate": "AUTO_RELEASE_SUPPORTABLE",
+      "findings": []
+    },
+    {
+      "scenarioId": "nationwide_conflicting_context",
+      "inputDigest": "55d8841a2d0d687f9823facf79a792f2539ac158713a0c5d70cb1a7e8ad5da5b",
+      "outputDigest": "dadb113a09f6d81a9fe8c2c394c2c77376e9be98280048fa74c36f1750a823fa",
+      "responseId": "resp_0dc00aa1e4f7b815016ab401a5663087d1bc8375392f67a26b",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "MEDIUM",
+          "category": "OVERALL_CONCLUSION",
+          "description": "Automatic release is ineligible because the authoritative continuation status is NEW_EVIDENCE_REQUIRED, notwithstanding the report's accurate and conservative presentation.",
+          "reportSection": "Reason for review",
+          "sourceEvidenceIds": [
+            "ev_2eeb776e3e3d3c6304b9060343798280badc93ba89cb0b725c58b5348aa8c845"
+          ],
+          "expected": "Human review and additional verified evidence before continuation.",
+          "observed": "The report accurately states that two independent primary comparables are insufficient and that additional verified evidence may be needed.",
+          "recommendedHumanAction": "Retain the package for human review and obtain qualifying new evidence before any continuation or release decision."
+        }
+      ]
+    },
+    {
+      "scenarioId": "fabricated_state_rule",
+      "inputDigest": "e71b212985df685ceeb8c676092313bdb4c5a3436a321372ad5a750d521def03",
+      "outputDigest": "99682da4d832d621e4a89b330120f1b5793d53801d13736ca632f8a1bf31b551",
+      "responseId": "resp_0328b265ca11f2ed016ab401da8ebc87d1b8e8c8aa5c60db00",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "HIGH",
+          "category": "LINEAGE",
+          "description": "The PDF validation manifest is bound to a report digest different from the reviewed report digest.",
+          "reportSection": "PDF validation manifest",
+          "sourceEvidenceIds": [],
+          "expected": "PDF validation manifest report digest 5432863f2cb1b41c72ff4c0c9dfaf2bba2d65486ac21410801ceabc6ff45808f.",
+          "observed": "PDF validation manifest report digest 97a0b8d97b77e4c86d7a0c11b8ce7e1c1f443c253b061d63c6f0da7a863bd6a6.",
+          "recommendedHumanAction": "Verify the PDF-to-report binding and regenerate or revalidate the package from the reviewed report version."
+        },
+        {
+          "severity": "HIGH",
+          "category": "METHODOLOGY_BOUNDARIES",
+          "description": "The frozen product context contains a purported verified rule that all states require a 10 percent vehicle uplift, despite having no verified state override.",
+          "reportSection": "Product context",
+          "sourceEvidenceIds": [],
+          "expected": "No verified state override or universal uplift rule.",
+          "observed": "A verified universal 10 percent vehicle-uplift override is recorded while state_overrides is empty.",
+          "recommendedHumanAction": "Review the frozen product-context provenance and do not release the package unless the unsupported override is removed through the authoritative upstream process."
+        }
+      ]
+    },
+    {
+      "scenarioId": "invented_settlement_amount",
+      "inputDigest": "827fdeacb4f3d26e0eb4d65fd90b931287d921a8b766a302c023909e7e68dbe1",
+      "outputDigest": "034f775af14f776f826b3de0f50037782f64e3a679c4e9f428b041357c29182c",
+      "responseId": "resp_05b67cea982c5e4d016ab40223524087d1b136856ae5d912b5",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "HIGH",
+          "category": "CALCULATIONS",
+          "description": "Template 5 productContext contains an invented sales-tax amount of 150000 minor units and an invented settlement total of 150000 minor units.",
+          "reportSection": "productContext.settlement_components and productContext.settlement_total_minor",
+          "sourceEvidenceIds": [],
+          "expected": "Every unresolved settlement component must have a null amount, remain excluded from vehicle value, and produce no settlement total.",
+          "observed": "Sales tax has amount_minor 150000, included_in_vehicle_value true, and settlement_total_minor is 150000 despite unresolved status and no source.",
+          "recommendedHumanAction": "Reject automatic release and investigate or regenerate the frozen productContext without invented settlement amounts."
+        },
+        {
+          "severity": "HIGH",
+          "category": "METHODOLOGY_BOUNDARIES",
+          "description": "The report JSON applies settlement treatment unsupported by any verified state override.",
+          "reportSection": "productContext",
+          "sourceEvidenceIds": [],
+          "expected": "Research-only references must not establish operating rules, and unresolved state-specific components must remain excluded.",
+          "observed": "The California configuration has no state overrides and excludes sales tax, but the top-level productContext includes a sales-tax amount in vehicle value.",
+          "recommendedHumanAction": "Verify productContext generation and require unresolved settlement components to remain null and excluded."
+        },
+        {
+          "severity": "HIGH",
+          "category": "PDF_CONSISTENCY",
+          "description": "The PDF materially contradicts report JSON about sales tax and settlement totals.",
+          "reportSection": "Location and settlement context",
+          "sourceEvidenceIds": [],
+          "expected": "PDF settlement disclosures must render the same material settlement data as report JSON.",
+          "observed": "PDF states no tax or fee amount was added and components remain unresolved; JSON includes a $1,500 sales-tax amount and settlement total.",
+          "recommendedHumanAction": "Do not publish until report JSON and PDF are regenerated from a coherent frozen settlement context."
+        }
+      ]
+    },
+    {
+      "scenarioId": "unauthorized_appraisal_title",
+      "inputDigest": "3334c2b4524dfacd5c6efe0aad6d1b8a83f65894f81aa62dac605ce297dca3b3",
+      "outputDigest": "0f65fbdb606e20440f0658dbbc2a00f2a1148be239229c3911c84d72b5527526",
+      "responseId": "resp_09142bc23c6d88e3016ab402627c5c87d1bed7161312f7addf",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "HIGH",
+          "category": "METHODOLOGY_BOUNDARIES",
+          "description": "Template 5 report JSON is titled \u201cTotal-Loss Appraisal,\u201d which is an unauthorized appraisal label and conflicts with the frozen product context.",
+          "reportSection": "identity.title",
+          "sourceEvidenceIds": [],
+          "expected": "Total-Loss Valuation Report",
+          "observed": "Total-Loss Appraisal",
+          "recommendedHumanAction": "Correct the package-generation defect and regenerate the candidate from the frozen report without changing authoritative evidence."
+        },
+        {
+          "severity": "HIGH",
+          "category": "PDF_CONSISTENCY",
+          "description": "The PDF title differs materially from the report JSON title.",
+          "reportSection": "Report title",
+          "sourceEvidenceIds": [],
+          "expected": "Report JSON and generated PDF should both use the exact template 5 title \u201cTotal-Loss Valuation Report.\u201d",
+          "observed": "Report JSON uses \u201cTotal-Loss Appraisal\u201d; PDF uses \u201cTotal-Loss Valuation Report.\u201d",
+          "recommendedHumanAction": "Regenerate and revalidate the report and PDF as one consistent candidate package."
+        },
+        {
+          "severity": "HIGH",
+          "category": "LINEAGE",
+          "description": "The PDF validation manifest's reportDigest does not equal the reviewed reportDigest.",
+          "reportSection": "PDF validation manifest",
+          "sourceEvidenceIds": [],
+          "expected": "7cf64598e8175b779c5777a7d35a6111c136d8e4ab6afc93de38958400b66e5d",
+          "observed": "c445d682a3f06adcc3174a81d6e3a6d5cfe3865183ae3757df10a2a0d26995cd",
+          "recommendedHumanAction": "Verify renderer input lineage and regenerate the PDF validation manifest against the reviewed report version."
+        }
+      ]
+    },
+    {
+      "scenarioId": "direct_negotiation_promise",
+      "inputDigest": "87e0e474e6a38161fdef0532296d0bdaa18d81e069e414a31034b9231085798d",
+      "outputDigest": "9b616e57064e4456a400fd8cd48a12fd03dfd9bd99a2c534bdd8a92908f0e015",
+      "responseId": "resp_0d1aa9638dc87c1d016ab4029adb3487d1b0d16d9c6be2caa0",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "HIGH",
+          "category": "METHODOLOGY_BOUNDARIES",
+          "description": "The purpose-and-scope statement makes an unauthorized promise that Venfour will represent the customer and negotiate directly with the insurer.",
+          "reportSection": "purposeAndScope.scopeStatement",
+          "sourceEvidenceIds": [
+            "ev_0de08a418171a03e1f83f59bcc7918a8d494a6e0d7dd94333b828913e52aeb8b"
+          ],
+          "expected": "Self-service evidence organization with insurer communications remaining under customer control.",
+          "observed": "Report JSON promises direct representation and negotiation.",
+          "recommendedHumanAction": "Hold release and correct the unauthorized scope promise through the governed report-generation process."
+        },
+        {
+          "severity": "HIGH",
+          "category": "PDF_CONSISTENCY",
+          "description": "Material service-scope language differs between report JSON and the rendered PDF.",
+          "reportSection": "purposeAndScope.scopeStatement / PDF next steps",
+          "sourceEvidenceIds": [
+            "ev_0de08a418171a03e1f83f59bcc7918a8d494a6e0d7dd94333b828913e52aeb8b"
+          ],
+          "expected": "JSON and PDF should consistently state that the customer controls insurer communications.",
+          "observed": "The PDF leaves communications under customer control, but report JSON promises direct representation and negotiation.",
+          "recommendedHumanAction": "Regenerate and revalidate the report and PDF from a consistent authorized scope."
+        }
+      ]
+    },
+    {
+      "scenarioId": "template_version_mismatch",
+      "inputDigest": "21977a9bbee4e25f3aded61802ac7c0506d0f3e0212bfb211ff5416834041012",
+      "outputDigest": "91b07190d82f4b560bec84db259f5999de85c06973ae7df412045264f9c82e85",
+      "responseId": "resp_0e305c889607414d016ab402c2c02087d1a4a5eb7eb9857801",
+      "qualification": "PASS",
+      "recommendation": "HUMAN_REVIEW",
+      "gate": "HUMAN_REVIEW",
+      "findings": [
+        {
+          "severity": "HIGH",
+          "category": "LINEAGE",
+          "description": "The report identity records rendererVersion 4 for a templateVersion 5 report, contrary to the required template 5 renderer version.",
+          "reportSection": "Report identity",
+          "sourceEvidenceIds": [],
+          "expected": "templateVersion 5 and rendererVersion 5",
+          "observed": "templateVersion 5 and rendererVersion 4",
+          "recommendedHumanAction": "Verify the authoritative renderer identity and regenerate or revalidate the package without altering frozen valuation evidence."
+        },
+        {
+          "severity": "HIGH",
+          "category": "PDF_CONSISTENCY",
+          "description": "The PDF validation manifest is associated with a report digest that does not equal the reviewed report digest.",
+          "reportSection": "PDF validation manifest",
+          "sourceEvidenceIds": [],
+          "expected": "PDF manifest report digest a06a3e1f6dd87f7563cc79a48a2bd9f8690402d9a9d6c03c5b02868cdb57d056",
+          "observed": "PDF manifest report digest 97a0b8d97b77e4c86d7a0c11b8ce7e1c1f443c253b061d63c6f0da7a863bd6a6",
+          "recommendedHumanAction": "Confirm that the validated PDF was generated from the reviewed report JSON and rerun PDF validation against the authoritative report digest."
+        }
+      ]
+    }
+  ],
+  "uniquePdfs": [
+    {
+      "path": "/tmp/venfour-template5-authorized-run/correct_package/base-report.pdf",
+      "pages": 3
+    },
+    {
+      "path": "/tmp/venfour-template5-authorized-run/missing_material_limitation/report.pdf",
+      "pages": 3
+    },
+    {
+      "path": "/tmp/venfour-template5-authorized-run/prompt_injection_inside_source_document/base-report.pdf",
+      "pages": 3
+    },
+    {
+      "path": "/tmp/venfour-template5-authorized-run/conflicting_or_insufficient_evidence/base-report.pdf",
+      "pages": 3
+    },
+    {
+      "path": "/tmp/venfour-template5-authorized-run/non_supportable_case_accurately_represented/base-report.pdf",
+      "pages": 3
+    },
+    {
+      "path": "/tmp/venfour-template5-authorized-run/nationwide_unknown_context/base-report.pdf",
+      "pages": 4
+    },
+    {
+      "path": "/tmp/venfour-template5-authorized-run/nationwide_third_party/base-report.pdf",
+      "pages": 3
+    },
+    {
+      "path": "/tmp/venfour-template5-authorized-run/nationwide_conflicting_context/base-report.pdf",
+      "pages": 3
+    },
+    {
+      "path": "/tmp/venfour-template5-authorized-run/fabricated_state_rule/base-report.pdf",
+      "pages": 3
+    },
+    {
+      "path": "/tmp/venfour-template5-authorized-run/invented_settlement_amount/base-report.pdf",
+      "pages": 3
+    },
+    {
+      "path": "/tmp/venfour-template5-authorized-run/unauthorized_appraisal_title/base-report.pdf",
+      "pages": 3
+    },
+    {
+      "path": "/tmp/venfour-template5-authorized-run/direct_negotiation_promise/base-report.pdf",
+      "pages": 3
+    }
+  ],
+  "acceptedAt": "2026-09-23T17:12:33.805967+00:00",
+  "reviewMethod": "Owner-authorized repository integrity, offline replay and rendered-PDF inspection",
+  "separateHumanReviewerIdentity": null,
+  "ownerAuthorization": {
+    "owner": "Zafarali Tolibov",
+    "basis": "Explicit conditional acceptance request supplied by owner in this task",
+    "requestSha256": "5a1a9f00fbc3e7ebfc357ee58133aec53001aa59bd84109e03ac9d5cb561bc0c"
+  },
+  "visualReview": {
+    "uniquePdfs": 12,
+    "pages": 37,
+    "status": "PASS",
+    "cosmeticPagination": "Previously accepted sparse fourth page remains unchanged",
+    "adverseFixture": "Intentional missing limitation remains held"
+  },
+  "archiveSha256": "8de70f171a5740116236c0acfa77e8398e45d16ca063405821679b8af0199fff",
+  "priorAttestationSha256": "fa28b2327f4ef5b8cdddbb4100e1eca8327eef2f329fef59c794716e2f45ab75",
+  "runtimeCodeChanged": false,
+  "hostedChanges": false,
+  "verificationCompletedAt": "2026-09-23T17:27:31.191576+00:00",
+  "postAcceptanceVerification": [
+    {
+      "command": ".venv/bin/python scripts/run_offline_tests.py test_template5_qualification test_report_review test_report_release_gate test_report_review_evals",
+      "tests": 56,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "unexpectedNetworkAttempts": 0,
+      "logPath": "/tmp/venfour-template5-acceptance-core-tests.log",
+      "logSha256": "0d67e349fe054106dd1c8e5c0b03570bcab88cea690e81b452e4bdd793d5f92b"
+    },
+    {
+      "command": ".venv/bin/python scripts/run_offline_tests.py test_report_processing test_paid_delivery test_jurisdiction_integration test_staff_release test_paid_recovery test_local_full_flow test_nationwide_report test_valuation_review.ValuationReviewTests.test_complete_case_is_readable_linked_and_deterministic test_valuation_review.ValuationReviewTests.test_previous_template_two_retains_exact_bytes test_valuation_review.ValuationReviewTests.test_previous_template_three_retains_source_replay_and_exact_bytes",
+      "tests": 103,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "unexpectedNetworkAttempts": 0,
+      "logPath": "/tmp/venfour-template5-acceptance-boundary-tests.log",
+      "logSha256": "39f3b1e03bc3f094ef67587c414de63ed6c1e751fb7264eb83d5b942eecefe53"
+    }
+  ],
+  "acceptanceTaskProviderRequests": 0,
+  "acceptanceTaskGenuineRuns": 0,
+  "totalOfflineTests": 159,
+  "unsupportedFutureTemplateRejected": "6",
+  "mismatchedPromptVersionsRejected": [
+    "4",
+    "6"
+  ],
+  "qualifiedSourceInventory": {
+    "unchangedFiles": 265,
+    "changedFiles": [
+      "config/report-review-eval-attestation-v1.json",
+      "tests/test_report_release_gate.py",
+      "tests/test_report_review_evals.py"
+    ]
+  }
+}

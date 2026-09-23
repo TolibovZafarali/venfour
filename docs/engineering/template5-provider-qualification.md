@@ -1,7 +1,8 @@
 # Template-5 provider qualification
 
-September 23, 2026. **Template 5 has a successful genuine 28/28 candidate;
-formal release acceptance and production qualification remain unchanged.**
+September 23, 2026. **Template 5 is formally accepted in the repository after
+independent review of its genuine 28/28 qualification. It is not deployed or activated.**
+See the formal acceptance section below; earlier dated entries describe prior states.
 No deployment, hosted migration, activation, payment, email, market request or
 model request is authorized by this document. The previously audited MarketCheck
 headroom is a dated observation, not a fresh balance.
@@ -19,9 +20,9 @@ and expiring, single-use execution authorization.
 The preparation retains every original adversarial expectation and the existing
 review output schema, comparator and release gate. It adds eight cases, template-5
 materialization and prompt **5**. The suite binds `reportTemplateVersion=5` and the
-exact fixture-manifest digest. The existing checked-in genuine prompt-4 artifact
-is unchanged. It **fails closed** against this candidate code; do not deploy this
-preparation or change release pins until genuine qualification is accepted.
+exact fixture-manifest digest. At preparation time, the checked-in genuine prompt-4 artifact was unchanged and
+failed closed against the candidate code. The later formal acceptance below
+preserves that artifact as history and installs the genuine prompt-5 attestation.
 
 This is report-review qualification, not live search, extraction, hosted delivery,
 operating permission or a pilot. Local fictional insurer PDFs contain a parseable
@@ -761,3 +762,181 @@ Exactly one genuine run occurred. No production deployment, hosted migration,
 live Stripe payment/checkout, email, customer mutation/report publication,
 jurisdiction approval or enforcement activation occurred. Partner attribution,
 commissions, the $199 price and refund terms are unchanged.
+
+## Formal repository acceptance — September 23, 2026
+
+**Accepted for repository release qualification; not deployed or activated.**
+This section supersedes the pending-acceptance status in the dated preparation,
+preflight and genuine-run entries above. The owner explicitly authorized acceptance
+only after the existing requirements passed. The review was performed in this task
+under that instruction; no separate human reviewer, signature or professional
+credential is asserted. The genuine authorization identifies **Zafarali Tolibov**;
+its consumed marker remains untouched.
+
+### Integrity and independent review
+
+The candidate was checked against the complete saved run, not the earlier summary.
+Its exact constructor/schema, template/renderer 5, prompt 5/schema 1, source revision
+and bundle, manifest, fixed suite/rubric, plan, authorization and canonical digest
+matched. Current HEAD at review was `97f9cd53be9197d27243dbd4dd49286142348d41`;
+only the two documentation files differ from the genuine run's source revision.
+The executable source bundle was identical before acceptance. The acceptance delta
+changes artifacts, example configuration, regression tests and documentation only;
+it does not claim a new provider evaluation of a different application implementation.
+
+All 28 raw responses were replayed through the existing response parser, strict
+review contract, production release gate and unchanged labeled comparator offline.
+Each completed record and gate decision matched the archived candidate. All 28
+base reports were revalidated against their frozen sources/assessments and PDFs.
+Every request, wire payload, report/PDF identity and insurer fixture matched its
+approved preparation. All case identities were unique and complete. There were
+**28 qualification PASS, zero REVIEW REQUIRED, zero FAIL, zero critical qualification
+failures; four expected reviewer PASS and 24 expected HUMAN_REVIEW holds**. The
+per-case table above remains accurate. Adverse fixtures deliberately contain the
+fabricated state rule, settlement amount, appraisal title, negotiation promise,
+arithmetic/evidence errors and missing limitation; each was held for its labeled
+reason. Those intentional defects are not accepted customer report content.
+
+The four clean outcomes contain no fabricated state rule, regulated-role promise,
+point-ACV or guaranteed-settlement inference. Vehicle/insurer facts, complete
+comparable sets, signs and calculations agree with frozen evidence. Unresolved
+settlement amounts remain excluded, and unknown/conflicting locations are explicit.
+All **12 distinct base/candidate PDFs, 37 pages**, were rendered and visually
+inspected; identical copies cover the rest of the 28-case corpus. No clipping,
+unreadable text or unintended missing material was found. The intentionally
+redacted adverse PDF remains correctly held. The unknown-context fourth page
+contains the final customer-controlled next step and remains the previously
+owner-accepted cosmetic pagination issue.
+
+Recreating PDF validation after reading sorted JSON changes only the order of
+adjustment-check rows (and therefore the recomputed manifest digest). The original
+manifest's own digest, PDF/report/text identities and complete check set all validate;
+the original manifests were retained byte-for-byte, never rewritten or substituted.
+The initial local review script also expected HEAD equality before identifying the
+intervening documentation-only commit. Neither observation changed the qualification
+inputs, labels or acceptance standard.
+
+The 56 ledger entries reconcile to exactly 28 reserved/returned pairs and 28 unique
+raw responses, one attempt per case, no retry or transport-error entries. All request
+and response timestamps fall within the original authorization window; its current
+expiry does not invalidate authorized historical execution or authorize a new run.
+The single-use marker, candidate authorization and approved plan match. Input tokens
+**2,505,922** (66,636 cached, 2,439,202 cache writes, 84 other uncached), output
+**60,146** including 18,781 reasoning tokens, and actual calculated cost
+**$13.4259204** reconcile to raw usage. Cumulative attempt reservations are
+**$107.71739**, below **$323.16**. No provider was contacted in this review.
+
+### Artifact, history and release settings
+
+Only the genuine candidate's exact `releaseAttestation` was installed at
+[config/report-review-eval-attestation-v1.json](../../config/report-review-eval-attestation-v1.json).
+The loader still requires the complete 28-case suite and current content digests;
+no schema, comparator, evaluator, gate, renderer or production service was changed.
+The previous standard used the same all-case comparator, content/model binding and
+release checks across 20 scenarios. Template 5 retains those scenarios and adds
+eight; none of the original expected adverse outcomes was relaxed.
+
+The repository history now includes:
+
+- [Complete genuine run archive](qualification-evidence/template5-2026-09-23.tar.gz):
+  original candidate, all raw responses, ledger, plan, manifest, case results,
+  per-case requests/base JSON/PDFs/insurer fixtures/validation, original prior
+  attestation, consumed-marker copy, exact suite/schema, qualified source-file
+  inventory and visual catalog. The included file inventory checks every original
+  artifact. No source evidence in `/tmp` or the consumption registry was modified.
+- [Prior Template-4 attestation](qualification-evidence/template4-attestation-2026-09-16.json):
+  byte-identical preservation of the September 16 artifact, also still present in
+  Git history. It is historical evidence, not authorization for prompt 5.
+- [Acceptance review record](qualification-evidence/template5-acceptance-2026-09-23.json):
+  all 28 input/output/result identities, run accounting, source/candidate binding,
+  owner-instruction provenance and the review/acceptance disposition.
+
+The accepted identities are:
+
+| Binding | Value |
+| --- | --- |
+| Qualified source revision | `83116c81e3bb947158e4abcaf83549a14d627b04` |
+| Qualified source bundle | `fd74529cb8baa22b13b78a5172165175721333955b55bb561d1e1b954b3e726a` |
+| Candidate digest | `85860df17538cc226a59d335ff6eab13ac9cfb6fa162f158bbbb219d8b6f7f46` |
+| Accepted attestation digest | `adf7f327e00f368f0f98b1b013c8a97e7c74892058ac60a26e7082fc2f406c53` |
+| Manifest digest | `0ec3ed7ea6230b48a1487b83b2c58f3aa5ccd2f0e49735a59536c6cd51d98e9f` |
+| Rubric/prompt digest | `5437e6815a7f3bdca15926ce11f0a2653b9352729e78fd776942c98bcad6a90e` |
+| Suite digest | `ba668548f88123ece29b45f4807d2e33133d9c67086774f950da862841d336b0` |
+| Genuine evaluation timestamp | `2026-09-23T16:27:01.305588Z` (evaluation start; per-response completion times retained) |
+| Complete archive SHA-256 | `8de70f171a5740116236c0acfa77e8398e45d16ca063405821679b8af0199fff` |
+
+The commented [.env.example](../../.env.example) release settings now document
+model/approved model `gpt-5.6-sol`, approved prompt **5**, schema **1**, and the suite
+digest above. The gate example remains **false**, and no `.env`, process environment,
+frontend/backend product flag, hosted release pin or deployed image was changed.
+Runtime qualification loads this packaged artifact through `report_review_evals.py`;
+`paid_runtime.py`, `report_processing.py` and `api.py` require matching settings.
+The local full-flow helper can derive matching settings from the accepted artifact;
+that helper was not launched in this task.
+
+### Verification and remaining work
+
+- Core qualification/report/release regression: **56 passed** using
+  `.venv/bin/python scripts/run_offline_tests.py test_template5_qualification test_report_review test_report_release_gate test_report_review_evals`.
+- Report processing, paid-delivery, jurisdiction integration, staff release,
+  paid recovery, local full-flow configuration, nationwide report presentation and
+  three historical-rendering selectors: **103 passed**. Exact selectors and log
+  hashes are in the acceptance review record linked above.
+- Combined result: **159 tests; zero failures, errors, skips or unexpected network
+  attempts**. The runner cleared credentials and blocked its network guard probes
+  before transport. Mocked retry tests did not make provider requests.
+- The new regression ties the packaged attestation to the genuine archived candidate
+  and checks every archived file checksum. It also exercises the actual saved valid
+  Template-5 review through the production gate with accepted qualification, plus
+  evidence failure, tampered attestation, prior staff decision and published-history
+  variants. The existing drift, malformed/incomplete artifact, mandatory checks,
+  paid holds, financial idempotency/refund, authorization and history tests passed.
+- Additional offline checks rejected unsupported template 6 even with a recomputed
+  report digest, rejected prompt-4/6 settings, and left an empty environment
+  unconfigured. The original 20 case objects/labels equal the pre-expansion suite;
+  all 28 continuation contexts and subject/insurer facts match the saved reports
+  and manifest. Current runtime dependency versions match the qualified plan.
+- Source inventory comparison: **265 files unchanged**; the only changed members
+  are the accepted artifact and two acceptance regression files. Artifact/archive
+  binding, local documentation links, scope review and `git diff --check` passed.
+
+Logs: `/tmp/venfour-template5-acceptance-core-tests.log` and
+`/tmp/venfour-template5-acceptance-boundary-tests.log`. These are local regression
+results, not hosted acceptance or another genuine provider evaluation.
+
+The artifact qualifies the reviewer/template combination; it is not a paid
+entitlement, evidence decision, staff authorization, jurisdiction permission or
+instruction to publish. Deterministic validation and lineage, currentness, reviewer
+findings, staff decisions, paid-delivery holds and existing jurisdiction boundaries
+remain independent. Historical published reports continue to take the gate's
+no-action path; template-4 readers and immutable saved reports are unchanged.
+The template-mismatch case is held, and mismatched model/prompt/schema/suite settings
+or tampered attestations fail closed. Future template content is not qualified by
+renaming or reusing this candidate.
+
+**Only the repository qualification blocker is cleared.** Compatible deployment,
+the four hosted migrations, isolated signed-payment/report/release/response/refund/
+Auth-recovery acceptance, fresh provider headroom and the owner's operating-scope/
+support/admission decisions remain outstanding. Prior hosted observations are dated;
+no hosted readiness was re-probed or claimed here.
+
+### Withdrawal and rollback (not executed)
+
+Record any later withdrawal as a reviewed, versioned artifact/configuration change;
+retain this archive, acceptance record, original run and Template-4 history. Removing
+or restoring the packaged attestation to the preserved Template-4 file causes the
+current prompt-5/suite-28 loader to fail closed. It does **not** make template 5
+qualified under old pins. Adjust the corresponding acceptance regression expectation
+only as part of the documented withdrawal, without weakening the validator.
+
+If activation has later occurred, stop new admission and use the separately authorized
+compatible release rollback. Keep saved template-5 readers, historical customer access,
+financial reconciliation, receipts, refunds and audit history. Do not rewind hosted
+migrations, delete paid events or swap in an incompatible old image merely to recover
+qualification. Restoring qualified delivery requires reviewed matching code, artifact
+and settings; do not synthesize a new passing attestation.
+
+No second genuine run, provider request, deployment, hosted migration/configuration
+change, live payment/checkout, email, customer mutation/publication, jurisdiction
+approval, enforcement or product-flag activation occurred during acceptance.
+The $199 price, refunds and commissions are unchanged.

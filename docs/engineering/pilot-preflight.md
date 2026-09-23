@@ -2,9 +2,9 @@
 
 ## Owner answer
 
-**Not yet ready to accept the first supervised real payment.** The generic product remains implemented for all 51 jurisdictions, with no demonstrated state-specific product defect and no unsupported state/DC. The stale report-processing fake is repaired. Local report presentation checks pass, including visual inspection, but template 5 has not completed the existing provider-backed release qualification. The follow-up hosted audit verified the live $199 price/webhook and production provider/queue configuration. Four migrations and the compatible product deployment remain pending; staging lacks its market-provider binding. See the dated hosted follow-up below for the current findings.
+**Not yet ready to accept the first supervised real payment.** The generic product remains implemented for all 51 jurisdictions, with no demonstrated state-specific product defect and no unsupported state/DC. The stale report-processing fake is repaired. Template 5 has now completed genuine 28/28 provider qualification and formal repository acceptance, with the prior artifact preserved; this acceptance does not install a compatible hosted release. The follow-up hosted audit verified the live $199 price/webhook and production provider/queue configuration. Four migrations and the compatible product deployment remain pending; staging lacks its market-provider binding. See the dated hosted follow-up below for the current findings.
 
-The remaining work is bounded release qualification, configuration verification, deployment and operator acceptance. No new product feature is justified by this preflight. A small qualification-harness change is still needed to exercise template 5 through the existing evaluation process; genuine provider evaluation requires separate authorization and a spending limit. An owner decision on the actual Missouri operating scope remains external to the software review. None of these findings approves Missouri or another jurisdiction.
+The remaining work is isolated operational acceptance, deployment/schema alignment, configuration verification and owner readiness. No new product feature or second genuine qualification run is justified for this unchanged accepted candidate. An owner decision on the actual Missouri operating scope remains external to the software review. None of these findings approves Missouri or another jurisdiction.
 
 Evidence is against checkout `29e97e5` plus the two test changes below. That commit added the prior readiness document; nationwide product code is from `e5b54b6`. Hosted observations are a point-in-time snapshot, not an assurance about later configuration.
 
@@ -429,14 +429,14 @@ Sanitized machine-local evidence is `/tmp/venfour-hosted-audit-{backends,fronten
 ### OWNER ACTION REQUIRED
 
 - [ ] Name the supervised customer/operator, confirm monitored support and the exact manual refund procedure, and choose paid admission control. Existing manual approval is available; no new feature is required.
-- [ ] Authorize a bounded qualification follow-up with final case count, actual provider tariff/token estimate and dollar ceiling. Do not treat this audit as authorization to call the provider.
+- [x] Bounded genuine qualification and formal repository acceptance are complete; see the acceptance follow-up below. This grants no authority for another provider run.
 - [ ] Choose isolated acceptance infrastructure and authorize the later backup/migration/deployment window. Current shared staging is unsuitable for disposable synthetic work; its missing market binding is not a reason to modify production.
 - [ ] Verify actual provider entitlement/billing headroom and refresh quota dates before admission; retain all saved usage. Confirm Auth/recovery operation in the authorized acceptance run.
 - [ ] Optional: populate Stripe support-profile metadata, improve state refinements/lifecycle mail, reconcile policy acknowledgment dates and source-build traceability. None is a newly established generic-product runtime defect; economics and the exact-$1,000 gap remain unchanged.
 
 ### BLOCKING
 
-- [ ] **Release qualification:** template 5 has no genuine qualification through the existing provider-backed process. **Smallest clearing action:** bounded harness/rubric/suite update, all-case genuine evaluation within separately authorized limits, then accepted artifact and matching release pins. No valuation feature work.
+- [x] **Repository release qualification cleared:** template 5 has a genuinely evaluated 28/28 artifact, independently reviewed and accepted with preserved Template-4 history. Matching example pins are documented. Hosted image/pin installation remains part of the separate deployment blocker.
 - [ ] **Deployment/schema:** the intended product release is not installed; four migrations are absent and both frontend/backend are older. **Smallest clearing action:** apply the listed chain under a backed-up authorized release, deploy compatible qualified code, then activate the two product flags in order with admission controlled.
 - [ ] **Operational acceptance:** the newly qualified image has not completed the isolated signed-payment/release/response/refund/Auth-recovery chain. **Smallest clearing action:** one controlled sandbox acceptance run against isolated data and coherent routing/worker configuration; confirm runtime Stripe pairing and owner refund/support procedure there. Do not use a real customer charge as the wiring test.
 - [ ] **External operating-scope decision:** actual offered Missouri activities still need the owner's targeted decision/review. **Smallest clearing action:** settle the precise report/draft/coaching scope for the selected case; no 51-state legal-research completion or software jurisdiction approval is implied.
@@ -480,3 +480,44 @@ not needed for this unchanged candidate. No deployment, migration, activation,
 payment, email, customer mutation, operating approval or economics change occurred.
 The separate hosted release, operational pilot and operating-scope requirements
 above remain outstanding.
+
+## Formal qualification acceptance — September 23, 2026
+
+**The repository Template-5 qualification blocker is cleared.** The exact genuine
+candidate was independently reconciled across all 28 raw responses, labeled
+outcomes, source/report/PDF identities, authorization consumption, ledger and usage.
+All 28 comparisons pass: four expected reviewer passes, 24 expected holds, zero
+critical qualification failures. All 37 pages of the 12 distinct PDFs were visually
+reviewed; the previously accepted sparse fourth page remains cosmetic.
+
+The genuine `releaseAttestation` is installed in
+[config/report-review-eval-attestation-v1.json](../../config/report-review-eval-attestation-v1.json),
+artifact digest `adf7f327e00f368f0f98b1b013c8a97e7c74892058ac60a26e7082fc2f406c53`.
+It qualifies source `83116c81e3bb947158e4abcaf83549a14d627b04`, candidate digest
+`85860df17538cc226a59d335ff6eab13ac9cfb6fa162f158bbbb219d8b6f7f46`.
+The complete run and previous Template-4 attestation are retained under
+[qualification-evidence](qualification-evidence/). The
+[formal acceptance record and checks](template5-provider-qualification.md#formal-repository-acceptance--september-23-2026)
+document the exact bindings, local verification, release settings and withdrawal.
+Earlier dated paragraphs saying qualification is pending are historical observations.
+Post-acceptance verification passed **159 offline tests** (56 core and 103 workflow/
+boundary checks), with zero failures/errors/skips or unexpected network attempts.
+
+The commented example now specifies model `gpt-5.6-sol`, prompt 5, schema 1 and
+suite `ba668548f88123ece29b45f4807d2e33133d9c67086774f950da862841d336b0`.
+No live setting or flag changed. Repository-qualified, hosted-deployed and owner-
+authorized to operate remain separate statuses.
+
+**Still blocked before a real-customer pilot:** the compatible hosted release and
+four migrations; a genuinely isolated signed-test-payment → report/release/download
+→ draft/response → refund/recovery/Auth acceptance run; refreshed provider headroom;
+and owner operating scope, admission, supervision, support and refund readiness.
+No hosted observation was refreshed or treated as current execution proof here.
+
+**Next action:** select the isolated acceptance target and authorize a bounded setup/
+rehearsal with its exact data separation, deployment, migration, provider budget and
+sandbox payment scope. Follow the existing activation order after that rehearsal.
+Do not repeat qualification or use a real customer payment as the wiring test.
+No second genuine run, provider request, deployment, hosted migration, payment,
+email, customer mutation/publication, jurisdiction approval, enforcement, flag
+activation or price/refund/commission change occurred during acceptance.

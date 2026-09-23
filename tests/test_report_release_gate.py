@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import copy
+import json
+import tarfile
+from pathlib import Path
 import unittest
 from dataclasses import replace
 
@@ -21,11 +24,13 @@ from venfour.report_review import (
     CompletedReportReview,
     ReportQualityReviewV1,
     ReportReviewConfiguration,
+    ReportReviewInputV1,
 )
 from venfour.report_review_evals import (
     REPORT_REVIEW_EVAL_SCENARIO_IDS,
     build_report_review_eval_attestation_v1,
     report_review_eval_suite_digest,
+    load_report_review_eval_attestation,
 )
 
 
@@ -119,6 +124,56 @@ class ReportReleaseGateTests(_review_fixture.ReportReviewFixture):
             completed_review=completed or self._completed(),
             configuration=configuration or self.configuration,
         )
+
+    def test_packaged_qualification_releases_genuine_template5_without_bypass(self) -> None:
+        archive = (Path(__file__).resolve().parents[1]
+                   / "docs/engineering/qualification-evidence/template5-2026-09-23.tar.gz")
+        with tarfile.open(archive, "r:gz") as history:
+            candidate = json.load(history.extractfile("candidate.json"))
+            request = ReportReviewInputV1.from_dict(json.load(
+                history.extractfile("correct_package/request.json")))
+        record = candidate["caseResults"][0]["completed"]
+        review = ReportQualityReviewV1.from_dict(record["reviewResult"], request=request)
+        completed = CompletedReportReview(
+            provider_identifier=record["providerIdentifier"],
+            configured_model_identifier=record["configuredModelIdentifier"],
+            returned_model_identifier=record["returnedModelIdentifier"],
+            prompt_version=record["promptVersion"], schema_version=record["schemaVersion"],
+            input_digest=record["inputDigest"], output_digest=record["outputDigest"],
+            review=review, usage_metadata=record["usageMetadata"],
+        )
+        attestation = load_report_review_eval_attestation(
+            expected_model_identifier=record["returnedModelIdentifier"])
+        configuration = replace(self.configuration,
+            model_identifier=record["configuredModelIdentifier"],
+            approved_model_identifier=record["returnedModelIdentifier"])
+        target, digests = request.target, request.digests
+        context = self._context(
+            case_id=target["caseId"], source_snapshot_id=target["sourceSnapshotId"],
+            final_assessment_id=target["finalAssessmentId"], report_version_id=target["reportVersionId"],
+            source_snapshot_digest=digests["sourceSnapshotDigest"],
+            final_assessment_digest=digests["finalAssessmentDigest"],
+            report_digest=digests["reportDigest"], pdf_digest=digests["pdfDigest"],
+            deterministic_validation_digest=digests["deterministicValidationDigest"],
+            pdf_validation_digest=digests["pdfValidationDigest"],
+            provider_evaluation_model_identifier=record["returnedModelIdentifier"],
+            provider_evaluation_attestation=attestation,
+        )
+        self.assertEqual(request.report["identity"]["templateVersion"], "5")
+        cases = (
+            (context, AUTO_RELEASE_SUPPORTABLE),
+            (replace(context, source_validation_passed=False), HUMAN_REVIEW),
+            (replace(context, human_decision_recorded=True), NO_ACTION),
+            (replace(context, report_status="published"), NO_ACTION),
+            (replace(context, provider_evaluation_attestation=replace(
+                attestation, artifact_digest="f" * 64)), HUMAN_REVIEW),
+        )
+        for selected, expected in cases:
+            with self.subTest(expected=expected, context=selected):
+                decision = self._evaluate(context=selected, completed=completed,
+                    configuration=configuration, request=request)
+                self.assertEqual(decision.disposition, expected)
+                self.assertEqual(decision.publish_report, expected == AUTO_RELEASE_SUPPORTABLE)
 
     def test_supportable_pass_high_returns_publish_intent_only(self) -> None:
         decision = self._evaluate()

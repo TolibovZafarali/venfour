@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 import tempfile
+import tarfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -66,8 +67,15 @@ EXPECTED_REVIEW_INPUT_CONTRACT_DIGEST = (
 EXPECTED_EVAL_SUITE_SCHEMA_DIGEST = (
     "52619f9a217329db6cb009ce3bef341d57e84323dd050be199dc243c68205088"
 )
-RELEASE_ATTESTATION_DIGEST = (
+PRIOR_RELEASE_ATTESTATION_DIGEST = (
     "0a2ad93d844d6d68447adb1036f13dc06260b236288c6244e83cca15bc26f131"
+)
+
+RELEASE_ATTESTATION_DIGEST = (
+    "adf7f327e00f368f0f98b1b013c8a97e7c74892058ac60a26e7082fc2f406c53"
+)
+QUALIFICATION_HISTORY = (
+    Path(__file__).resolve().parents[1] / "docs/engineering/qualification-evidence"
 )
 
 
@@ -505,15 +513,56 @@ class ReportReviewEvalSuiteTests(_review_fixture.ReportReviewFixture):
                             expected_model_identifier=RELEASE_QUALIFIED_MODEL,
                         )
 
+    def test_accepted_template5_attestation_matches_genuine_archive(self) -> None:
+        archive = QUALIFICATION_HISTORY / "template5-2026-09-23.tar.gz"
+        self.assertEqual(
+            hashlib.sha256(archive.read_bytes()).hexdigest(),
+            "8de70f171a5740116236c0acfa77e8398e45d16ca063405821679b8af0199fff",
+        )
+        with tarfile.open(archive, "r:gz") as history:
+            candidate = json.load(history.extractfile("candidate.json"))
+            inventory = json.load(history.extractfile(
+                "review-evidence/archive-file-sha256.json"
+            ))
+            for name, expected in inventory.items():
+                with self.subTest(artifact=name):
+                    self.assertEqual(hashlib.sha256(
+                        history.extractfile(name).read()
+                    ).hexdigest(), expected)
+        self.assertEqual(candidate["candidateDigest"], canonical_package_digest({
+            key: value for key, value in candidate.items() if key != "candidateDigest"
+        }))
+        self.assertEqual(candidate["candidateDigest"],
+            "85860df17538cc226a59d335ff6eab13ac9cfb6fa162f158bbbb219d8b6f7f46")
+        self.assertEqual(candidate["declaredRevision"],
+            "83116c81e3bb947158e4abcaf83549a14d627b04")
+        self.assertEqual(candidate["templateVersion"], "5")
+        self.assertEqual(candidate["rendererVersion"], "5")
+        self.assertEqual(
+            [row["scenarioId"] for row in candidate["caseResults"]],
+            list(REPORT_REVIEW_EVAL_SCENARIO_IDS),
+        )
+        loaded = load_report_review_eval_attestation(
+            expected_model_identifier=RELEASE_QUALIFIED_MODEL)
+        self.assertEqual(loaded.to_dict(), candidate["releaseAttestation"])
+        self.assertEqual(loaded.artifact_digest, RELEASE_ATTESTATION_DIGEST)
+        self.assertTrue(loaded.all_passed)
+        self.assertEqual(loaded.total_case_count, 28)
+        self.assertEqual(loaded.prompt_version, "5")
+
     def test_prior_attestation_is_preserved_but_does_not_qualify_template5(self) -> None:
-        persisted = json.loads(REPORT_REVIEW_EVAL_ATTESTATION_PATH.read_text())
-        self.assertEqual(persisted["artifactDigest"], RELEASE_ATTESTATION_DIGEST)
+        path = QUALIFICATION_HISTORY / "template4-attestation-2026-09-16.json"
+        persisted = json.loads(path.read_text())
+        self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),
+            "fa28b2327f4ef5b8cdddbb4100e1eca8327eef2f329fef59c794716e2f45ab75")
+        self.assertEqual(persisted["artifactDigest"], PRIOR_RELEASE_ATTESTATION_DIGEST)
         self.assertEqual(persisted["passedCaseCount"], 20)
         self.assertEqual(persisted["totalCaseCount"], 20)
         self.assertEqual(persisted["promptVersion"], "4")
         self.assertTrue(persisted["providerBacked"])
         with self.assertRaises(ReportReviewEvalError):
-            load_report_review_eval_attestation(expected_model_identifier=RELEASE_QUALIFIED_MODEL)
+            load_report_review_eval_attestation(
+                expected_model_identifier=RELEASE_QUALIFIED_MODEL, path=path)
 
     def test_checked_in_attestation_fails_closed_for_release_identity_drift(
         self,
