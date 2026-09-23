@@ -68,7 +68,7 @@ const choiceOptions = [
     mode: "manual" as const,
     title: "I don’t have the report",
     description:
-      "Enter the vehicle and claim details needed for an independent market review.",
+      "Start a preliminary estimate with your vehicle and claim details. Your insurer’s report is required before the paid report.",
     icon: PenLine,
   },
 ] as const;
@@ -694,6 +694,7 @@ export function ReportUploadStep({
 }
 
 interface ContactStepProps {
+  readonly locationDetails?: ReactNode;
   readonly mode: TotalLossIntakeMode;
   readonly values: TotalLossContactFormValues;
   readonly errors: TotalLossContactFormErrors;
@@ -710,6 +711,7 @@ interface ContactStepProps {
 }
 
 export function ContactStep({
+  locationDetails,
   mode,
   values,
   errors,
@@ -787,6 +789,7 @@ export function ContactStep({
   return (
     <FlowCard busy={busy}>
       <TotalLossProgress mode={mode} step="contact" />
+      {locationDetails}
       <StepHeading
         title="Contact details"
         description="Tell us where to save your private result."

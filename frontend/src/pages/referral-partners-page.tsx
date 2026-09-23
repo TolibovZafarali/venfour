@@ -31,11 +31,10 @@ export function ReferralPartnersPage() {
         </p>
       </PublicPageSection>
 
-      <PublicPageSection title="Earn on qualifying purchases">
+      <PublicPageSection title="Referral commissions">
         <p>
-          Your partner agreement provides the terms for earning a commission when a
-          customer you refer completes a qualifying purchase. It specifies
-          the commission amount, eligibility, and adjustments for refunds.
+          Your signed partner agreement defines when a referral qualifies for a
+          commission, the commission amount, and how refunds affect it.
         </p>
       </PublicPageSection>
 

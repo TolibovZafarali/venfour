@@ -1,3 +1,4 @@
+import { ProductFactsForm, type SaveProductFacts } from "@/features/nationwide/product-panel";
 import { ValuationStatus } from "@/components/valuation-status";
 import { AppEntryLoading } from "@/components/app-entry-loading";
 import { VEHICLE_FACT_FIELDS, clearVehicleFacts, fillConfigurationFacts } from "@/features/total-loss/vehicle-facts";
@@ -625,6 +626,8 @@ function TotalLossIntakeFlowContent({
   const [manualErrors, setManualErrors] = useState<TotalLossManualFormErrors>(
     {},
   );
+  const saveProductFactsRef = useRef<SaveProductFacts | null>(null);
+  const productFactSaveInFlightRef = useRef(false);
   const [contactErrors, setContactErrors] =
     useState<TotalLossContactFormErrors>({});
   const [flowError, setFlowError] = useState<string | null>(null);
@@ -1796,7 +1799,15 @@ function TotalLossIntakeFlowContent({
   };
 
   const handleContactContinue = async () => {
-    if (contactSaveInFlightRef.current || analysisPreparationInFlightRef.current) return;
+    if (contactSaveInFlightRef.current || analysisPreparationInFlightRef.current || productFactSaveInFlightRef.current) return;
+    if (environment.nationwideProductEnabled) {
+      productFactSaveInFlightRef.current = true;
+      try {
+        if (!saveProductFactsRef.current) throw new Error("Location details are still loading. Try again shortly.");
+        await saveProductFactsRef.current();
+      } catch (error) { setFlowError(error instanceof Error ? error.message : "Location details could not be saved."); return; }
+      finally { productFactSaveInFlightRef.current = false; }
+    }
     const normalized = normalizeTotalLossContactForm(draftRef.current.contact);
     const errors = validateTotalLossContactForm(normalized);
     setContactErrors(errors);
@@ -2462,6 +2473,7 @@ function TotalLossIntakeFlowContent({
       case "contact":
         return (
           <ContactStep
+            locationDetails={environment.nationwideProductEnabled && confirmedCaseId && "session" in auth && auth.session ? <ProductFactsForm key={confirmedCaseId} caseId={confirmedCaseId} accessToken={auth.session.access_token} saveRef={saveProductFactsRef} /> : undefined}
             mode={draft.mode ?? "manual"}
             values={draft.contact}
             errors={contactErrors}

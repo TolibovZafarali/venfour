@@ -349,7 +349,7 @@ def build_story(report, *, fictional=False):
     market = report["independentMarketEvidence"]
     facts = {fact["key"]: fact for fact in report["subjectVehicle"]["facts"]}
     identity = report["identity"]
-    story = [p("VENFOUR  /  " + ("FICTIONAL TEST DATA - NOT A CUSTOMER REPORT" if fictional else "VALUATION EVIDENCE"), "label"), Spacer(1, 10), p(TITLE, "title"), p(context["vehicleDisplay"])]
+    story = [p("VENFOUR  /  " + ("FICTIONAL TEST DATA - NOT A CUSTOMER REPORT" if fictional else "VALUATION EVIDENCE"), "label"), Spacer(1, 10), p(report["identity"]["title"], "title"), p(context["vehicleDisplay"])]
     info = []
     vehicle_info = [f"VIN: {context['vin']}"] if context.get("vin") else []
     for key, label in (("mileage", "Mileage"), ("lossDate", "Date of loss")):
@@ -482,6 +482,25 @@ def build_story(report, *, fictional=False):
     comparison = report["preliminaryVersusFinal"]
     if comparison.get("materialChange"):
         story.append(p("The final review differs materially from the preliminary estimate. This report uses the final reviewed records.", "small"))
+    if report.get("productContext"):
+        product = report["productContext"]
+        story.extend([Spacer(1, 16), p("Location and settlement context", "heading")])
+        names = ", ".join(item["name"] for item in product["configurations"]) or "Not yet confirmed"
+        story.append(p(f"Recorded locations: {names}. Facts recorded at revision {product['facts_revision']}.", "body"))
+        state_names = {"US-" + item["code"]: item["name"] for item in product["configurations"]}
+        choices = {"first_party": "Your insurer (first party)", "third_party": "Another person's insurer (third party)", "personal": "Personal", "commercial": "Commercial"}
+        for field, label in (("vehicle_registration", "Registration"), ("garaging_at_loss", "Vehicle home at loss"), ("loss_location", "Loss location"), ("policy_issued", "Policy issue state"), ("claim_type", "Claim type"), ("policy_use", "Vehicle use")):
+            values = sorted({a["value"] for a in product["facts"]["assertions"] if a["field"] == field and a["value"] is not None})
+            display = " / ".join(state_names.get(v, choices.get(v, v)) for v in values) or "Not confirmed"
+            story.append(p(f"{label}: {display}" + (" (conflicting sources; review required)" if len(values) > 1 else ""), "small"))
+        story.append(p("The comparable search uses Venfour’s local-first market method. Its distance limits are methodology settings, not a claim about a state requirement.", "body"))
+        if product["review_reasons"]:
+            story.append(p("Location or claim details remain incomplete or require review. No state has been selected over another, and no state-specific rule has been applied.", "body"))
+        for component in product["settlement_components"]:
+            label = component["component"].replace("_", " ").capitalize()
+            story.append(p(f"{label}: treatment has not been verified for this case.", "body"))
+        story.append(p("No tax or fee amount has been added to the vehicle comparison. These separate settlement items remain unresolved; this does not mean they are unavailable or legally owed.", "body"))
+        story.append(p("Review the report and supporting documents before submitting your request to your insurer. You control all insurer communications.", "body"))
     return story
 
 
@@ -514,6 +533,6 @@ class NumberedCanvas(Canvas):
             self.drawRightString(558, 29, f"Page {self._pageNumber} of {len(pages)}")
             if self._pageNumber > 1:
                 self.setFont("Helvetica", 8)
-                self.drawString(54, 765, TITLE)
+                self.drawString(54, 765, self._report_identity["title"])
             super().showPage()
         super().save()

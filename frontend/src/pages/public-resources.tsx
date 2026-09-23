@@ -44,7 +44,7 @@ export function AboutPage() {
         <li>Identify relevant evidence to discuss with your adjuster.</li>
         <li>Recognize when the evidence is limited or does not support a different value.</li>
       </ul>
-      <p>You can start a Total Loss review with or without an insurer report. Uploading the report lets Venfour independently examine the vehicle details, comparisons, and adjustments used in the valuation.</p>
+      <p>You can start a preliminary estimate without an insurer report. The paid Total-Loss Valuation Report requires a complete insurer valuation report so Venfour can examine its vehicle details, comparisons, and adjustments.</p>
     </PublicPageSection>
     <PublicPageSection title="Clear evidence. Honest explanations.">
       <p>An advertised price may differ from the final sale price. A current listing may not reflect the market at the time of your loss. We explain these differences and make clear where information is missing or uncertain.</p>

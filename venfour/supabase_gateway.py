@@ -572,6 +572,28 @@ class SupabaseHttpGateway:
         except (ValueError, json.JSONDecodeError) as exc:
             raise SupabaseContractError("Supabase RPC response is invalid") from exc
 
+    def get_case_product_facts(self, access_token, case_id, staff=False):
+        value = self._user_rpc("get_case_product_facts", {
+            "requested_case_id": _canonical_uuid(case_id, "Case ID"), "requested_staff": staff,
+        }, access_token)
+        if not isinstance(value, Mapping):
+            raise SupabaseContractError("Product facts are unavailable")
+        return value
+
+    def append_product_facts(self, access_token, case_id, revision, facts):
+        return self._user_rpc("append_case_jurisdiction_facts", {
+            "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+            "expected_revision": revision, "requested_facts": facts,
+        }, access_token)
+
+    def capture_report_product_facts(self, report_version_id):
+        value = self._rpc("capture_report_product_facts", {
+            "requested_report_version_id": _canonical_uuid(report_version_id, "Report version ID"),
+        })
+        if not isinstance(value, Mapping):
+            raise SupabaseContractError("Report product facts are unavailable")
+        return value
+
     def get_jurisdiction_context(self, case_id: str, owner_user_id: str | None = None) -> Mapping[str, Any]:
         value = self._rpc("get_jurisdiction_context", {
             "requested_case_id": case_id, "requested_user_id": owner_user_id,

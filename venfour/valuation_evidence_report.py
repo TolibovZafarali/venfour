@@ -7,6 +7,8 @@ analysis, extraction, or generative writing occurs in this module.
 
 from __future__ import annotations
 
+from venfour.nationwide_product import REPORT_LABEL, validate_frozen_context
+
 import copy
 import hashlib
 import html
@@ -794,6 +796,7 @@ def _project_report_data(
     version_number: int,
     generated_at: str,
     template_version: str = REPORT_TEMPLATE_VERSION,
+    product_context: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     generated_at, issue_date = _canonical_utc(generated_at, "Report generation time")
     from venfour.full_review_package import review_source_view
@@ -832,7 +835,7 @@ def _project_report_data(
         evidence_ids=insurer_name_ids,
     )
     claim_pointer = "/extraction/normalizedReport/report/claimReferenceNumber"
-    claim_source = resolve_report_local_evidence_source(source, claim_pointer) if template_version in {"2", "3", "4"} else None
+    claim_source = resolve_report_local_evidence_source(source, claim_pointer) if template_version in {"2", "3", "4", "5"} else None
     if claim_source is not None:
         index.append(_local_reference(source, pointer=claim_pointer))
         index.sort(key=lambda row: row["evidenceId"])
@@ -900,7 +903,7 @@ def _project_report_data(
     report = {
         "schemaVersion": REPORT_SCHEMA_VERSION,
         "identity": {
-            "title": REPORT_TITLE if template_version in {"2", "3", "4"} else LEGACY_REPORT_TITLE,
+            "title": REPORT_LABEL if template_version == "5" else REPORT_TITLE if template_version in {"2", "3", "4", "5"} else LEGACY_REPORT_TITLE,
             "reportSeriesId": report_series_id,
             "reportVersionId": report_version_id,
             "finalAssessmentId": final_assessment_id,
@@ -1002,7 +1005,7 @@ def _project_report_data(
             }, ASSUMPTION))
     if supporting_listings is not None:
         report["independentMarketEvidence"]["higherPricedComparableListings"] = supporting_listings
-    if template_version in {"2", "3", "4"}:
+    if template_version in {"2", "3", "4", "5"}:
         from venfour.valuation_review import project_review_context
         if template_version == "2":
             from venfour.valuation_review_v2 import project_review_context
@@ -1010,6 +1013,10 @@ def _project_report_data(
             from venfour.valuation_review_v3 import project_review_context
         report["identity"]["templateVersion"] = template_version
         report["reviewContext"] = project_review_context(source, assessment)
+    if template_version == "5":
+        if product_context is None or product_context["case_id"] != case_id:
+            raise _failure("Product context is not bound to this case", "REPORT_SOURCE_MISMATCH")
+        report["productContext"] = copy.deepcopy(dict(product_context))
     return report
 
 
@@ -1034,8 +1041,11 @@ class ValuationEvidenceReportV1:
     report_digest: str
     schema_version: str = REPORT_SCHEMA_VERSION
     review_context: Mapping[str, Any] | None = None
+    product_context: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
+        if self.product_context is not None:
+            object.__setattr__(self, "product_context", _freeze_json(self.product_context))
         if self.review_context is not None:
             object.__setattr__(self, "review_context", _freeze_json(self.review_context))
         for field_name in (
@@ -1081,6 +1091,7 @@ class ValuationEvidenceReportV1:
             "sourceEvidenceIndex": _thaw_json(self.source_evidence_index),
             "exhibits": _thaw_json(self.exhibits),
             "reportDigest": self.report_digest,
+            **({"productContext": _thaw_json(self.product_context)} if self.product_context is not None else {}),
             **({"reviewContext": _thaw_json(self.review_context)} if self.review_context is not None else {}),
         }
 
@@ -1107,6 +1118,7 @@ class ValuationEvidenceReportV1:
             report_digest=value["reportDigest"],
             schema_version=value["schemaVersion"],
             review_context=value.get("reviewContext"),
+            product_context=value.get("productContext"),
         )
 
 
@@ -1142,11 +1154,20 @@ def _validate_report_semantics(report: Mapping[str, Any]) -> None:
         raise _failure("Report digest does not match", "REPORT_DIGEST_MISMATCH")
     identity = report["identity"]
     template = identity.get("templateVersion", "1")
-    if (template in {"2", "3", "4"}) != ("reviewContext" in report):
+    if (template in {"2", "3", "4", "5"}) != ("reviewContext" in report):
         raise _failure("Report presentation version is incomplete", "REPORT_IDENTITY_INVALID")
-    if identity["title"] != (REPORT_TITLE if template in {"2", "3", "4"} else LEGACY_REPORT_TITLE):
+    if (template == "5") != ("productContext" in report):
+        raise _failure("Product context is incomplete", "REPORT_IDENTITY_INVALID")
+    if template == "5":
+        try:
+            validate_frozen_context(report["productContext"])
+            if report["productContext"]["case_id"] != identity["caseId"]:
+                raise ValueError("Case mismatch")
+        except (ValueError, KeyError, TypeError) as exc:
+            raise _failure("Invalid frozen product context", "REPORT_SOURCE_MISMATCH") from exc
+    if identity["title"] != (REPORT_LABEL if template == "5" else REPORT_TITLE if template in {"2", "3", "4", "5"} else LEGACY_REPORT_TITLE):
         raise _failure("Report title is invalid", "REPORT_IDENTITY_INVALID")
-    if template in {"3", "4"}:
+    if template in {"3", "4", "5"}:
         from venfour.valuation_review import validate_comparison_integrity
         if not {"searchFilters", "selectionDescription", "distanceReference", "sharedVehicleDescription"}.issubset(report["reviewContext"]):
             raise _failure("Report market context is incomplete", "REPORT_IDENTITY_INVALID")
@@ -1257,6 +1278,7 @@ def validate_valuation_evidence_report_v1(
         version_number=identity["versionNumber"],
         generated_at=identity["generatedAt"],
         template_version=identity.get("templateVersion", "1"),
+        product_context=report.get("productContext"),
     )
     expected["reportDigest"] = canonical_package_digest(expected)
     if canonical_json_bytes(report) != canonical_json_bytes(expected):
@@ -1275,6 +1297,7 @@ def build_valuation_evidence_report_v1(
     final_assessment_id: str,
     version_number: int,
     generated_at: str,
+    product_context: Mapping[str, Any] | None = None,
 ) -> ValuationEvidenceReportV1:
     source = _mapping_data(source_snapshot, "Source snapshot")
     assessment = _mapping_data(final_assessment, "Final assessment")
@@ -1295,6 +1318,8 @@ def build_valuation_evidence_report_v1(
         final_assessment_id=final_assessment_id,
         version_number=version_number,
         generated_at=generated_at,
+        template_version="5" if product_context is not None else REPORT_TEMPLATE_VERSION,
+        product_context=product_context,
     )
     data = {**unsigned, "reportDigest": canonical_package_digest(unsigned)}
     report = ValuationEvidenceReportV1.from_dict(data)
@@ -1820,7 +1845,7 @@ def render_valuation_evidence_report_pdf_v1(
 ) -> bytes:
     value = report.to_dict() if isinstance(report, ValuationEvidenceReportV1) else copy.deepcopy(dict(report))
     validate_valuation_evidence_report_v1(value)
-    if value["identity"].get("templateVersion") in {"2", "3", "4"}:
+    if value["identity"].get("templateVersion") in {"2", "3", "4", "5"}:
         from functools import partial
         from venfour.valuation_review import NumberedCanvas, build_story
         template = value["identity"]["templateVersion"]
@@ -1829,7 +1854,7 @@ def render_valuation_evidence_report_pdf_v1(
         buffer = io.BytesIO()
         identity = value["identity"]
         document = SimpleDocTemplate(buffer, pagesize=LETTER, leftMargin=48, rightMargin=48,
-                                     topMargin=44, bottomMargin=54, title=REPORT_TITLE,
+                                     topMargin=44, bottomMargin=54, title=identity["title"],
                                      author="Venfour", subject="Total-loss vehicle valuation evidence",
                                      creator=f"Venfour renderer {template}")
         def metadata(canvas, doc):
@@ -1973,10 +1998,10 @@ def validate_report_pdf_manifest_v1(
 def _required_pdf_content(report: Mapping[str, Any]) -> list[tuple[str, str]]:
     identity = report["identity"]
     conclusion = report["executiveConclusion"]
-    if identity.get("templateVersion") in {"2", "3", "4"}:
+    if identity.get("templateVersion") in {"2", "3", "4", "5"}:
         from venfour.valuation_review import readable_date
-        issue_date = readable_date(identity["issueDate"]) if identity.get("templateVersion") in {"3", "4"} else identity["issueDate"]
-        checks = [("REPORT_TITLE", REPORT_TITLE), ("REPORT_REFERENCE", identity["reportVersionId"][-12:].upper()),
+        issue_date = readable_date(identity["issueDate"]) if identity.get("templateVersion") in {"3", "4", "5"} else identity["issueDate"]
+        checks = [("REPORT_TITLE", identity["title"]), ("REPORT_REFERENCE", identity["reportVersionId"][-12:].upper()),
                   ("REPORT_VERSION", identity["versionLabel"]), ("ISSUE_DATE", issue_date),
                   ("SUBJECT_VEHICLE", report["reviewContext"]["vehicleDisplay"]),
                   ("INSURER_VALUATION", conclusion["insurerValuation"]["value"]["display"] if conclusion["insurerValuation"]["value"]["minorUnits"] is not None else "Not recorded"),
@@ -1999,6 +2024,8 @@ def _required_pdf_content(report: Mapping[str, Any]) -> list[tuple[str, str]]:
             source_price = comp.get("sourcePrice")
             if source_price:
                 checks.append((f"INSURER_PRICE_{index}", f"{source_price['typeLabel']}: {source_price['amount']}"))
+        if identity.get("templateVersion") == "5":
+            checks.extend([("STATE_CONTEXT", "Location and settlement context"), ("SETTLEMENT_SEPARATION", "No tax or fee amount has been added to the vehicle comparison")])
         return checks
     result = [
         ("REPORT_TITLE", LEGACY_REPORT_TITLE),
@@ -2072,7 +2099,7 @@ def validate_valuation_evidence_report_pdf_v1(
         }
     )
     template = value["identity"].get("templateVersion", "1")
-    sections = (("REVIEW_SUMMARY", "Reason for review"), ("COMPARABLE_EVIDENCE", "Comparable evidence"), ("SOURCES", "Sources and qualifications")) if template in {"2", "3", "4"} else MANDATORY_PDF_SECTIONS
+    sections = (("REVIEW_SUMMARY", "Reason for review"), ("COMPARABLE_EVIDENCE", "Comparable evidence"), ("SOURCES", "Sources and qualifications")) if template in {"2", "3", "4", "5"} else MANDATORY_PDF_SECTIONS
     section_checks = [
         {"code": code, "status": "PASS"}
         for code, heading in sections
@@ -2110,7 +2137,7 @@ def validate_valuation_evidence_report_pdf_v1(
     if missing_content:
         errors.append(f"missing required content checks: {missing_content}")
     errors.extend(metadata_errors)
-    if template in {"2", "3", "4"}:
+    if template in {"2", "3", "4", "5"}:
         from venfour.valuation_review import public_listing_url
         if any(public_listing_url(url) != url for url in public_links):
             errors.append("Private or unsafe PDF link")

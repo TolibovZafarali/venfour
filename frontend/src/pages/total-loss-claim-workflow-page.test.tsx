@@ -707,7 +707,7 @@ describe("total-loss customer workflow", () => {
     expect(await screen.findByText("$217.35")).toBeVisible();
     expect(screen.getAllByText("$217.35")).toHaveLength(1);
     const summary = within(screen.getByRole("complementary", { name: "Purchase summary" }));
-    expect(summary.getByRole("heading", { name: "Total-Loss Review Package" })).toBeVisible();
+    expect(summary.getByRole("heading", { name: "Total-Loss Valuation Report" })).toBeVisible();
     expect(summary.getByText("2022 Honda Accord")).toBeVisible();
     expect(summary.getByText("Total")).toBeVisible();
     expect(summary.getByText("USD · One-time payment · No subscription")).toBeVisible();

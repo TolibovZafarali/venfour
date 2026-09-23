@@ -73,7 +73,7 @@ export function CheckoutScreen({
       <div className="checkout-columns">
         <aside aria-label="Purchase summary" className="checkout-summary">
           <p className="checkout-summary-eyebrow">Order summary</p>
-          <h1 className="checkout-package-heading">Total-Loss Review Package</h1>
+          <h1 className="checkout-package-heading">Total-Loss Valuation Report</h1>
           {vehicle ? <p className="checkout-vehicle">{vehicle}</p> : null}
           <dl className="checkout-summary-total" aria-live="polite" aria-atomic="true">
             <div><dt>Total</dt><dd>{summaryPrice}</dd></div>

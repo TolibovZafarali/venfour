@@ -833,6 +833,26 @@ class ReportProcessingTests(unittest.TestCase):
             hashlib.sha256(database.uploads[0]["pdf"]).hexdigest(),
         )
 
+    def test_nationwide_generation_captures_facts_without_changing_assessment(self) -> None:
+        from venfour.nationwide_product import REPORT_LABEL
+        from test_nationwide_product import facts
+        database = self._database()
+        captured = []
+        def capture(version_id):
+            captured.append(version_id)
+            return {"case_id": database.case_id, "revision": 3, "facts": facts().to_dict(), "date_of_loss": "2026-05-19"}
+        database.capture_report_product_facts = capture
+        with patch.dict("os.environ", {"VENFOUR_NATIONWIDE_PRODUCT": "true"}):
+            result = TotalLossReportProcessor(database).execute_generation(GENERATION_WORK_ITEM_ID)
+        self.assertEqual(result.state, "completed")
+        self.assertEqual(captured, [database.report_version_id])
+        completion = database.generation_completions[0]
+        self.assertEqual(completion["report"]["identity"]["title"], REPORT_LABEL)
+        self.assertEqual(completion["report"]["productContext"]["facts_revision"], 3)
+        self.assertEqual(completion["report"]["executiveConclusion"], self.report.to_dict()["executiveConclusion"])
+        self.assertEqual(completion["template_version"], "5")
+        self.assertEqual(completion["renderer_version"], "5")
+
     def test_generation_completes_with_canonical_report_and_pdf(self) -> None:
         database = self._database()
 

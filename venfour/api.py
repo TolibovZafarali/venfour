@@ -3506,6 +3506,8 @@ def create_app(
             )
         )
 
+    from venfour.nationwide_product_api import nationwide_product_routes
+    routes.extend(nationwide_product_routes())
     routes.extend(paid_delivery_routes())
     routes.extend(communication_routes())
     app = Starlette(
@@ -3523,6 +3525,7 @@ def create_app(
         PaidDeliveryRecoveryService(selected_gateway, selected_commerce_service)
         if isinstance(selected_gateway, SupabaseHttpGateway) else None
     )
+    app.state.nationwide_product_gateway = selected_gateway
     app.state.presentation_service = selected_service
     app.state.creation_service = selected_creation_service
     app.state.case_analysis_service = selected_case_service

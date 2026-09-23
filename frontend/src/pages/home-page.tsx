@@ -24,7 +24,7 @@ const processSteps = [
     number: "01",
     title: "Add your valuation details",
     description:
-      "Upload your insurer’s report, or enter your vehicle and claim details yourself.",
+      "Start with your insurer’s report, or enter details for a preliminary estimate. The paid report requires your insurer’s valuation report.",
   },
   {
     number: "02",
@@ -43,7 +43,7 @@ const processSteps = [
 const frequentlyAskedQuestions = [
   {
     question: "Do I need an insurance report?",
-    answer: "No. You can upload your insurer’s valuation report or enter your vehicle and claim details yourself. A report lets us also review its specific comparisons and adjustments.",
+    answer: "You can start a preliminary estimate without one. The paid Total-Loss Valuation Report requires a complete insurer valuation report so we can review its vehicle details, comparisons, and adjustments.",
   },
   {
     question: "What does Venfour compare?",

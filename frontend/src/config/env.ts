@@ -18,6 +18,7 @@ function turnstileSiteKey(value: string | undefined) {
 }
 
 export const environment = {
+  nationwideProductEnabled: import.meta.env.VITE_NATIONWIDE_PRODUCT === "true",
   localMarketFixturesEnabled:
     import.meta.env.DEV &&
     import.meta.env.VITE_LOCAL_MARKET_FIXTURES === "true" &&

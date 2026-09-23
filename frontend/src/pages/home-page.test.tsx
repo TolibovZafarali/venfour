@@ -147,7 +147,7 @@ describe("homepage structure", () => {
     ]) {
       await user.click(within(faq).getByText(question));
     }
-    expect(within(faq).getByText(/You can upload your insurer’s valuation report or enter your vehicle and claim details yourself/)).toBeVisible();
+    expect(within(faq).getByText(/You can start a preliminary estimate without one/)).toBeVisible();
     expect(within(faq).getByText(/not a final sale price or a guaranteed settlement/)).toBeVisible();
     expect(within(faq).getByText(/You stay in control of communicating with your insurer/)).toBeVisible();
     expect(within(faq).getByText(/Customer intake is currently paused/)).toBeVisible();

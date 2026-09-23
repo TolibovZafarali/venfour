@@ -1,0 +1,4407 @@
+{
+  "schema_version": "1",
+  "version": "2026-09-22.1",
+  "jurisdictions": [
+    {
+      "code": "AL",
+      "name": "Alabama",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "AL-L1",
+          "url": "https://aldoi.gov/Licensing/LicensingFAQ.aspx",
+          "reference": "Public adjuster FAQ",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "AK",
+      "name": "Alaska",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "AK-L1",
+          "url": "https://www.commerce.alaska.gov/web/ins/Producers/LicensesWithSpecialRequirements.aspx",
+          "reference": "Adjuster FAQ 7; Public Adjuster section",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "AZ",
+      "name": "Arizona",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "AZ-L1",
+          "url": "https://www.azleg.gov/ars/20/00321.htm",
+          "reference": "A.R.S. 20-321",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        },
+        {
+          "source_id": "AZ-L2",
+          "url": "https://www.azleg.gov/ars/20/00321-01.htm",
+          "reference": "A.R.S. 20-321.01",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "AR",
+      "name": "Arkansas",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "AR-L1",
+          "url": "https://insurance.arkansas.gov/industry-regulation/licensing/",
+          "reference": "Public adjuster licensing FAQ",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "CA",
+      "name": "California",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "CA-L1",
+          "url": "https://www.insurance.ca.gov/0200-industry/0050-renew-license/0200-requirements/public-adjuster/Authorizing-Act.cfm",
+          "reference": "CIC 15007; Authorizing Act section",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        },
+        {
+          "source_id": "CA-L2",
+          "url": "https://www.insurance.ca.gov/0200-industry/0050-renew-license/0200-requirements/public-adjuster/Index.cfm",
+          "reference": "Individual and business entity, resident and nonresident routes",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "CO",
+      "name": "Colorado",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "CO-L1",
+          "url": "https://nipr.com/licensing-center/state-requirements/colorado-non-resident-licensing-individual",
+          "reference": "Business Rules; distinction between insurer independent adjusters and public adjusters",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "CT",
+      "name": "Connecticut",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "CT-L1",
+          "url": "https://www.cga.ct.gov/current/pub/chap_702.htm",
+          "reference": "Chapter 702; sections 38a-769, 38a-790 and 38a-792",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "DE",
+      "name": "Delaware",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "DE-L1",
+          "url": "https://delcode.delaware.gov/title18/c017a/index.html",
+          "reference": "18 Del. C. 1750\u20131751",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "DC",
+      "name": "District of Columbia",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "DC-L1",
+          "url": "https://code.dccouncil.gov/us/dc/council/code/sections/31-1631.02",
+          "reference": "D.C. Code 31-1631.02(5)",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "FL",
+      "name": "Florida",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "FL-L1",
+          "url": "https://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0600-0699/0626/Sections/0626.854.html",
+          "reference": "Fla. Stat. 626.854(1), (19), (20)",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        },
+        {
+          "source_id": "FL-L2",
+          "url": "https://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0600-0699/0626/Sections/0626.852.html",
+          "reference": "Fla. Stat. 626.852",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "GA",
+      "name": "Georgia",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "GA-L1",
+          "url": "https://oci.georgia.gov/agents-agency-licensing/licensed-adjusters-public-adjusters-counselors-surplus-lines-brokers",
+          "reference": "Public Adjuster and Counselor sections",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "HI",
+      "name": "Hawaii",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "HI-L1",
+          "url": "https://cca.hawaii.gov/ins/producers/instructions_insurance_license/resident-adjuster/",
+          "reference": "Former resident adjuster page",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "ID",
+      "name": "Idaho",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "ID-L1",
+          "url": "https://doi.idaho.gov/industry/licensing-services/license-types/adjuster-public/",
+          "reference": "Public Adjuster; links to Idaho Code 41-5802 and 41-5803",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "IL",
+      "name": "Illinois",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "IL-L1",
+          "url": "https://idoi.illinois.gov/producers/illinois-public-adjuster.html",
+          "reference": "Public Adjuster requirements; links to 215 ILCS 5 Article XLV and 50 IAC 3118",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "IN",
+      "name": "Indiana",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "IN-L1",
+          "url": "https://www.in.gov/idoi/licensing/resident-adjuster-licensing/resident-adjuster-licensing-requirements/",
+          "reference": "Public Adjuster section; IC 27-1-27",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "IA",
+      "name": "Iowa",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "IA-L1",
+          "url": "https://www.legis.iowa.gov/docs/code/522C.2.pdf",
+          "reference": "Iowa Code 522C.2(18), pages 1\u20132",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "KS",
+      "name": "Kansas",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "KS-L1",
+          "url": "https://www.insurance.kansas.gov/licensing/",
+          "reference": "Public Adjusters link",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "KY",
+      "name": "Kentucky",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "KY-L1",
+          "url": "https://insurance.ky.gov/PPC/Documents/Consumer%20Guide%20to%20Public%20Adjusters%202021.pdf",
+          "reference": "2021 consumer guide, page 1",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "LA",
+      "name": "Louisiana",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "LA-L1",
+          "url": "https://www.legis.la.gov/legis/Law.aspx?d=508691",
+          "reference": "La. R.S. 22:1693",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "ME",
+      "name": "Maine",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "ME-L1",
+          "url": "https://www.maine.gov/pfr/insurance/frequently-asked-questions/adjusters",
+          "reference": "Adjuster license types; link to 24-A M.R.S. 1402",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "MD",
+      "name": "Maryland",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "MD-L1",
+          "url": "https://insurance.maryland.gov/Producer/Pages/publicadjusters.aspx",
+          "reference": "Public adjuster definition and licensing",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "MA",
+      "name": "Massachusetts",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "MA-L1",
+          "url": "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleII/Chapter26/Section8G",
+          "reference": "M.G.L. c. 26, section 8G",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "MI",
+      "name": "Michigan",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "MI-L1",
+          "url": "https://www.michigan.gov/difs/industry/licensing-ins/adjuster",
+          "reference": "Adjuster for the insured / insurer",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "MN",
+      "name": "Minnesota",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "MN-L1",
+          "url": "https://www.revisor.mn.gov/statutes/cite/72B.02",
+          "reference": "Minn. Stat. 72B.02, subdivisions 6 and 9",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        },
+        {
+          "source_id": "MN-V1",
+          "url": "https://www.revisor.mn.gov/statutes/cite/72A.201",
+          "reference": "Minn. Stat. 72A.201, subdivision 6",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "MS",
+      "name": "Mississippi",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "MS-L1",
+          "url": "https://www.mid.ms.gov/licensing/pdf/instructions/adjusterinstructions.pdf",
+          "reference": "2017 instructions; public adjuster section",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "MO",
+      "name": "Missouri",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "MO-L1",
+          "url": "https://insurance.mo.gov/producers/public-adjusters",
+          "reference": "RSMo 325.010 definition quoted by regulator",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        },
+        {
+          "source_id": "MO-V1",
+          "url": "https://insurance.mo.gov/consumer-faqs/auto-insurance-faqs",
+          "reference": "Disagreement about vehicle value; comparable vehicles and valuation information",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "MT",
+      "name": "Montana",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "MT-L1",
+          "url": "https://csimt.gov/insurance/licensing/",
+          "reference": "Public Adjuster Requirements; adjuster and consultant categories",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "NE",
+      "name": "Nebraska",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "NE-L1",
+          "url": "https://doi.nebraska.gov/public-adjuster-license-information",
+          "reference": "Individual and business entity public-adjuster licensing",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "NV",
+      "name": "Nevada",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "NV-L1",
+          "url": "https://doi.nv.gov/Licensing/License_Types/Adjuster/Public_Adjuster/",
+          "reference": "Public adjuster category and entity licensing",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        },
+        {
+          "source_id": "NV-L2",
+          "url": "https://doi.nv.gov/Licensing/License_Types/Motor_Vehicle_Damage_Appraiser/",
+          "reference": "Individual/entity licenses and physical Nevada business-location requirement",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "NH",
+      "name": "New Hampshire",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "NH-L1",
+          "url": "https://gc.nh.gov/rsa/html/XXXVII/402-B/402-B-1.htm",
+          "reference": "RSA 402-B:1",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "NJ",
+      "name": "New Jersey",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "NJ-L1",
+          "url": "https://www.nj.gov/dobi/inslic.htm",
+          "reference": "Public adjuster licensing notices; individual/organization applications",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "NM",
+      "name": "New Mexico",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "NM-L1",
+          "url": "https://nipr.com/licensing-center/state-requirements/new-mexico-non-resident-licensing-individual",
+          "reference": "Insurance Consultant category and regulator contact",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "NY",
+      "name": "New York",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "NY-L1",
+          "url": "https://www.dfs.ny.gov/apps_and_licensing/agents_and_brokers/lic_app_ia_pa",
+          "reference": "Public Adjuster and Independent Adjuster definitions",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "NC",
+      "name": "North Carolina",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "NC-L1",
+          "url": "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_58/GS_58-33-10.html",
+          "reference": "G.S. 58-33-10(2), (14)",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        },
+        {
+          "source_id": "NC-L2",
+          "url": "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_58/GS_58-33-26.html",
+          "reference": "G.S. 58-33-26",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        },
+        {
+          "source_id": "NC-L3",
+          "url": "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_58/GS_58-33A-5.html",
+          "reference": "G.S. 58-33A-5",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "ND",
+      "name": "North Dakota",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "ND-L1",
+          "url": "https://www.insurance.nd.gov/producers/other-licenses/public-adjuster",
+          "reference": "Public adjuster licensing; distinction from insurer staff/independent adjusters",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "OH",
+      "name": "Ohio",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "OH-L1",
+          "url": "https://codes.ohio.gov/ohio-revised-code/section-3951.01",
+          "reference": "Ohio Rev. Code 3951.01",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        },
+        {
+          "source_id": "OH-V1",
+          "url": "https://codes.ohio.gov/ohio-administrative-code/rule-3901-1-54",
+          "reference": "Ohio Admin. Code 3901-1-54(H)",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "OK",
+      "name": "Oklahoma",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "OK-L1",
+          "url": "https://www.oid.ok.gov/licensing-and-education/applying-for-a-license/",
+          "reference": "Licensing directory",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "OR",
+      "name": "Oregon",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "OR-L1",
+          "url": "https://dfr.oregon.gov/business/licensing/insurance/license-types/pages/adjusters.aspx",
+          "reference": "Individual, business entity and nonresident adjuster licensing",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "PA",
+      "name": "Pennsylvania",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "PA-L1",
+          "url": "https://www.legis.state.pa.us/WU01/LI/LI/US/HTM/1972/0/0367..HTM",
+          "reference": "Act 367 of 1972",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        },
+        {
+          "source_id": "PA-V1",
+          "url": "https://www.pacodeandbulletin.gov/Display/pacode?d=reduce&file=/secure/pacode/data/031/chapter62/s62.3.html",
+          "reference": "31 Pa. Code 62.3(e); appraisal standards",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "RI",
+      "name": "Rhode Island",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "RI-L1",
+          "url": "https://webserver.rilegislature.gov/Statutes/TITLE27/27-10.1/27-10.1-1.htm",
+          "reference": "R.I. Gen. Laws 27-10.1-1",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "SC",
+      "name": "South Carolina",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "SC-L1",
+          "url": "https://www.scstatehouse.gov/code/t38c049.php",
+          "reference": "S.C. Code 38-49-10 and 38-49-20",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        },
+        {
+          "source_id": "SC-L2",
+          "url": "https://www.scstatehouse.gov/code/t38c048.php",
+          "reference": "Chapter 48",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "SD",
+      "name": "South Dakota",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "SD-L1",
+          "url": "https://dlr.sd.gov/insurance/producers/licensing_exemptions.aspx",
+          "reference": "Producer exemptions page",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "TN",
+      "name": "Tennessee",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "TN-L1",
+          "url": "https://www.tn.gov/content/tn/commerce/insurance/agent-producer-resources/licensing-packets-instructions-forms/public-adjuster.html",
+          "reference": "Licensing Requirements; page updated April 8, 2026",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "TX",
+      "name": "Texas",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "TX-L1",
+          "url": "https://www.tdi.texas.gov/agent/adjuster-public-insurance-apply.html",
+          "reference": "Individual and agency/nonresident applications",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        },
+        {
+          "source_id": "TX-V1",
+          "url": "https://www.tdi.texas.gov/tips/car-totaled.html",
+          "reference": "Value disagreement; updated July 23, 2026",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "UT",
+      "name": "Utah",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "UT-L1",
+          "url": "https://insurance.utah.gov/licensees/producers/special-requirements/",
+          "reference": "Adjuster and Consultant sections; links to 31A-26-201 and 31A-1-301",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "VT",
+      "name": "Vermont",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "VT-L1",
+          "url": "https://legislature.vermont.gov/statutes/section/08/131/04791",
+          "reference": "8 V.S.A. 4791(2)\u2013(5)",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "VA",
+      "name": "Virginia",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "VA-L1",
+          "url": "https://law.lis.virginia.gov/vacode/38.2-1845.13/",
+          "reference": "Va. Code 38.2-1845.13",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "WA",
+      "name": "Washington",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "WA-L1",
+          "url": "https://app.leg.wa.gov/rcw/default.aspx?cite=48.17.010",
+          "reference": "RCW 48.17.010(1)",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        },
+        {
+          "source_id": "WA-V1",
+          "url": "https://app.leg.wa.gov/wac/default.aspx?cite=284-30-391",
+          "reference": "WAC 284-30-391; versions before/from October 18, 2026",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "WV",
+      "name": "West Virginia",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "WV-L1",
+          "url": "https://code.wvlegislature.gov/33-12B-1/",
+          "reference": "W. Va. Code 33-12B-1(i)",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "WI",
+      "name": "Wisconsin",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "WI-L1",
+          "url": "https://oci.wi.gov/Pages/Agents/PublicAdjuster.aspx",
+          "reference": "Resident/nonresident registration and adjusting-services definitions",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    },
+    {
+      "code": "WY",
+      "name": "Wyoming",
+      "status": "PRODUCT_READY_WITH_GENERIC_RULES",
+      "presentation": {
+        "report_label": "Total-Loss Valuation Report",
+        "appraisal_label_allowed": false,
+        "notes": [
+          "You remain responsible for communicating with your insurer."
+        ]
+      },
+      "valuation": {
+        "method": "generic_product_method",
+        "strategy": "adaptive_local_first",
+        "state_overrides": [],
+        "adjustments": "existing_deterministic_method_only",
+        "required_inclusions": null,
+        "required_exclusions": null
+      },
+      "settlement": {
+        "sales_tax": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "title": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "registration_transfer": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        },
+        "replacement_credit": {
+          "status": "unresolved_state_specific_component",
+          "treatment": null,
+          "included_in_vehicle_value": false
+        }
+      },
+      "workflow": {
+        "information": [
+          "vehicle_registration",
+          "garaging_at_loss",
+          "loss_location",
+          "claim_type",
+          "policy_use",
+          "policy_issued"
+        ],
+        "disclosures": null,
+        "review_conditions": [
+          "conflicting_facts",
+          "multiple_jurisdictions",
+          "commercial_use",
+          "unknown_claim_type"
+        ],
+        "unsupported_capabilities": [
+          "direct_insurer_communication",
+          "direct_insurer_negotiation",
+          "formal_appraisal_clause",
+          "umpire_role",
+          "claim_right_assignment",
+          "settlement_proceeds_assignment"
+        ],
+        "implemented_capabilities": [
+          "market_evidence_report",
+          "personalized_valuation_comparison",
+          "customer_submitted_reconsideration_draft",
+          "response_analysis_coaching"
+        ]
+      },
+      "provenance": [
+        {
+          "source_id": "WY-L1",
+          "url": "https://doi.wyo.gov/licensing/adjusters/public-adjusters",
+          "reference": "Resident and nonresident public-adjuster applications",
+          "status": "research_only",
+          "effective_from": null,
+          "effective_until": null,
+          "verified_on": null
+        }
+      ]
+    }
+  ]
+}

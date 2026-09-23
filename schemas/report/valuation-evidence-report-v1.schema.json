@@ -25,6 +25,7 @@
     "reportDigest"
   ],
   "properties": {
+    "productContext": { "type": "object" },
     "reviewContext": {
       "type": "object", "additionalProperties": false,
       "required": ["vehicleDisplay", "trimVerified", "sourceDocumentName", "sourceProvider", "comparables", "searchDescription"],
@@ -334,8 +335,8 @@
         "suggestedFilename"
       ],
       "properties": {
-        "title": { "enum": ["Venfour Total-Loss Valuation Evidence Package", "Vehicle Valuation Review"] },
-        "templateVersion": { "enum": ["2", "3", "4"] },
+        "title": { "enum": ["Venfour Total-Loss Valuation Evidence Package", "Vehicle Valuation Review", "Total-Loss Valuation Report"] },
+        "templateVersion": { "enum": ["2", "3", "4", "5"] },
         "reportSeriesId": { "$ref": "#/$defs/uuid" },
         "reportVersionId": { "$ref": "#/$defs/uuid" },
         "finalAssessmentId": { "$ref": "#/$defs/uuid" },

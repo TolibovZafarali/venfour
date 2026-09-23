@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(66);
+select plan(73);
 
 select ok(
   to_regclass('public.total_loss_report_versions') is not null
@@ -392,6 +392,19 @@ select * from public.claim_total_loss_report_generation_work_item(
   (select work_item_id from m5_enqueue),
   'ad000000-0000-4000-8000-000000000001'
 );
+
+-- Product capture is optional for legacy reports, immutable once requested.
+select is(public.capture_report_product_facts((select report_version_id from m5_generation_claim))->>'revision','0','new report captures explicit unknown product facts');
+select is(public.capture_report_product_facts((select report_version_id from m5_generation_claim)),
+  public.capture_report_product_facts((select report_version_id from m5_generation_claim)), 'report retries reuse identical captured facts');
+reset role;
+select is((select count(*) from public.total_loss_report_product_facts),1::bigint,'capture retry creates one record');
+select throws_ok($$update public.total_loss_report_product_facts set context='{}'$$,'55000','Jurisdiction history is append-only.','captured report facts cannot be edited');
+select throws_ok($$delete from public.total_loss_report_product_facts$$,'55000','Jurisdiction history is append-only.','captured report facts cannot be deleted');
+select throws_ok($$update public.total_loss_report_versions set report=jsonb_build_object('identity',jsonb_build_object('templateVersion','5'),'productContext','{}'::jsonb)
+  where id=(select report_version_id from m5_generation_claim)$$,'22023','Report product facts do not match captured history.','new template cannot forge captured facts');
+select ok(not has_table_privilege('authenticated','public.total_loss_report_product_facts','SELECT'),'raw report capture remains private');
+set local role service_role;
 
 select ok(
   (select outcome = 'claimed' and report_version_id is not null

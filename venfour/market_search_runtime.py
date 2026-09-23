@@ -7,12 +7,14 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 
 from venfour.efficient_search import EfficientSearchPolicy
+from venfour.nationwide_product import VerifiedOverride, apply_search_overrides
 from venfour.market_request_budget import MarketAccountLimits, MarketRequestPolicy, market_account_key
 
 
 def search_policy_from_environment(
     environment: Mapping[str, str], request_policy: MarketRequestPolicy,
     *, case_maximum_distance_miles: int | None = None,
+    product_rules: tuple[VerifiedOverride, ...] = (),
 ) -> EfficientSearchPolicy:
     names = {
         "local_radius_miles": "MARKETCHECK_SEARCH_LOCAL_RADIUS_MILES",
@@ -32,12 +34,14 @@ def search_policy_from_environment(
             if re.fullmatch(r"0|[1-9][0-9]*", value) is None:
                 raise ValueError(f"{name} must be a nonnegative integer")
             values[field] = int(value)
-    return EfficientSearchPolicy(
+    policy = EfficientSearchPolicy(
         **values, case_maximum_distance_miles=case_maximum_distance_miles,
         history_pages_per_vin=min(3, max(1, request_policy.per_vin_history_attempts)),
         supporting_attempts=min(5, request_policy.supporting_attempts),
         supporting_discovery_requests=min(2, request_policy.supporting_discovery_attempts),
     )
+
+    return apply_search_overrides(policy, product_rules)
 
 
 def case_evidence_retention_days(environment: Mapping[str, str]) -> int | None:

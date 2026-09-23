@@ -65,9 +65,7 @@ from venfour.supabase_gateway import (
 )
 from venfour.valuation_evidence_report import (
     PDF_VALIDATION_SCHEMA_VERSION,
-    REPORT_RENDERER_VERSION,
     REPORT_SCHEMA_VERSION,
-    REPORT_TEMPLATE_VERSION,
     ValuationEvidenceReportError,
     build_valuation_evidence_report_v1,
     render_valuation_evidence_report_pdf_v1,
@@ -231,6 +229,8 @@ class ReportProcessingDatabaseGateway(Protocol):
     def resolve_total_loss_report_generation_context(
         self, work_item_id: str, processing_token: str
     ) -> Mapping[str, Any]: ...
+
+    def capture_report_product_facts(self, report_version_id: str) -> Mapping[str, Any]: ...
 
     def upload_total_loss_deliverable_pdf(
         self,
@@ -621,6 +621,11 @@ class TotalLossReportProcessor:
             context.get("final_assessment"), "Final assessment"
         )
         generated_at = _canonical_generated_at(context.get("generated_at"))
+        from venfour.nationwide_product import enabled as product_enabled, product_context
+        frozen_product = None
+        if product_enabled():
+            frozen_facts = self._database.capture_report_product_facts(report_version_id)
+            frozen_product = product_context(frozen_facts, as_of=generated_at[:10])
         report = build_valuation_evidence_report_v1(
             source_snapshot=source,
             final_assessment=assessment,
@@ -629,6 +634,7 @@ class TotalLossReportProcessor:
             final_assessment_id=final_assessment_id,
             version_number=version_number,
             generated_at=generated_at,
+            product_context=frozen_product,
         )
         report_payload = report.to_dict()
         pdf = render_valuation_evidence_report_pdf_v1(report)
@@ -656,8 +662,8 @@ class TotalLossReportProcessor:
                 processing_token,
                 report_payload,
                 report_payload["reportDigest"],
-                REPORT_RENDERER_VERSION,
-                REPORT_TEMPLATE_VERSION,
+                report_payload["identity"].get("templateVersion", "1"),
+                report_payload["identity"].get("templateVersion", "1"),
                 REPORT_SCHEMA_VERSION,
                 REPORT_VALIDATION_VERSION,
                 pdf_manifest_payload,

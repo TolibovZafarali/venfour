@@ -1,3 +1,5 @@
+import { environment } from "@/config/env";
+import { ProductInspection } from "@/features/nationwide/product-panel";
 import { AlertTriangle } from "lucide-react";
 import { Tabs } from "radix-ui";
 import { useState, type ReactNode } from "react";
@@ -77,7 +79,7 @@ export function AdminTotalLossCasePage() {
         {dependencies?.operationsService ? operation.isPending ? <AdminLoadingState label="Loading current case journey…" /> : operation.isError && !operation.data ? <AdminErrorState description="The current journey could not be loaded. The original case record remains available below." onRetry={() => void operation.refetch()} /> : operation.data ? <CaseJourney item={operation.data} /> : null : null}
         <OverviewSections item={item} />
       </Tabs.Content>
-      <Tabs.Content value="intake" className="admin-tab-panel"><IntakeSection item={item} /></Tabs.Content>
+      <Tabs.Content value="intake" className="admin-tab-panel"><IntakeSection item={item} />{environment.nationwideProductEnabled && auth.status === "signedIn" ? <ProductInspection caseId={caseId} accessToken={auth.session.access_token} /> : null}</Tabs.Content>
       <Tabs.Content value="reports" className="admin-tab-panel"><SourceReportSection item={item} onOpenSourceReport={sourceReportService ? async download => sourceReportService(item.caseId, download) : null} /><AdminCollection resource="reports" title="Case reports" description="Source and generated report metadata, including version and publication status." filters={reportFilters} fixedFilters={{ caseId }} embedded /></Tabs.Content>
       <Tabs.Content value="processing" className="admin-tab-panel"><AdminCollection resource="processing" title="Case processing" description="Recorded processing across free valuation, paid review, and insurer responses." filters={processingFilters} fixedFilters={{ caseId }} embedded /><AnalysisSections item={item} /></Tabs.Content>
       <Tabs.Content value="payments" className="admin-tab-panel"><AdminCollection resource="payments" title="Case payments" description="Recorded orders, checkout attempts, refunds, and entitlement status for this case." filters={paymentFilters} fixedFilters={{ caseId }} embedded /></Tabs.Content>
