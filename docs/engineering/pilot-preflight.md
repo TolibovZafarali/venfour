@@ -454,3 +454,29 @@ zero MarketCheck requests. Execution requires a single-use, expiring owner
 budget authorization. The old genuine artifact remains unchanged and does not
 qualify this candidate. No production pins, hosted state or feature flags were
 changed; genuine qualification and the remaining hosted/pilot blockers still apply.
+
+
+## Genuine qualification candidate — September 23, 2026
+
+The single bounded run documented in
+[template5-provider-qualification.md](template5-provider-qualification.md)
+completed **28/28 qualification cases successfully**, using 28 model requests,
+zero retries and zero MarketCheck requests. Actual calculated usage cost was
+**$13.4259204**, within the authorized **$323.16** ceiling. The genuine evaluation
+milestone is complete; its four reviewer passes and 24 expected holds matched
+all labels. The single-use authorization was consumed once.
+
+Candidate: `/tmp/venfour-template5-authorized-run/candidate.json`, canonical digest
+`85860df17538cc226a59d335ff6eab13ac9cfb6fa162f158bbbb219d8b6f7f46`, evaluated against
+revision `83116c81e3bb947158e4abcaf83549a14d627b04`, template/prompt 5 and schema 1.
+The existing 12 safety tests, fresh offline preparation and post-run comparator,
+digest, PDF-identity, request/token/cost and consumption checks passed.
+
+**The full release-qualification blocker remains until formal owner acceptance
+and matching packaged artifact/release pins.** Production qualification is
+unchanged. The next smallest step is to review and accept this candidate through
+the existing process, preserving the complete evidence; a second provider run is
+not needed for this unchanged candidate. No deployment, migration, activation,
+payment, email, customer mutation, operating approval or economics change occurred.
+The separate hosted release, operational pilot and operating-scope requirements
+above remain outstanding.

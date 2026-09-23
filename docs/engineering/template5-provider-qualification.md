@@ -1,6 +1,7 @@
-# Template-5 provider qualification preparation
+# Template-5 provider qualification
 
-September 23, 2026. **Preparation only; template 5 is not genuinely qualified.**
+September 23, 2026. **Template 5 has a successful genuine 28/28 candidate;
+formal release acceptance and production qualification remain unchanged.**
 No deployment, hosted migration, activation, payment, email, market request or
 model request is authorized by this document. The previously audited MarketCheck
 headroom is a dated observation, not a fresh balance.
@@ -548,3 +549,215 @@ ceiling was exceeded, production qualification remains unchanged, and the pilot
 blocker is unchanged. No deployment, migration, live payment, email, jurisdiction
 approval, enforcement activation, customer mutation/publication or economics
 change occurred.
+
+## Genuine qualification result — September 23, 2026
+
+**Exactly one genuine run completed successfully: 28/28 qualification PASS,
+zero REVIEW REQUIRED, zero FAIL and zero automatic-critical failures.** This
+supersedes the earlier blocked-preflight observations. The generated artifact is
+`CANDIDATE_REQUIRES_OWNER_ACCEPTANCE`; production qualification is unchanged.
+No second genuine run occurred or is authorized by the unused retry allowance.
+
+### Verified account, tariff and authorization
+
+The organization monthly limit was freshly verified as **$400.00**, with
+**$33.18** month-to-date spend and **$366.82** remaining before the run. The same
+amounts were rechecked immediately before authorization and during preparation,
+before the first inference. Existing funding showed **$7.52** prepaid credit and
+auto-reload enabled below $5 to restore $10, without a monthly auto-reload limit.
+No billing setting or funding transaction was initiated manually.
+
+Execution used organization `org-dNBvmRo4AsEAHfLXrmM96Z8S`, project **Venfour**
+(`proj_lOcDMIvtSimgbFovqLAQ3krf`), rather than the Default project inspected in the
+earlier follow-up. Venfour's residency is Global, default service tier is Standard,
+and its model policy allows `gpt-5.6-sol`. The organization's listed rate limits
+are 1,000,000 TPM / 5,000 RPM. Venfour's separate $10 project threshold showed
+$30.64 spend, but its **Enforce a hard limit switch was off**. It is an alert
+threshold, not a runtime block; the owner's explicit one-run authorization and
+the local $323.16 hard ceiling govern this evaluation. No project control changed.
+The distinction was checked against the current
+[spend-control documentation](https://developers.openai.com/api/docs/guides/spend-limits).
+
+The existing local-extraction credential matched the active key metadata in the
+Venfour project, with Responses write permission. It was passed only to the
+isolated process through `VENFOUR_QUALIFICATION_MODEL_KEY`; the process cleared
+other inherited bindings. No secret was printed or committed and no credential
+permission changed. Five read-only model-metadata GET attempts occurred during
+preflight, separately from the inference ledger. The Default project was rejected
+as mismatched; model metadata reads were denied because the restricted key lacks
+`api.model.read`. The authenticated dashboard established the matching project,
+model policy and Responses permission. No trial inference was used.
+
+Current [pricing](https://developers.openai.com/api/docs/pricing) was reread:
+Standard short-context input $4/M, cached input $0.40/M, cache writes $5/M,
+output $20/M; long-context rates $8 / $0.80 / $10 / $30 respectively. The existing
+harness recalculated the unchanged absolute 28,283,217 input / 1,344,000 output
+ceilings at conservative **$10/M input and $30/M output**, yielding
+**$323.152170**, rounded upward to **$323.16**. This left $43.66 of the observed
+organization capacity outside the authorization. Expected bill was not inferred
+from this reserve. All actual responses later reported Standard (`default`) tier
+and inputs below the long-context threshold.
+
+| Authorized binding | Value |
+| --- | --- |
+| Revision | `83116c81e3bb947158e4abcaf83549a14d627b04` |
+| Template / renderer / prompt / schema | 5 / 5 / 5 / 1 |
+| Cases / expected requests / normal cap | 28 / 28 / 28 |
+| Per-case attempts / absolute ceiling | 3 / 84, including at most 56 additional retries |
+| Output per attempt | 16,000 tokens |
+| MarketCheck transport | 0 across every stage |
+| Maximum dollar spend | $323.16 |
+| Single-use ID | `eb5993cc-6d05-4c19-8dcd-b52ad9d965fc` |
+| Issued / expires (UTC) | 16:16:37 / 19:16:37 on September 23, 2026 |
+| Plan digest | `5d1ffce971d6f71894384de9700a25ea29dd0fd14d9fe99a56bf00400251e970` |
+| Manifest digest | `0ec3ed7ea6230b48a1487b83b2c58f3aa5ccd2f0e49735a59536c6cd51d98e9f` |
+| Rubric digest | `5437e6815a7f3bdca15926ce11f0a2653b9352729e78fd776942c98bcad6a90e` |
+| Suite digest | `ba668548f88123ece29b45f4807d2e33133d9c67086774f950da862841d336b0` |
+
+The working tree was clean at authorization. A fresh 28-case offline preparation
+at `/tmp/venfour-template5-current-plan` passed with zero network attempts; all
+case inputs, runtime identities, budget and accepted PDF bytes matched prior
+preparation. The 12 focused qualification safety tests also passed, with zero
+failures/errors or unexpected network attempts. The execution directory was new,
+the ledger absent, and the authorization unconsumed and unexpired.
+
+An initial launcher resolved the virtual-environment interpreter to the system
+interpreter and failed to import `pymupdf`, before loading the harness, creating
+execution output, consuming authorization or issuing any request. The interpreter
+path was corrected only after verifying those untouched states. The resulting
+harness invocation performed the one genuine run. This was not a second suite
+execution or a reset of consumed authorization.
+
+### Outcome and reconciliation
+
+The execution plan exactly matched the authorized plan. The atomic consumption
+marker exists once and binds the same run ID and plan digest. A separate local
+monitor checked revision/source/production-artifact stability throughout and
+would terminate the process on drift; none occurred. Existing per-attempt
+request, cost, identity and expiry guards remained active and unchanged.
+The run's evaluation timestamp is **16:27:01.305588 UTC**; it exited successfully
+at approximately **16:48:42 UTC**. Independent local artifact verification finished
+at **16:51:54 UTC**. No operational error, semantic mismatch or safety stop occurred
+during genuine execution.
+
+| Measure | Actual result |
+| --- | ---: |
+| Admitted / completed cases | 28 / 28 |
+| Qualification PASS / REVIEW REQUIRED / FAIL | 28 / 0 / 0 |
+| Automatic-critical failures | 0 |
+| Inference requests / retries / transport errors | 28 / 0 / 0 |
+| MarketCheck requests | 0 |
+| Input tokens | 2,505,922 |
+| Cached input tokens, included above | 66,636 |
+| Cache-write input tokens, included above | 2,439,202 |
+| Other uncached input tokens, included above | 84 |
+| Output tokens | 60,146 |
+| Reasoning tokens, included in output | 18,781 |
+| Actual calculated usage cost | **$13.4259204 ($13.43 rounded)** |
+| Worst-case reservations for the 28 actual attempts | $107.71739 |
+| Authorized whole-run ceiling | $323.16 |
+| Unused attempts / remaining reservation capacity | 56 / $215.44261 |
+
+The 56 ledger records form exactly 28 reservation/return pairs, one per case.
+All sequence numbers, model identities, timestamps, input/output ceilings and
+raw-response usage reconcile. Cost uses actual token categories:
+`(84 × 4 + 66,636 × 0.40 + 2,439,202 × 5 + 60,146 × 20) / 1,000,000`.
+Reasoning is already included in output and is not charged twice. This is
+usage-based calculated cost, not the much larger conservative reservation.
+Unused allowance does not permit replaying the consumed authorization.
+
+The qualification rubric asks whether the reviewer made the expected decision.
+Its **28 PASS** results comprise **four reviewer PASS decisions and 24 expected
+HUMAN_REVIEW holds**. These are fictional evaluation gate decisions; no real
+report was released and no refund was executed.
+
+| Case | Qualification | Reviewer decision | Evaluation gate |
+| --- | --- | --- | --- |
+| correct_package | PASS | PASS | AUTO_RELEASE_SUPPORTABLE |
+| wrong_insurer_valuation | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| wrong_subject_vehicle | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| missing_insurer_comparable | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| lower_valued_strong_insurer_comparable_omitted | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| invented_external_comparable | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| duplicate_comparable | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| reversed_adjustment_sign | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| wrong_arithmetic | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| incorrect_supported_range | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| preliminary_final_mismatch | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| unsupported_point_acv | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| unsupported_insurer_owes_you | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| fake_certified_uspap_language | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| missing_material_limitation | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| wrong_source_attribution | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| report_json_pdf_mismatch | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| prompt_injection_inside_source_document | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| conflicting_or_insufficient_evidence | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| non_supportable_case_accurately_represented | PASS | PASS | AUTO_RELEASE_NO_DISPUTE_REFUND |
+| nationwide_unknown_context | PASS | PASS | AUTO_RELEASE_SUPPORTABLE |
+| nationwide_third_party | PASS | PASS | AUTO_RELEASE_SUPPORTABLE |
+| nationwide_conflicting_context | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| fabricated_state_rule | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| invented_settlement_amount | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| unauthorized_appraisal_title | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| direct_negotiation_promise | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+| template_version_mismatch | PASS | HUMAN_REVIEW | HUMAN_REVIEW |
+
+The clean, truthful no-support, unknown-context and third-party reports passed.
+Conflicting context stayed held for new evidence. All targeted adverse claims
+were caught: wrong/omitted evidence, invented/duplicate vehicles, arithmetic and
+range errors, attribution/PDF disagreement, unsupported value/entitlement or
+certification claims, missing limitations, prompt injection, fabricated state
+rules, invented settlement amounts, unauthorized appraisal/negotiation language,
+and template identity mismatch. The post-run verification reconstructed every
+saved review and reran the existing deterministic comparator: 28/28 still passed.
+No label, rubric, model, fixture, calculation or guard was changed to obtain this
+result.
+
+### Candidate integrity, pagination and release boundary
+
+Candidate: `/tmp/venfour-template5-authorized-run/candidate.json`.
+All 28 raw responses, case results, report inputs/JSON/PDFs, validation files,
+manifest, plan and provider ledger remain beside it. Private preparation,
+authorization, console logs, running cost snapshots and the independently
+verified cost/integrity summary are in `/tmp/venfour-template5-current-plan/`.
+The summary is `candidate-verification.json`; it references the candidate digest
+and records actual token-category cost without modifying the generated candidate.
+
+| Integrity binding | Digest |
+| --- | --- |
+| Candidate canonical digest | `85860df17538cc226a59d335ff6eab13ac9cfb6fa162f158bbbb219d8b6f7f46` |
+| Candidate file SHA-256 | `597ac4ed1e52487724f33a6ac1059f03faae8225a7bc1484716f9c4d41db07c8` |
+| Release attestation digest | `adf7f327e00f368f0f98b1b013c8a97e7c74892058ac60a26e7082fc2f406c53` |
+| Provider ledger SHA-256 | `728195fcd2bd55cbcf4df07e87e62958d73acccf69325d1829bdd881cd9d9d29` |
+| Independent verification digest | `11a07e607dd1e6f4e8a2bde0a621d90598d1f7417f7c4125508fadb2da66b3fa` |
+
+The candidate digest, attestation, source revision/bundle, plan, manifest, rubric,
+evaluator suite/schema, all case identities and ledger digest were verified.
+The plan transitively binds manifest/rubric/runtime/report identities; the ledger
+and authorization bind usage and reserved cost. Every generated input, report,
+PDF and validation file matched the authorized preparation byte for byte.
+
+The previously accepted sparse fourth page is unchanged and remains a cosmetic
+follow-up. All preparation PDF geometry/font, replay and validation checks passed.
+No content was clipped, dropped or reordered by a renderer change; no renderer
+change occurred. Genuine review covered report text, while the prior visual
+acceptance and identical bytes cover this layout disposition.
+
+**Production qualification was not changed.** The packaged prior artifact remains
+byte-identical to the authorized revision, SHA-256
+`fa28b2327f4ef5b8cdddbb4100e1eca8327eef2f329fef59c794716e2f45ab75`.
+No production pins/configuration were edited. The genuine-candidate milestone is
+complete; formal artifact acceptance, release-pin alignment and the remaining
+hosted/pilot checks are still separate work.
+
+**Next action:** owner review and formal acceptance of this exact candidate and
+its archived evidence through the existing release process. Only a separately
+scoped acceptance step may copy the verified `releaseAttestation` to the packaged
+artifact and align release pins, followed by focused gate checks. Do not rerun the
+provider suite automatically. Deployment, hosted migrations and pilot activation
+remain separately authorized actions.
+
+Exactly one genuine run occurred. No production deployment, hosted migration,
+live Stripe payment/checkout, email, customer mutation/report publication,
+jurisdiction approval or enforcement activation occurred. Partner attribution,
+commissions, the $199 price and refund terms are unchanged.
