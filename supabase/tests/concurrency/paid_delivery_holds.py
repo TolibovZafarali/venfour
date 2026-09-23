@@ -17,6 +17,7 @@ from uuid import uuid4
 ROOT = Path(__file__).resolve().parents[3]
 sys.path[:0] = [str(ROOT), str(ROOT / "scripts"), str(ROOT / "tests")]
 from rehearse_production_migrations import Rehearsal
+from local_authority_login import enable_fixture_logins
 from venfour.jurisdiction import Registry, CaseFacts, Assertion, digest
 from venfour.jurisdiction_adapter import decide
 from jurisdiction_authority_fixtures import source, manifest, install_sql, publish_sql, PUBLISHER, stamp
@@ -161,7 +162,8 @@ check("199 dollar order unchanged", r.sql(f"select amount_minor_units from publi
 facts = {"schema_version": "1", "assertions": [{"field": k, "value": v, "provenance": "customer", "reference": "synthetic", "recorded_at": datetime.now(timezone.utc).isoformat()} for k,v in {"customer_residence":"US-MO","claim_type":"first_party","policy_use":"personal","provider_role":"valuation_service"}.items()]}
 r.sql(f"set role authenticated; set request.jwt.claim.sub='{OWNER}'; select public.append_case_jurisdiction_facts('{CASE}',0,{sqltext(json.dumps(facts))}::jsonb);")
 r.sql(install_sql(fixture_now))
-r.sql(f"set session authorization {PUBLISHER}; " + publish_next())
+enable_fixture_logins(r)
+r.sql(publish_next(),role=PUBLISHER)
 unresolved = snapshot(False)
 check("unresolved current rule refuses release", query(resolve(unresolved))["state"] == "held")
 approved = snapshot()
@@ -176,8 +178,8 @@ check("release resumes original durable queue identity", r.sql(f"select work_ite
 r.sql(f"select public.jurisdiction_delivery_hold_internal('{CASE}',array['REVIEW_REQUIRED'])")
 stale = snapshot()
 
-def block_then(mutation):
-    command = ["docker","exec","-i",r.container,"psql","-X","-U","postgres","-d","postgres","-v","ON_ERROR_STOP=1","-qAt"]
+def block_then(mutation,role="postgres"):
+    command = ["docker","exec","-i",r.container,"psql","-X","-U",role,"-d","postgres","-v","ON_ERROR_STOP=1","-qAt"]
     process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     process.stdin.write("begin; select pg_advisory_xact_lock(726104,1); select 'LOCKED';\n")
     process.stdin.flush()
@@ -191,8 +193,8 @@ def block_then(mutation):
         assert process.returncode == 0, process.stderr.read()
         return waiting.result()
 
-check("rule revocation between observation and mutation refuses release", block_then(f"set session authorization {PUBLISHER}; " + publish_next(True))["state"] == "held")
-r.sql(f"set session authorization {PUBLISHER}; " + publish_next())
+check("rule revocation between observation and mutation refuses release", block_then(publish_next(True),role=PUBLISHER)["state"] == "held")
+r.sql(publish_next(),role=PUBLISHER)
 check("a newly reviewed successor does not revive an old authority epoch", query(resolve(stale))["state"] == "held")
 stale = snapshot()
 changed = json.loads(json.dumps(facts))

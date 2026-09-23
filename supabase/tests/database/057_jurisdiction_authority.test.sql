@@ -24,6 +24,6 @@ select ok(has_function_privilege('authenticated','public.accept_jurisdiction_doc
 select ok(not has_function_privilege('service_role','public.accept_jurisdiction_document(uuid,uuid,bigint,text,uuid)','EXECUTE'),'service key alone cannot accept');
 select throws_ok($$insert into public.jurisdiction_delivery_authority(revision,registry_digest) values(1,repeat('a',64))$$,'42501','Reviewed publication required for authority','bare authority edit rejected');
 select throws_ok($$update public.jurisdiction_authority_config set canonical_json='{}'$$,'55000','Jurisdiction history is append-only.','reviewer history cannot be rewritten');
-select ok(not exists(select 1 from pg_auth_members m join pg_roles r on r.oid=m.roleid where r.rolname in ('jurisdiction_publisher','jurisdiction_attestor')),'no release role memberships provisioned');
+select is((select count(*)::integer from jurisdiction_private.release_role_violations()),0,'only verified infrastructure administration reaches restricted roles');
 select * from finish();
 rollback;

@@ -34,6 +34,13 @@ The database suites initially ran against the preservation rehearsal's seeded fi
 
 Both new rehearsal containers used `network=none`, no exposed ports and disabled cron execution. Only schema-only Auth/Storage definitions were read from the existing local database. They are now stopped and retained; existing local services were left alone. The preservation rehearsal and the empty-fixture tests are separate evidence, not interchangeable environments.
 
+The September 23 consolidated release supersedes that zero-membership prerequisite.
+The supported boundary retains PostgreSQL's exact creator administration and
+rejects every unauthorized direct or transitive path, including paths through
+infrastructure administrators. No hosted superuser access or privileged cleanup
+is required. See [the current role boundary](jurisdiction-authority.md#dormant-release-role-boundary)
+and [release evidence](production-release-2026-09-23.md).
+
 ### Reproduction and evidence locations
 
 Main batch, using the repository's network-denying runner:

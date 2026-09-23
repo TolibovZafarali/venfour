@@ -15,6 +15,7 @@ from uuid import uuid4
 ROOT=Path(__file__).resolve().parents[3]
 sys.path[:0]=[str(ROOT),str(ROOT/'scripts'),str(ROOT/'tests')]
 from rehearse_production_migrations import Rehearsal
+from local_authority_login import enable_fixture_logins
 from jurisdiction_authority_fixtures import (manifest,source,credential,document,install_sql,publish_sql,literal,signatures,KEYS,PUBLISHER,WRITER,stamp)
 from venfour.jurisdiction import CaseFacts,digest
 from venfour.jurisdiction_authority import canonical,compile_authority,attested_snapshot,content_digest
@@ -32,13 +33,21 @@ def check(name,condition):
  assert condition,name
  checks.append(name);print(json.dumps(dict(check=name,passed=True)),flush=True)
 
-def query(sql):return json.loads(r.sql(sql))
+def execute(statement):
+ if isinstance(statement,tuple):
+  role,sql=statement
+  if role in (PUBLISHER,WRITER):return r.sql(sql,role=role)
+  assert role in ('service_role','authenticated')
+  return r.sql(f'set role {role}; '+sql)
+ return r.sql(statement)
+
+def query(sql):return json.loads(execute(sql))
 def rejected(sql,contains=None):
- try:r.sql(sql)
+ try:execute(sql)
  except RuntimeError as exc:return contains is None or contains in str(exc)
  return False
 
-def as_role(role,sql):return f'set session authorization {role}; '+sql
+def as_role(role,sql):return role,sql
 
 def publish(artifact):return query(as_role(PUBLISHER,publish_sql(artifact)))
 
@@ -55,7 +64,7 @@ def raw_publish(data,sigs=None,expected=None):
 
 def attest(data):
  content=canonical(data); signature=hmac.new(KEYS['attestation-writer'],('venfour-attestation-v1\n'+content).encode(),hashlib.sha256).hexdigest()
- return r.sql(as_role(WRITER,f"select public.publish_jurisdiction_attestation({literal(content)},'{signature}');"))
+ return execute(as_role(WRITER,f"select public.publish_jurisdiction_attestation({literal(content)},'{signature}');"))
 
 def snapshot():
  review=query(f"select public.get_paid_delivery_review_context('{CASE}')")
@@ -74,6 +83,7 @@ def accepts(sequence,doc,request=None):
 check('no approved artifacts after migration',r.sql('select count(*) from public.jurisdiction_authority_publications')=='0')
 check('no credentials or exact acceptances after migration',r.sql('select count(*) from public.jurisdiction_attestations')=='0' and r.sql('select count(*) from public.jurisdiction_document_acceptances')=='0')
 r.sql(install_sql(now))
+enable_fixture_logins(r)
 first_source=source(now,config=cfg,all_capabilities=True)
 for rule in first_source['rules']:rule['sources'][0]['locator']='Section 1(a), §1'
 first=compile(first_source)

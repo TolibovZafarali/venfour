@@ -2,32 +2,30 @@
 
 ## Disposition
 
-**BLOCKED before application deployment or business-schema migration. No release was deployed.**
+**The zero-membership blocker is resolved. Release validation is finishing; production rollout has not started.**
 
-The clean migration rehearsal failed the required empty-membership contract for the new jurisdiction publication/attestation roles. The available production database identity cannot execute the documented privileged cleanup. Do not weaken the assertion, provision reviewer keys, enable enforcement, or apply a partially validated release.
+The owner explicitly authorized this resumed consolidated release after correcting the security invariant and passing the release checks. No broader hosted platform privilege or `supabase_admin` credential was obtained. The full offline backend run is still pending completion; all other results below describe completed checks.
 
-This report records current inspection and local validation, not a completed release or permission to admit a real customer. The owner authorized deployment subject to the gates in the release request; this gate has not passed.
+## Cause and corrected security boundary
 
-## Concrete blocker
-
-The exact current 88-migration chain was installed in a fresh PostgreSQL 17.6 rehearsal using the repository controller, network `none`, no published ports and disabled scheduled execution. Suite `057_jurisdiction_authority.test.sql` fails assertion 23: **no release role memberships provisioned**. The other 57 SQL suites pass.
-
-Migration `20260922000200_jurisdiction_trusted_authority.sql` creates two NOLOGIN/NOINHERIT roles. PostgreSQL automatically produces these memberships when the non-superuser `postgres` role creates them:
+PostgreSQL 17 grants a non-superuser role creator administrative membership in the new role. The actual local and hosted-compatible pattern is:
 
 | Role | Member | Grantor | ADMIN | INHERIT | SET |
 | --- | --- | --- | --- | --- | --- |
 | `jurisdiction_publisher` | `postgres` | `supabase_admin` | true | false | false |
 | `jurisdiction_attestor` | `postgres` | `supabase_admin` | true | false | false |
 
-The local transaction-only probe `REVOKE jurisdiction_publisher FROM postgres GRANTED BY supabase_admin` fails with `permission denied to revoke privileges granted by role "supabase_admin"`. No grant was changed. Production read-only catalog inspection establishes `current_user=postgres`, `session_user=postgres`, `rolsuper=false`, `rolcreaterole=true`, and `pg_has_role(current_user,'supabase_admin','SET')=false`.
+The prior assertion rejected every `pg_auth_members` row, including these infrastructure grants. Its attempted grantor-specific revocation was unavailable to production `postgres`. Removing those grants locally as the platform superuser was not a supported production procedure. That earlier result is superseded, not relabeled as a pass.
 
-Earlier local verification removed these memberships as `supabase_admin`; that is not a proven executable production procedure. The current production roles are absent, so production has not been left with a partially installed authority system. The grants do not by themselves constitute operating approval: the empty authority configuration and independent signatures remain separate checks. Nevertheless, the required zero-membership security contract does not pass and must not be reported green.
+The corrected invariant is no unauthorized or application-accessible direct or transitive ability to assume or administer either restricted role. The previously unapplied authority migration now installs an owner-only, invoker-rights audit and refuses installation if it reports violations. No applied production migration was rewritten.
 
-PostgreSQL's [REVOKE rules](https://www.postgresql.org/docs/17/sql-revoke.html) explain grantor-specific revocation authority. Required next action: establish a supported privileged provisioning/cleanup procedure with Supabase, or review a revised migration design that preserves the intended trust boundary under hosted privileges. Rehearse the exact approved procedure and obtain a passing unchanged assertion before applying production migrations.
+The audit follows every incoming membership edge from the restricted roles and their infrastructure administrators, regardless of ADMIN/SET/INHERIT values. Only the exact creator grants above and Supabase's exact expiring administrative CLI path are accepted. Root identity is checked through bootstrap-superuser OID, role attributes, existing application-table ownership, grantor/options, and CLI credential lifetime. Unknown superusers, admin-like names, application bridges into administrators, changed restricted-role attributes, and unexpected future memberships fail. Full details and official [PostgreSQL](https://www.postgresql.org/docs/17/role-attributes.html) and [Supabase](https://supabase.com/docs/guides/troubleshooting/permission-denied-when-deleting-the-cli_login_postgres-role-808bae) sources are in [the authority boundary](jurisdiction-authority.md#dormant-release-role-boundary).
+
+Fresh hosted inspection found 84 migrations, neither restricted role, and 25 membership edges. Venfour's deployed backend has no SQL connection/admin credential configuration: its gateway uses customer JWTs and `service_role` through PostgREST. Auth/Storage/Realtime roles have no restricted path. The owner/platform administrator and infrastructure read-all/replication access remain explicit trust roots; SQL cannot protect database-held keys from those administrators. No signing keys, approved publishers, credentials, operating epochs or live enrollment are installed by this release.
 
 ## Source and actual production identity
 
-- Initial checkout: clean `main`, HEAD and freshly fetched `origin/main` both `caa37beae0b35bbf775ad4235c42c5af3a5165f6`. No initial tracked modifications or untracked files.
+- Original checkout was `caa37beae0b35bbf775ad4235c42c5af3a5165f6`. The resumed checkout was clean `main` at `c920b105169fad3023f8ae285e234038d2779d8f`, matching freshly fetched `origin/main`. That intervening commit already preserved the manifest inclusion, both corrected public tests and the original release report.
 - Current production Cloud Run: project `venfour-prod`, active account `zafar@venfour.com`, region `us-east4`, runtime service account `venfour-api-production@venfour-prod.iam.gserviceaccount.com`.
 - Serving revision: `venfour-api-production-admin-release-20260917`, 100% service traffic. Existing tagged revisions remain addressable; traffic/tag configuration was saved.
 - Image: `us-east4-docker.pkg.dev/venfour-prod/venfour/venfour-api@sha256:c97acb85fbbbcf58949aaa565d3517f7e0c5fef9cc4045d5ee583fda96c84b80`.
@@ -35,7 +33,7 @@ PostgreSQL's [REVOKE rules](https://www.postgresql.org/docs/17/sql-revoke.html) 
 - All **161 packaged source files** in the retrieved archive match repository commit `2480200`. This establishes exact equivalence for the uploaded backend files, not a full Git-tree identity for omitted files.
 - App/partner Worker remains `66b01f33-3bdb-41dd-aae1-b26751f584f6`; public Worker remains `a71a8f0c-a92a-4584-8fff-f17c4fc23916`; each has 100% traffic.
 - Those Worker versions have no verified Git revision annotation. Their deployed version/route identities are verified; exact frontend source-tree equivalence is not established. The repository inventory below compares against the independently verified backend source baseline and is not presented as an exact reverse mapping of minified frontend assets.
-- No release commit/image/version was produced. Release-preparation changes listed below remain local for review and the next attempt.
+- The identities above are the verified pre-release rollback targets. The final source commit, image and deployed versions will be recorded after the gated rollout.
 
 ## Intended delta discovered beyond nationwide work
 
@@ -57,16 +55,18 @@ The prior admin/intake/source-PDF/email-history release is already in the verifi
 
 Classification: A = intended source or supporting regression coverage; B = generated build output; C = local test/debug artifact; D = documentation/reference only; E = suspicious/needs review. Tests in A are intended versioned verification, not production test execution. Required report-evaluation fixtures are runtime dependencies. The committed qualification archive remains retained history and is excluded from upload; its provider ledger/authorization files are not deployed.
 
-There were no initial uncommitted differences to classify. The appendix classifies every path in the 151-file committed delta. No tracked generated build delta (B) was found. The tracked browser console log and fictional preview changes are C. Ignored `frontend/dist`, cache/preview output, local environment files, `supabase/.temp`, and temporary evidence stay outside release packaging. The migration role behavior is the E release-safety finding described above; the manifest packaging defect was corrected locally.
+There were no initial uncommitted differences to classify in either attempt. The appendix classifies every path in the 151-file committed delta. No tracked generated build delta (B) was found. The tracked browser console log and fictional preview changes are C. Ignored `frontend/dist`, cache/preview output, local environment files, `supabase/.temp`, and temporary evidence stay outside release packaging. The migration role behavior is the E release-safety finding described above; the manifest packaging defect is preserved in `c920b10`. The original E finding is resolved by the reviewed role-boundary correction.
 
 ## Local release-preparation fixes
 
 - `.gcloudignore`: include the existing required `tests/fixtures/report_review/template5_manifest.json`, matching the Dockerfile and `.dockerignore`. Without it the supported Cloud Build upload cannot satisfy the current Docker COPY instruction.
 - `frontend/src/app/public-intake.test.tsx`: replace the obsolete removed-card badge expectation with the actual intake destination and visible homepage heading checks.
 - `frontend/src/app/public-site.test.tsx`: verify the new sign-in button and absence of an unrequested embedded form. Preserve public credential isolation and application-route denial assertions.
-- This report: record the failed gate, actual production state and complete inventory.
+- Authority migration/tests: replace zero membership with the reviewed role-graph invariant; retain ownership, RLS, private keys, two independent signatures and immutable authority history.
+- Concurrency harnesses: authenticate synthetic publisher/writer identities over narrowly scoped local Unix-socket rules, with network `none` and no exposed ports. The prior non-superuser `SET SESSION AUTHORIZATION` approach failed before the intended assertion. No hosted authentication rule or administrator credential changed.
+- This report and authority/preflight documentation: record the corrected boundary, complete inventory, fresh evidence and rollout.
 
-No report runtime, qualification artifact, migration, economic policy, deployment configuration value or test gate was weakened. The upload inventory now contains 180 paths and includes the required manifest. Inspection found no environment files, temporary outputs, screenshots, provider ledgers, authorization files or qualification archives in that inventory.
+No report runtime, qualification artifact, economic policy or application security boundary was weakened. The unapplied authority migration and its incorrect assertion were corrected together. The upload inventory now contains 180 paths and includes the required manifest. Inspection found no environment files, temporary outputs, screenshots, provider ledgers, authorization files or qualification archives in that inventory.
 
 ## Template-5 binding
 
@@ -76,7 +76,7 @@ No report runtime, qualification artifact, migration, economic policy, deploymen
 - Archive SHA-256: `8de70f171a5740116236c0acfa77e8398e45d16ca063405821679b8af0199fff`, matched.
 - Current runtime code, schemas, report fixtures, Dockerfile, dependency list and Docker exclusions have no differences from the qualified revision. The accepted attestation/tests/documentation are the later qualification acceptance changes. Local release-preparation edits do not change report behavior.
 - Formal acceptance is retained in `qualification-evidence/template5-acceptance-2026-09-23.json`; the original candidate's historical `CANDIDATE_REQUIRES_OWNER_ACCEPTANCE` status was correctly left unchanged in the archive.
-- Production still has prompt 4/schema 1/old-suite pins. A future compatible release must install prompt 5/schema 1/suite `ba668548f88123ece29b45f4807d2e33133d9c67086774f950da862841d336b0` with the accepted artifact. No pin was changed in this attempt.
+- Production still has prompt 4/schema 1/old-suite pins. The compatible rollout must install prompt 5/schema 1/suite `ba668548f88123ece29b45f4807d2e33133d9c67086774f950da862841d336b0` with the accepted artifact. No pin has changed before the rollout.
 
 ## Actual pending migration chain
 
@@ -86,10 +86,10 @@ Fresh production history contains 84 versions through `20260917000100`; the chec
 | --- | --- | --- |
 | `20260922000000_jurisdiction_foundation.sql` | Immutable facts/private decisions and RPCs; foundation for the next three | Additive, no customer backfill or permission approval. Old application paths remain. Retain history on rollback. |
 | `20260922000100_paid_delivery_holds.sql` | Dormant enrollment, hold history and work/publication fences; depends on foundation and existing paid lifecycle | Additive tables/triggers and guarded replacements of existing functions. Unenrolled cases preserve prior behavior; financial reconciliation/refunds/history remain. Required before current backend fence calls even with product flag off. Keep tables/fences on rollback. |
-| `20260922000200_jurisdiction_trusted_authority.sql` | Empty trust roots, private keys schema, restricted roles and signed publication checks; depends on both above | Additive, no installed reviewers/keys/approvals. **Blocked by unremovable creator memberships under current production identity.** Keep immutable authority history; no destructive down migration. |
+| `20260922000200_jurisdiction_trusted_authority.sql` | Empty trust roots, private keys schema, restricted roles and signed publication checks; depends on both above | Additive, no installed reviewers/keys/approvals. Corrected graph audit accepts verified creator administration and fails on unauthorized paths. Keep immutable authority history; no destructive down migration. |
 | `20260923000000_nationwide_product_context.sql` | Owner/staff product reads and immutable per-report facts; depends on prior chain | Additive private RLS table/functions/triggers; no historical backfill. Needed before enabled product capture/Template 5. Keep saved readers and captures on rollback. |
 
-All four belong before compatible current backend deployment. The isolated preservation rehearsal succeeds, but the complete security validation does not; therefore the chain is not cleared for production.
+All four belong before compatible current backend deployment. Both fresh full-chain rehearsals and the complete SQL security suites pass. The migration dry run must still show exactly these four versions immediately before application.
 
 ## Fresh configuration and safety observations
 
@@ -122,27 +122,34 @@ All production values remain unchanged:
 
 | Check | Result |
 | --- | --- |
-| Exact 88-migration preservation rehearsal | Passed; baseline records and explicit backfill checks preserved |
-| Fresh isolated SQL suites | 58 suites, 2,852 assertions: 57 suites passed; authority assertion 23 failed. This is a release blocker, not a waived test. |
-| Full frontend suite, initial run | 2,273 passed, 14 skipped, 2 failed across 141 files; both failures were obsolete public presentation expectations |
-| Focused frontend rerun after local test corrections | All 32 tests across 4 files passed; covers both failed tests and existing public authentication regressions |
-| Typecheck and generated presentation contracts | Passed |
-| Relevant source/test/Worker lint | Passed |
-| Full-package lint | Four existing errors in unchanged `frontend/preview/showcase/{main.tsx,payment.tsx,records.ts}`; confirmed byte-identical to the source baseline. Reported, not edited or suppressed. |
-| Qualification integrity/source comparison | Candidate/attestation/archive hashes match; 265 qualified source inventory files unchanged, only the accepted attestation and two acceptance regression files differ; none missing |
-| Full offline backend and additional focused qualification checks | Started under the network-denying, credential-clearing runner; interrupted after the migration safety blocker was established. Neither run is claimed complete or green. |
-| Backend upload packaging | Required manifest present in 180-path upload inventory; excluded artifacts checked |
-| Source scope and whitespace | Local changes reviewed; `git diff --check` passed |
+| Complete 88-migration preservation rehearsal | Passed; baseline records, explicit backfills and stored synthetic file bytes preserved |
+| Fresh empty PostgreSQL 17.6 chain | All 88 migrations pass without creator-membership removal |
+| Production-shaped rehearsal | All 25 observed hosted membership edges reproduced exactly before applying all 88 migrations; graph audit passes |
+| Complete SQL suites in both fresh environments | 59 suites / 2,875 assertions pass in each; no failed suites |
+| Role-boundary negative tests | 23 pgTAP assertions plus 20 isolated administrative checks; direct/transitive, ADMIN-only, inherited and database-owner escalation denied; exact creator/CLI patterns accepted |
+| Authority concurrency and signature scenarios | 58 checks pass with real synthetic session identities |
+| Paid-delivery concurrency/recovery | 47 checks pass, including all 152 embedded commerce assertions, retained financial history and report access |
+| Full frontend suite | 2,275 passed, 14 skipped across 141 files; no failures |
+| Typecheck and generated contracts | Passed |
+| Relevant frontend source/test/Worker lint | Passed |
+| Full-package lint | Four pre-existing errors in unchanged local showcase files; byte-identical to the baseline and outside deployed assets. No suppression or unrelated edit. |
+| Production app and public Worker dry runs/builds | Both pass environment validation, contract/type checks and bundling. Public build uses an explicit environment file to prevent local application variables leaking into the public build. |
+| Template-5 qualification | Installed attestation exactly matches retained candidate; archive hash and all report-runtime/schema/fixture/Docker/dependency bytes match accepted qualification. No provider rerun. |
+| Full offline backend suite | Running under credential clearing and network/subprocess denial; final result pending |
+| Source/upload review | 180 backend upload paths, required manifest included; no environment files, backup/object data, temporary evidence, browser logs, authorization records or qualification archives |
+| Whitespace/scope check | `git diff --check` passes |
 
-Production application/public builds, candidate Cloud Run smoke, postdeployment browser verification, all-domain/redirect validation and final deployed-source parity remain **not performed**, because the release stopped at the migration-security gate. No postdeployment smoke result is claimed.
+These local and synthetic results do not prove a hosted customer payment/provider journey. Postdeployment identity, health/readiness, domains and nonbillable browser checks remain required.
 
 ## Recovery material and rollback targets
 
-Private preflight evidence is stored at `/tmp/venfour-release-20260923/private/` (directory mode 0700; files 0600): backend service configuration/traffic, both Worker version records, exact old build source archive and a logical dump of public/migration schemas. Sanitized observations, upload inventory and rehearsal results are in the parent directory. Both dedicated rehearsal containers were stopped and retained; the existing local Supabase stack was not changed. This is **not** a complete production data/object backup or a restore-tested current recovery point. That work was not completed after the blocker and remains required before any mutation. Existing older backup documentation is not treated as a fresh backup.
+Fresh protected recovery material is retained at `/Users/zafaralitolibov/.venfour-releases/2026-09-23/` (directory 0700, files 0600). It includes current backend configuration/traffic, both Worker versions, public/auth/storage/migration schema and data exports, the one stored object's exact bytes, object manifest and SHA-256 manifest. Schema export is 1,905,647 bytes; data export is 2,322,652 bytes; the object is 32,275 bytes. Direct IPv6 export was unavailable; Supabase CLI successfully retried through its IPv4 pooler.
 
-No rollback is needed: no business migrations, deployment, traffic, feature flags, queue state or provider configuration were changed. Supabase CLI read operations may initialize its administrative login role; they are not claimed to be zero control-plane activity.
+The data export notes existing cyclic foreign keys; a disaster restore must use the documented privileged trigger/constraint-aware restoration procedure. A destructive hosted restore was neither attempted nor authorized. The normal application rollback retains additive schema/history and does not restore or delete data. The preservation rehearsal validates compatibility and preservation, not a restore of production customer data.
 
-If a later authorized attempt changes these components, the pre-attempt targets are:
+Sanitized release evidence is in `/tmp/venfour-release-resume-20260923/`; protected originals are in its `private/` directory and the durable recovery directory. Prior inspection evidence remains at `/tmp/venfour-release-20260923/`. Supabase CLI operations may initialize its existing short-lived administrative login; no broader platform credential was obtained.
+
+The recorded rollback targets and procedure are:
 
 - Backend/traffic: `gcloud run services update-traffic venfour-api-production --project venfour-prod --region us-east4 --to-revisions=venfour-api-production-admin-release-20260917=100`. Restore the saved complete tag map if changed. This old revision is only an eligible rollback while no Template-5 work/history requires newer readers; assess that before executing.
 - App/partner: from `frontend`, `./node_modules/.bin/wrangler rollback 66b01f33-3bdb-41dd-aae1-b26751f584f6 --env production`.
@@ -153,11 +160,13 @@ If a later authorized attempt changes these components, the pre-attempt targets 
 
 ## Owner next action and first-customer boundary
 
-Resolve the restricted-role provisioning blocker through a supported privilege path or reviewed migration design, then repeat the clean rehearsal and unchanged authority assertion. Finish the production recovery point and remaining preflight, validate/commit the complete intended source, and restart the consolidated rollout from fresh production observations.
+Finish the running offline backend checks, commit the complete validated source, and execute the already authorized migration/backend/frontend rollout. No new owner permission is needed for that bounded release. Record deployed identities and nonbillable smoke evidence here before declaring completion.
 
-All intended current changes remain pending production; none was silently dropped. The local packaging/test fixes also need inclusion in the eventual validated source revision. First supervised-customer admission remains blocked by deployment/schema alignment, isolated operational acceptance, fresh provider headroom and the documented operating-scope/support/admission decisions. This attempt does not approve a jurisdiction.
+All intended changes in the original 151-file inventory are retained. Additional release files comprise the committed manifest packaging correction/report, the new role-boundary SQL/concurrency tests, and the local synthetic-login helper. Concurrency, authority and historical-preflight documentation edits remain in their original intended A/D categories. No report source or economic policy changed.
 
-No live Stripe payment/checkout, paid provider call, genuine qualification run, real test email, jurisdiction approval/enforcement, economic-policy change or production customer-data mutation/deletion was performed. The $199 price, no-support refund, under-$1,000 refund behavior, exactly-$1,000 unresolved behavior, commissions and attribution remain unchanged.
+Nationwide frontend/backend flags remain false until the documented operating-scope, credentials/documents, policy acceptance and controlled admission prerequisites are resolved. Jurisdiction remains off with no approval/enrollment; direct insurer sending, negotiation, formal appraisal and unreviewed jurisdiction labels remain disabled. Deployment is separate from first supervised-customer admission.
+
+No live Stripe checkout/payment, paid provider call, genuine qualification rerun, real test email, jurisdiction approval/enforcement, economic-policy change or production customer-data deletion was performed. The $199 price, no-support refund, under-$1,000 refund rule, unresolved exactly-$1,000 behavior, commissions and attribution remain unchanged.
 
 ## File classification appendix
 

@@ -90,15 +90,59 @@ This design trusts the database owner and separate key-provisioning custodian as
 security administrators. A database superuser can replace functions/read secrets;
 SQL cannot protect against its own administrator. Before production use, owner
 access controls, independent key custody, backups and reviewer qualification must
-be established. No identities, keys, role memberships or credentials are supplied
-by this patch. An ordinary database edit, staff membership, Git commit, source
+be established. No application identities, signing keys, release logins or operating
+credentials are supplied by this patch. An ordinary database edit, staff membership, Git commit, source
 reference or service-role request cannot substitute for two authenticators.
 
-The dedicated `jurisdiction_publisher` role is NOLOGIN with no members. A future
+The dedicated `jurisdiction_publisher` role is NOLOGIN with no application members. A future
 owner-provisioned login must both hold this role and match the current configuration's
 publisher identity. `session_user`, not a request-supplied staff ID, identifies the
 publisher. `publish_jurisdiction_authority` is its sole publication operation.
 There is no generic application editing route.
+
+### Dormant release role boundary
+
+PostgreSQL 17 automatically grants a non-superuser role creator administrative
+membership: `postgres` receives `ADMIN TRUE, INHERIT FALSE, SET FALSE` on both
+restricted roles, granted by the bootstrap superuser `supabase_admin`. These
+memberships are infrastructure administration, not publisher enrollment. Removing
+them requires the grantor's authority and is not a production prerequisite.
+See the official [role-creation semantics](https://www.postgresql.org/docs/17/role-attributes.html)
+and [membership semantics](https://www.postgresql.org/docs/17/role-membership.html).
+
+`jurisdiction_private.release_role_violations()` is an owner-only, invoker-rights
+release audit. The migration fails if it finds any unexpected membership anywhere
+in the reverse graph rooted at the restricted roles, database owner, platform
+superuser, or administrative CLI role. It examines all membership edges even when
+SET and INHERIT are false, so an ADMIN-only grant or an intermediate role cannot
+escape the check. No role is trusted merely because its name contains `admin`.
+
+The only accepted edges are the two exact creator grants above and, if present,
+`postgres <- cli_login_postgres`, granted by `supabase_admin` with `ADMIN FALSE,
+INHERIT FALSE, SET TRUE`. The latter is Supabase's [temporary administrative CLI
+login](https://supabase.com/docs/guides/troubleshooting/permission-denied-when-deleting-the-cli_login_postgres-role-808bae).
+Its credential expiration must be finite and no more than one hour ahead; it must
+have no superuser, role-creation, database-creation, replication or RLS-bypass
+attributes. All incoming memberships are checked. `postgres` must retain the
+observed non-superuser owner/administrator attributes and own `appraisal_cases`;
+the bootstrap superuser must be `supabase_admin` at its PostgreSQL bootstrap OID.
+Any additional superuser or changed restricted-role attributes fail the audit.
+
+Venfour uses PostgREST with customer JWTs or `service_role`, not administrative
+SQL credentials. `anon`, `authenticated`, `authenticator`, `service_role`, ordinary
+staff/logins, and managed Auth/Storage/Realtime roles have no direct or transitive
+publication/attestation administration. Table ACLs, private-schema grants, RLS,
+function ownership, internal execution grants and empty SECURITY DEFINER search
+paths are independently checked. Supabase's infrastructure read-all/replication
+principals remain inside the database-platform trust boundary: RLS-bypassing
+read-all administrators can read database-held keys. There are no keys installed.
+Future key custody must explicitly account for that platform access.
+
+This audit describes the empty, dormant release. Future publisher or attestor
+enrollment needs a separately reviewed identity policy and corresponding audit
+update; it is not silently accepted by this release check. SQL does not defend
+against the database owner, platform superuser, or a compromised administrative
+credential capable of replacing the audit itself.
 
 One transaction locks the existing delivery authority lock and checks:
 
@@ -130,7 +174,7 @@ new fulfillment; it does not cancel orders, generate refunds or delete reports.
 `schemas/jurisdiction/authority-attestation-v1.schema.json` distinguishes verified
 credentials from document releases. `jurisdiction_attestations` retains every
 revision, canonical signed content, writer, evidence, request and server time.
-`jurisdiction_attestor` is another empty NOLOGIN role; configured attestation
+`jurisdiction_attestor` is another NOLOGIN role without application members; configured attestation
 writers authenticate their writes with a separate key and domain prefix.
 Application users, partners, ordinary staff and service-role code cannot write
 verified attestations. Configuration changes require renewed attestations.

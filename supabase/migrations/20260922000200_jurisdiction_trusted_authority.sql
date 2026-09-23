@@ -5,6 +5,71 @@ revoke all on schema jurisdiction_private from public,anon,authenticated,service
 create role jurisdiction_publisher nologin noinherit;
 create role jurisdiction_attestor nologin noinherit;
 
+-- PostgreSQL gives a non-superuser role creator ADMIN TRUE, SET FALSE,
+-- INHERIT FALSE membership, granted by the bootstrap superuser. Preserve that
+-- platform administration; reject every other path, including paths through
+-- the database owner. This is a dormant-release audit, not enrollment policy.
+create function jurisdiction_private.release_role_violations() returns table(violation text)
+language sql stable set search_path='' as $$
+ with recursive edges as (
+  select a.*,r.rolname role_name,m.rolname member_name,g.rolname grantor_name
+  from pg_catalog.pg_auth_members a
+  join pg_catalog.pg_roles r on r.oid=a.roleid
+  join pg_catalog.pg_roles m on m.oid=a.member
+  join pg_catalog.pg_roles g on g.oid=a.grantor
+ ), protected(oid,path) as (
+  select oid,array[oid] from pg_catalog.pg_roles
+  where rolname in ('jurisdiction_publisher','jurisdiction_attestor','postgres','supabase_admin','cli_login_postgres')
+  union all
+  select e.member,p.path||e.member from protected p join edges e on e.roleid=p.oid
+  where not e.member=any(p.path)
+ ), accepted_edges as (
+  select * from edges where grantor_name='supabase_admin' and (
+   (role_name in ('jurisdiction_publisher','jurisdiction_attestor')
+    and member_name='postgres' and admin_option and not inherit_option and not set_option)
+   or (role_name='postgres' and member_name='cli_login_postgres'
+    and not admin_option and not inherit_option and set_option))
+ )
+ select distinct 'unexpected membership: '||e.role_name||' <- '||e.member_name
+  ||' granted by '||e.grantor_name||' admin='||e.admin_option
+  ||' inherit='||e.inherit_option||' set='||e.set_option
+ from protected p join edges e on e.roleid=p.oid
+ where not exists(select 1 from accepted_edges a where a.oid=e.oid)
+ union all
+ select 'unexpected superuser: '||rolname from pg_catalog.pg_roles
+ where rolsuper and not (rolname='supabase_admin' and oid=10)
+ union all
+ select 'invalid restricted role: '||name
+ from (values ('jurisdiction_publisher'),('jurisdiction_attestor')) required(name)
+ left join pg_catalog.pg_roles r on r.rolname=required.name
+ where r.oid is null or r.rolcanlogin or r.rolsuper or r.rolcreaterole
+  or r.rolcreatedb or r.rolbypassrls or r.rolinherit or r.rolreplication
+ union all
+ select 'invalid database administrator: postgres' where not exists(
+  select 1 from pg_catalog.pg_roles r join pg_catalog.pg_class c on c.relowner=r.oid
+  join pg_catalog.pg_namespace n on n.oid=c.relnamespace
+  where r.rolname='postgres' and r.rolcanlogin and not r.rolsuper
+   and r.rolcreaterole and r.rolcreatedb and r.rolbypassrls and r.rolinherit
+   and n.nspname='public' and c.relname='appraisal_cases')
+ union all
+ select 'invalid platform administrator: supabase_admin' where not exists(
+  select 1 from pg_catalog.pg_roles where oid=10 and rolname='supabase_admin'
+   and rolsuper and rolcanlogin and rolcreaterole and rolcreatedb and rolbypassrls)
+ union all
+ select 'invalid temporary administrative login: cli_login_postgres'
+ from pg_catalog.pg_roles r where r.rolname='cli_login_postgres' and (
+  r.rolsuper or r.rolcreaterole or r.rolcreatedb or r.rolbypassrls or r.rolinherit
+  or r.rolreplication or r.rolvaliduntil is null
+  or r.rolvaliduntil>current_timestamp+interval '1 hour'
+  or not exists(select 1 from accepted_edges e where e.member=r.oid and e.role_name='postgres'))
+$$;
+revoke all on function jurisdiction_private.release_role_violations() from public,anon,authenticated,service_role;
+do $$ declare failures text; begin
+ select string_agg(violation,E'\n' order by violation) into failures
+ from jurisdiction_private.release_role_violations();
+ if failures is not null then raise exception 'Unsafe jurisdiction release role graph: %',failures; end if;
+end $$;
+
 create table jurisdiction_private.review_keys (
   key_id text primary key,
   secret bytea not null check(octet_length(secret)>=32),
