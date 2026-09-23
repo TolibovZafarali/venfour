@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 from uuid import UUID
 
+from venfour.paid_delivery import PaidDeliveryHeld
 from venfour.jurisdiction_adapter import observe_reference_scope
 
 from venfour.package_processing import (
@@ -704,6 +705,8 @@ class StaffReleaseReviewService:
                 selected_rationale,
                 selected_access_token,
             )
+        except PaidDeliveryHeld:
+            raise
         except Exception as exc:
             translated = self._translate_dependency_error(exc)
             raise translated from exc

@@ -26,6 +26,7 @@ from typing import Any, Protocol, runtime_checkable
 from urllib.parse import quote, urlsplit
 from uuid import UUID, uuid4
 
+from venfour.paid_delivery import PaidDeliveryHeld, fenced_delivery, require_paid_delivery
 from venfour.jurisdiction_adapter import observe_scope
 
 from venfour.report_ingestion import (
@@ -1595,6 +1596,7 @@ class TotalLossPackageProcessor:
                 "Package failure fence is stale"
             )
 
+    @fenced_delivery("work_item")
     def execute(self, work_item_id: str) -> PackageExecutionResult:
         canonical_work_item_id = _request_uuid(work_item_id, "Work item ID")
         processing_token = self._new_identifier("Processing token")
@@ -1602,6 +1604,8 @@ class TotalLossPackageProcessor:
             claim_row = self._database.claim_total_loss_package_work_item(
                 canonical_work_item_id, processing_token
             )
+        except PaidDeliveryHeld:
+            raise
         except Exception as exc:
             raise PackageProcessingUnavailableError(
                 "Package work could not be claimed"
@@ -1637,6 +1641,7 @@ class TotalLossPackageProcessor:
                 raise PackageProcessingContractError(
                     "Package source lineage is invalid"
                 )
+            require_paid_delivery(self._database, resolved_context.get("case_id"))
             observe_scope(self._database, resolved_context.get("case_id"), "package_process")
             source_snapshot_id = self._source_snapshot_id(
                 claimed, resolved_context
@@ -1738,6 +1743,8 @@ class TotalLossPackageProcessor:
                 final_assessment_id=final_assessment_id,
             )
         except PackageStaleFenceError:
+            raise
+        except PaidDeliveryHeld:
             raise
         except Exception as exc:
             self._record_failure(

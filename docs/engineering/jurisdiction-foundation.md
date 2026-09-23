@@ -5,6 +5,8 @@ inventory has 51 jurisdictions, 67 sources, and **zero operating approvals**.
 Neither the existing footprint nor any new jurisdiction is approved by this patch.
 Unresolved scope is not a finding that a service is prohibited.
 
+The subsequent non-activating [paid-delivery hold and operator recovery contract](paid-delivery-holds.md) implements the next code step described below. The Phase 1 inventory and approval boundaries remain unchanged.
+
 ## Current implementation inspected
 
 The working tree, including pre-existing public-page edits, was inspected locally.

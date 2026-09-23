@@ -44,6 +44,8 @@ from venfour.analysis_runs import (
     FileAnalysisRunRepository,
     InvalidAnalysisRunArtifactError,
 )
+from venfour.paid_delivery import PaidDeliveryHeld, PaidDeliveryRecoveryService
+from venfour.paid_delivery_api import paid_delivery_routes, paid_delivery_held_response
 from venfour.jurisdiction_adapter import configured_mode
 
 from venfour.creation import (
@@ -1112,6 +1114,8 @@ async def _checkout_reconciliation(request: Request) -> JSONResponse:
 
 
 def _customer_delivery_error(error: Exception) -> JSONResponse:
+    if isinstance(error, PaidDeliveryHeld):
+        return _error_response(409, "PAID_DELIVERY_HELD")
     if isinstance(error, _CustomerDeliveryAuthenticationRequired):
         return _error_response(
             401,
@@ -2244,6 +2248,8 @@ def _runtime_secret_is_configured(name: str) -> bool:
 
 
 def _staff_release_error(error: Exception) -> JSONResponse:
+    if isinstance(error, PaidDeliveryHeld):
+        return _error_response(409, "PAID_DELIVERY_HELD")
     if isinstance(error, SupabaseAuthenticationError):
         return _error_response(
             401,
@@ -2455,6 +2461,8 @@ async def _internal_work_item_execute(request: Request) -> JSONResponse:
                 }
             )
         )
+    except PaidDeliveryHeld:
+        return _private_response(JSONResponse({"state": "jurisdiction_held", "workItemId": work_item_id}))
     except PackageProcessingInputError:
         return _private_response(_error_response(400, "INVALID_WORK_ITEM_ID"))
     except PackageWorkBusyError:
@@ -2533,6 +2541,8 @@ async def _internal_insurer_response_analysis_execute(
                 _reconcile_insurer_response_analysis, coordinator
             )
         return _private_response(response)
+    except PaidDeliveryHeld:
+        return _private_response(JSONResponse({"state": "jurisdiction_held", "jobId": job_id}))
     except ValueError:
         return _private_response(
             _error_response(400, "INVALID_INSURER_RESPONSE_ANALYSIS_JOB_ID")
@@ -3496,10 +3506,12 @@ def create_app(
             )
         )
 
+    routes.extend(paid_delivery_routes())
     routes.extend(communication_routes())
     app = Starlette(
         routes=routes,
         exception_handlers={
+            PaidDeliveryHeld: paid_delivery_held_response,
             HTTPException: _http_exception_response,
             Exception: _internal_error_response,
         },
@@ -3507,6 +3519,10 @@ def create_app(
         middleware=middleware,
     )
     app.router.redirect_slashes = False
+    app.state.paid_delivery_recovery_service = (
+        PaidDeliveryRecoveryService(selected_gateway, selected_commerce_service)
+        if isinstance(selected_gateway, SupabaseHttpGateway) else None
+    )
     app.state.presentation_service = selected_service
     app.state.creation_service = selected_creation_service
     app.state.case_analysis_service = selected_case_service

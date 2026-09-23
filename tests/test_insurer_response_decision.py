@@ -279,6 +279,9 @@ class ResponseDecisionHttpTests(unittest.TestCase):
 
 
 class BackfillDatabase:
+    def check_paid_delivery(self, reference, kind="case", owner_user_id=None):
+        return "unenrolled"
+
     def __init__(self):
         _, self.context = completed_response()
         self.calls: list[Any] = []

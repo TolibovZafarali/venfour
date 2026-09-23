@@ -18,6 +18,7 @@ from typing import Any, Callable, Protocol, runtime_checkable
 from urllib.parse import quote
 from uuid import UUID, uuid4
 
+from venfour.paid_delivery import PaidDeliveryHeld, fenced_delivery, require_paid_delivery
 from venfour.jurisdiction_adapter import observe_scope
 
 from venfour.insurer_response_analysis import (
@@ -206,6 +207,7 @@ def backfill_current_insurer_response_recommendation(
             "outcome": "already_published",
             "recommendationId": _canonical_uuid(context["recommendation_id"], "Recommendation ID"),
         }
+    require_paid_delivery(database, case_id)
     recommendation = build_insurer_response_recommendation_v1(
         analysis=context["analysis_result"], evidence_index=context["evidence_index"],
         final_assessment=context["final_assessment"], assessment_digest=context["assessment_digest"],
@@ -1681,6 +1683,7 @@ class TotalLossInsurerResponseProcessor:
             workflow_revision=revision,
         )
 
+    @fenced_delivery("case")
     def execute(self, case_id: str) -> InsurerResponseExecutionResult:
         canonical_case_id = _request_uuid(case_id, "Case ID")
         processing_token = self._new_token()
@@ -1697,6 +1700,8 @@ class TotalLossInsurerResponseProcessor:
             claimed = self._claim_result(
                 claim_row, canonical_case_id, processing_token
             )
+        except PaidDeliveryHeld:
+            raise
         except Exception as exc:
             raise InsurerResponseProcessingUnavailableError(
                 "Response analysis work could not be claimed"
@@ -1720,11 +1725,13 @@ class TotalLossInsurerResponseProcessor:
                 processing_token,
                 canonical_case_id,
             )
+            require_paid_delivery(self._database, canonical_case_id)
             observe_scope(self._database, canonical_case_id, "coaching_process")
             document = self._document(
                 context_row, context, processing_token
             )
             request = _analysis_input(context, document)
+            require_paid_delivery(self._database, canonical_case_id)
             completed = self._analyzer.analyze(request, document=document)
             if not isinstance(completed, CompletedInsurerResponseAnalysis):
                 raise InsurerResponseProcessingContractError(
@@ -1751,6 +1758,7 @@ class TotalLossInsurerResponseProcessor:
                 assessment_digest=context_row["assessment_digest"],
                 customer_offer=context_row["customer_offer"],
             )
+            require_paid_delivery(self._database, canonical_case_id)
             observe_scope(self._database, canonical_case_id, "coaching_release")
             completion = _mapping(
                 self._database.complete_total_loss_insurer_response_analysis(
@@ -1793,6 +1801,8 @@ class TotalLossInsurerResponseProcessor:
                 attempt_count=claimed.attempt_count,
                 workflow_revision=revision,
             )
+        except PaidDeliveryHeld:
+            raise
         except Exception as exc:
             failed = self._record_failure(
                 claimed.job_id,

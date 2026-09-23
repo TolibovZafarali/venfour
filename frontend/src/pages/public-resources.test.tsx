@@ -9,8 +9,8 @@ describe("valuation review checklist", () => {
     const user = userEvent.setup();
     render(<MemoryRouter><ValuationChecklistPage /></MemoryRouter>);
     const report = screen.getByRole("checkbox", { name: /Keep the full valuation report/ });
-    const payment = screen.getByRole("checkbox", { name: /Keep the proposed payment breakdown/ });
-    expect(screen.getByRole("button", { name: "Reset checks" })).toBeDisabled();
+    const payment = screen.getByRole("checkbox", { name: /Keep the proposed payment details/ });
+    expect(screen.getByRole("button", { name: "Reset checklist" })).toBeDisabled();
     await user.click(report);
     await user.click(payment);
     expect(screen.getByRole("status")).toHaveTextContent("2 of 12 checked");
@@ -23,7 +23,7 @@ describe("valuation review checklist", () => {
       expect(print).toHaveBeenCalledOnce();
       expect(payment).toBeChecked();
     } finally { print.mockRestore(); }
-    await user.click(screen.getByRole("button", { name: "Reset checks" }));
+    await user.click(screen.getByRole("button", { name: "Reset checklist" }));
     expect(screen.getAllByRole("checkbox").every(box => !(box as HTMLInputElement).checked)).toBe(true);
     expect(screen.getByRole("status")).toHaveTextContent("0 of 12 checked");
   });

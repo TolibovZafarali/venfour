@@ -137,6 +137,9 @@ class FakeAssessmentBuilder:
 
 
 class FakeDatabase:
+    def check_paid_delivery(self, reference, kind="case", owner_user_id=None):
+        return "unenrolled"
+
     def __init__(self) -> None:
         self.enqueue_calls = 0
         self.enqueue_package_status = "queued"

@@ -386,17 +386,17 @@ const combinedRoutes: RouteObject[] = [
       {
         path: "about",
         element: <AboutPage />,
-        handle: metadata("About Venfour | Vehicle Valuation Evidence, Explained", "Learn why Venfour exists and how it helps vehicle owners understand total-loss valuation evidence."),
+        handle: metadata("About Venfour | Vehicle Valuations, Clearly Explained", "Learn how Venfour helps vehicle owners understand valuation reports, review market evidence, and prepare questions for their insurer."),
       },
       {
         path: "resources/understanding-your-report",
         element: <UnderstandingReportPage />,
-        handle: metadata("Understanding Your Valuation Report | Venfour", "Read an annotated fictional example to understand vehicle details, comparable vehicles, adjustments, and valuation amounts."),
+        handle: metadata("Understanding Your Valuation Report | Venfour", "Explore a fictional report example to understand vehicle details, comparisons, adjustments, and the proposed payment."),
       },
       {
         path: "resources/valuation-review-checklist",
         element: <ValuationChecklistPage />,
-        handle: metadata("Valuation Review Checklist | Venfour", "Use a practical, printable checklist to review your insurer’s valuation report and prepare questions for your adjuster."),
+        handle: metadata("Vehicle Valuation Checklist | Venfour", "Review your insurer’s valuation report with a practical checklist. Organize your documents and prepare questions for your adjuster."),
       },
       {
         path: "methodology",

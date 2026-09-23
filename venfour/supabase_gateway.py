@@ -557,6 +557,13 @@ class SupabaseHttpGateway:
                 "Supabase RPC is unavailable"
             ) from last_error
         if response.status_code < 200 or response.status_code >= 300:
+            try:
+                held = response.json().get("code") == "PJD01"
+            except (ValueError, AttributeError):
+                held = False
+            if held:
+                from venfour.paid_delivery import PaidDeliveryHeld
+                raise PaidDeliveryHeld("New paid delivery is held")
             raise SupabaseUnavailableError("Supabase RPC is unavailable")
         if allow_no_content and response.status_code == 204:
             return None
@@ -571,6 +578,44 @@ class SupabaseHttpGateway:
         })
         if not isinstance(value, Mapping):
             raise SupabaseContractError("Jurisdiction context is unavailable")
+        return value
+
+    def check_paid_delivery(self, reference_id: str, kind: str = "case", owner_user_id: str | None = None) -> str:
+        value = self._rpc("check_paid_delivery", {
+            "requested_reference_id": _canonical_uuid(reference_id, "Delivery reference"),
+            "requested_kind": kind, "requested_user_id": owner_user_id,
+        }, retry_ambiguous_claim=True)
+        if value not in {"unenrolled", "held", "released", "cancelled", "financial_recovery"}:
+            raise SupabaseContractError("Invalid delivery fence")
+        return value
+
+    def get_paid_delivery_review_context(self, case_id: str):
+        value = self._rpc("get_paid_delivery_review_context", {
+            "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+        })
+        if not isinstance(value, Mapping) or not isinstance(value.get("context"), Mapping):
+            raise SupabaseContractError("Invalid delivery review context")
+        return value
+
+    def inspect_paid_delivery(self, access_token: str, case_id: str | None = None, after_case_id: str | None = None):
+        value = self._user_rpc("inspect_paid_delivery", {
+            "requested_case_id": _canonical_uuid(case_id, "Case ID") if case_id else None,
+            "requested_after_case_id": _canonical_uuid(after_case_id, "Cursor") if after_case_id else None,
+        }, access_token)
+        if not isinstance(value, list):
+            raise SupabaseContractError("Invalid delivery recovery packet")
+        return value
+
+    def resolve_paid_delivery(self, case_id, operator_id, action, request_id, snapshot_id, valid_until):
+        value = self._rpc("resolve_paid_delivery", {
+            "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+            "requested_operator_id": _canonical_uuid(operator_id, "Operator ID"),
+            "requested_action": action,
+            "requested_request_id": _canonical_uuid(request_id, "Request ID"),
+            "requested_snapshot_id": snapshot_id, "requested_valid_until": valid_until,
+        }, retry_ambiguous_claim=True)
+        if not isinstance(value, Mapping) or value.get("state") not in {"held", "released", "cancelled"}:
+            raise SupabaseContractError("Invalid delivery resolution")
         return value
 
     def get_jurisdiction_reference_case(self, reference_id: str, kind: str) -> str | None:
@@ -622,6 +667,13 @@ class SupabaseHttpGateway:
                 raise SupabaseConflictError("Supabase write conflicted")
             raise SupabaseAuthenticationError("Authentication is invalid")
         if response.status_code < 200 or response.status_code >= 300:
+            try:
+                held = response.json().get("code") == "PJD01"
+            except (ValueError, AttributeError):
+                held = False
+            if held:
+                from venfour.paid_delivery import PaidDeliveryHeld
+                raise PaidDeliveryHeld("New paid delivery is held")
             try:
                 error_payload = response.json()
             except (ValueError, json.JSONDecodeError):

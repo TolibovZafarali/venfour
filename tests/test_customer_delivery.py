@@ -268,6 +268,9 @@ def insurer_response_projection(
 
 
 class RecordingGateway:
+    def check_paid_delivery(self, reference, kind="case", owner_user_id=None):
+        return "unenrolled"
+
     def __init__(self) -> None:
         self.calls: list[tuple[str, Any]] = []
 

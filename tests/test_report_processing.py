@@ -136,6 +136,9 @@ class _FakeCommerceService:
 
 
 class _FakeReportDatabase:
+    def check_paid_delivery(self, reference, kind="case", owner_user_id=None):
+        return "unenrolled"
+
     def __init__(
         self,
         *,

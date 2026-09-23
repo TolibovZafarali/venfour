@@ -548,10 +548,10 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
                   </span>
                 </Link>
                 <p className="public-footer__statement">
-                  Clarity for the<br />conversation ahead.
+                  Your vehicle’s value,<br />made clear.
                 </p>
                 <p className="public-footer__description">
-                  Vehicle valuation evidence, explained simply.
+                  Evidence to help you speak with your insurer.
                 </p>
                 {supportEmail ? (
                   <a href={`mailto:${supportEmail}`} className="public-footer__link public-footer__email">
@@ -566,7 +566,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
                   <ul>
                     <li><a href={totalLossHref} className={footerLinkClassName}>Total Loss</a></li>
                     <li><a href={diminishedValueHref} className={footerLinkClassName}>Diminished Value</a>
-                      {!diminishedValueIntakeAvailable ? <span className="public-footer__service-note">Intake paused</span> : null}
+                      {!diminishedValueIntakeAvailable ? <span className="public-footer__service-note">New requests paused</span> : null}
                     </li>
                   </ul>
                 </section>
@@ -574,8 +574,8 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
                   <h2 className="public-footer__heading">Resources</h2>
                   <ul>
                     <li><Link to="/resources/understanding-your-report" className={footerLinkClassName}>Understanding your report</Link></li>
-                    <li><Link to="/resources/valuation-review-checklist" className={footerLinkClassName}>Valuation review checklist</Link></li>
-                    <li><Link to="/methodology" className={footerLinkClassName}>Our methodology</Link></li>
+                    <li><Link to="/resources/valuation-review-checklist" className={footerLinkClassName}>Valuation checklist</Link></li>
+                    <li><Link to="/methodology" className={footerLinkClassName}>How we review reports</Link></li>
                   </ul>
                 </section>
                 <section>

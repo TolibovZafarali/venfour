@@ -18,6 +18,7 @@ from uuid import UUID, uuid4
 
 import pymupdf
 
+from venfour.paid_delivery import PaidDeliveryHeld, fenced_delivery, require_paid_delivery
 from venfour.jurisdiction_adapter import observe_scope, observe_reference_scope
 
 from venfour.commerce import (
@@ -494,6 +495,7 @@ class TotalLossReportProcessor:
             ),
         )
 
+    @fenced_delivery("work_item")
     def execute_generation(self, work_item_id: str) -> ReportWorkExecutionResult:
         selected_work_item_id = _request_uuid(work_item_id, "Work item ID")
         processing_token = str(uuid4())
@@ -531,6 +533,8 @@ class TotalLossReportProcessor:
                 selected_work_item_id, processing_token, claim
             )
         except PackageStaleFenceError:
+            raise
+        except PaidDeliveryHeld:
             raise
         except Exception as exc:
             failed = self._record_work_failure(
@@ -610,6 +614,7 @@ class TotalLossReportProcessor:
             raise PackageProcessingContractError(
                 "Report generation identity changed after claim"
             )
+        require_paid_delivery(self._database, case_id)
         observe_scope(self._database, case_id, "report_process")
         source = _mapping(context.get("source_snapshot"), "Source snapshot")
         assessment = _mapping(
@@ -893,6 +898,7 @@ class TotalLossReportProcessor:
         processing_token: str,
         ai_review_run_id: str,
     ) -> Mapping[str, Any]:
+        require_paid_delivery(self._database, work_item_id, "work_item")
         observe_reference_scope(self._database, work_item_id, "work_item", "report_release")
         released = _mapping(
             self._database.resolve_total_loss_report_release(
@@ -1188,6 +1194,7 @@ class TotalLossReportProcessor:
             resolved_refund_request_id,
         )
 
+    @fenced_delivery("work_item")
     def execute_review(self, work_item_id: str) -> ReportWorkExecutionResult:
         selected_work_item_id = _request_uuid(work_item_id, "Work item ID")
         processing_token = str(uuid4())
@@ -1248,6 +1255,8 @@ class TotalLossReportProcessor:
                 selected_work_item_id, processing_token, claim
             )
         except (_NoDisputeRefundPendingError, PackageStaleFenceError):
+            raise
+        except PaidDeliveryHeld:
             raise
         except Exception as exc:
             failed = self._record_work_failure(
@@ -1322,6 +1331,7 @@ class TotalLossReportProcessor:
                 raise PackageProcessingContractError(
                     "Report review identity changed after claim"
                 )
+        require_paid_delivery(self._database, case_id)
         observe_scope(self._database, case_id, "report_process")
         source = _mapping(context.get("source_snapshot"), "Source snapshot")
         assessment = _mapping(
@@ -1448,6 +1458,7 @@ class TotalLossReportProcessor:
                     retryable=False,
                     run_status="failed",
                 )
+            require_paid_delivery(self._database, case_id)
             completed_review = self._reviewer.review(request)
         except ReportReviewError as exc:
             if exc.retryable:

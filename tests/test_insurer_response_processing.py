@@ -155,6 +155,9 @@ def _claim(outcome: str = "claimed") -> dict[str, Any]:
 
 
 class _Database:
+    def check_paid_delivery(self, reference, kind="case", owner_user_id=None):
+        return "unenrolled"
+
     def __init__(
         self,
         *,
