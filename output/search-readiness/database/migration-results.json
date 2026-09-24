@@ -1,0 +1,447 @@
+[
+  {
+    "filename": "20260818000000_auth_and_appraisal_cases.sql",
+    "sha256": "0a083d822fb4d92533719ba7eed2de19563b056650dd1982322bc1ae798e8507",
+    "seconds": 0.089
+  },
+  {
+    "filename": "20260818000100_total_loss_case_details.sql",
+    "sha256": "38e8532bea953d7287c845c59f1c2ca140b87c458f35a99a6ae9abab272e2345",
+    "seconds": 0.074
+  },
+  {
+    "filename": "20260819000000_total_loss_analysis_jobs.sql",
+    "sha256": "39a4e40c0259e3cbe5cbdccc09f481c7c291e55e6e2a48b4c97cc2b91cabcbe1",
+    "seconds": 0.108
+  },
+  {
+    "filename": "20260819000100_add_appraisal_case_submitted_status.sql",
+    "sha256": "d00a78f665cf6d0023314ba2728deb0dae66cf06a074b1d2517f68f2ce99b3dc",
+    "seconds": 0.068
+  },
+  {
+    "filename": "20260819000200_diminished_value_case_submission.sql",
+    "sha256": "72f04122a5a2954e6a68d2397c993e50c04e9ac2b1cc46cec852c847444de0c3",
+    "seconds": 0.086
+  },
+  {
+    "filename": "20260820000000_admin_diminished_value_review.sql",
+    "sha256": "7a2498a8385dd13d0827e9d658de013dffb5b1d51f7b54e54e066b0b6b086861",
+    "seconds": 0.064
+  },
+  {
+    "filename": "20260823000000_customer_case_operations_foundation.sql",
+    "sha256": "8d8c426e4fec7439203abffda25951109d1c66fec8bfe44ae13ea2cdd2f50738",
+    "seconds": 0.067
+  },
+  {
+    "filename": "20260823000100_fence_case_operations_to_current_details.sql",
+    "sha256": "8b8d7a5deea960cf5b743e35f214e9732b6f622074ca64ea43990960c9ffbe1b",
+    "seconds": 0.048
+  },
+  {
+    "filename": "20260823000200_guest_first_total_loss.sql",
+    "sha256": "8873eaa292def5e1a9c0bc3dc17559b36bdcec8918884a4ce66e9ab65a4756a2",
+    "seconds": 0.148
+  },
+  {
+    "filename": "20260823000300_fix_guest_total_loss_rpc_ambiguity.sql",
+    "sha256": "cbe49bd53d14fe0d8ced2645d89fe6695c4d1975526013f7b94d4c81f5a1ef06",
+    "seconds": 0.056
+  },
+  {
+    "filename": "20260823000400_fix_total_loss_operation_postal_stage.sql",
+    "sha256": "48a1494a6dc20ebf1aad636baf09e249c4d23d4e3fca209d495b0cf8302848ad",
+    "seconds": 0.066
+  },
+  {
+    "filename": "20260823000500_harden_guest_total_loss_writes.sql",
+    "sha256": "531cd1f804f3969803ccb2e9070ebd31af71345ab6b343e659c9536a6443b93b",
+    "seconds": 0.057
+  },
+  {
+    "filename": "20260824000000_abandoned_anonymous_guest_cleanup.sql",
+    "sha256": "b62726a87b847dcdae79b648194cda957797842c27776d9abcaa56ac39f5856b",
+    "seconds": 0.113
+  },
+  {
+    "filename": "20260824000100_allow_total_loss_storage_owner_insert.sql",
+    "sha256": "c0ac8a5c58c99ee0d14a6252937105b744c41786024d6ca6d2b3fe8fe1870f5f",
+    "seconds": 0.04
+  },
+  {
+    "filename": "20260824000150_vehicle_trim_cache.sql",
+    "sha256": "73a89e0e47ef78a65e89ce754e1dd613c90c5c4952bde2504a9db88871fff55d",
+    "seconds": 0.049
+  },
+  {
+    "filename": "20260824000200_total_loss_claim_details.sql",
+    "sha256": "b86280c8ed7fcbe1b7a244f88866a13dafd79630845702e0a653af63bcf4fe4d",
+    "seconds": 0.06
+  },
+  {
+    "filename": "20260824000300_simplify_total_loss_claim_requirements.sql",
+    "sha256": "6ec72f819f25a72a79c56bef60fa55bb932aa6360df0de7a80400313b5935fd9",
+    "seconds": 0.056
+  },
+  {
+    "filename": "20260824000400_total_loss_contact_details.sql",
+    "sha256": "b2925d59f8caeefeaca7cbbd1f8f49d46acb8e9b1e90e5cd4d8ae17cc28b380d",
+    "seconds": 0.049
+  },
+  {
+    "filename": "20260825000000_total_loss_report_upload_recovery_flag.sql",
+    "sha256": "b5cab1679d29d03da0d07b020df1699f56c155091699fdce9b332eb4bae811bf",
+    "seconds": 0.049
+  },
+  {
+    "filename": "20260825000100_allow_total_loss_report_recovery_takeover.sql",
+    "sha256": "cf9e671350f2904252b442e3538eb9d3a7d29a00754dd9284aaaafdf5613b1a7",
+    "seconds": 0.049
+  },
+  {
+    "filename": "20260825000200_defer_total_loss_report_analysis.sql",
+    "sha256": "98de00f63eec1e475d5c9a7effc14cca217d0eab0a6915a28d0ac958209d7bdd",
+    "seconds": 0.044
+  },
+  {
+    "filename": "20260825000300_vehicle_configuration_identity.sql",
+    "sha256": "818e06ebf5203c76c0a6b9c848ff41be8237b47e77f9998b7877a78f96603240",
+    "seconds": 0.051
+  },
+  {
+    "filename": "20260825000400_vehicle_configuration_integrity.sql",
+    "sha256": "21339c3201322e15961b82fcf3f56f0e7d6089dc0ea65a9aad4436464ebadf37",
+    "seconds": 0.058
+  },
+  {
+    "filename": "20260825000500_total_loss_post_continue_foundation.sql",
+    "sha256": "d652ca5de2bc29e39acfbe7cbe1b7ff990becaea3337414fcda36c6ace4b3b8f",
+    "seconds": 0.205
+  },
+  {
+    "filename": "20260826000000_total_loss_secure_claim_resume.sql",
+    "sha256": "af86931c266c08e48055ccf6826ca3821b9abdd2b8ad51d26e85e7a26048c1ca",
+    "seconds": 0.061
+  },
+  {
+    "filename": "20260826000100_total_loss_stripe_commerce.sql",
+    "sha256": "43dc993d72b56348903625f95ebc6277e0d62619f57c809b0cafa2919efa7e79",
+    "seconds": 0.102
+  },
+  {
+    "filename": "20260826000200_total_loss_package_processing.sql",
+    "sha256": "d7878102b746ee5f21456bea862b1edef4e85564a0aa5f316e73f9cccd2dfd15",
+    "seconds": 0.153
+  },
+  {
+    "filename": "20260826000300_total_loss_report_release.sql",
+    "sha256": "92fc32d922fefdcf2eff88450e6ecda092642056bf74e62080ba609c74af3d9e",
+    "seconds": 0.142
+  },
+  {
+    "filename": "20260829000000_total_loss_customer_delivery.sql",
+    "sha256": "08ade8f5b786c3b6b95b18b81d857289c5119adcb09367324e42e09709eb3ec3",
+    "seconds": 0.085
+  },
+  {
+    "filename": "20260829000100_total_loss_preview_return.sql",
+    "sha256": "9633388a19b358a2df40498ffefd9bf0b896530662dceee3cbb39332f79f0994",
+    "seconds": 0.062
+  },
+  {
+    "filename": "20260829000200_total_loss_claim_identity_privacy.sql",
+    "sha256": "d12582bee68dc2f8be01742aa7a6afeedec1169c68bdf4eddf6498d38d771250",
+    "seconds": 0.048
+  },
+  {
+    "filename": "20260830000100_report_analysis_evidence_handoff.sql",
+    "sha256": "de3429639949b7f520eafdedc66601a7b46a3ed9c389b3dd13310f396627c8a5",
+    "seconds": 0.057
+  },
+  {
+    "filename": "20260901000000_lightweight_owned_case_history.sql",
+    "sha256": "be011af9b11ec13a1e11f94978c10150903f71c81da3fd93b8a828a6e3d30050",
+    "seconds": 0.07
+  },
+  {
+    "filename": "20260901000100_total_loss_insurer_response_intake.sql",
+    "sha256": "05ba5b7276ff5266f04da7f49aa6b896a7fde14c31a8fe86ab5b7ac374428ca4",
+    "seconds": 0.121
+  },
+  {
+    "filename": "20260901000200_total_loss_insurer_response_analysis.sql",
+    "sha256": "bc5d594893a5492bc16eaf82966d3c1599c7f90c1f0fb006307e13d6a1bee1ff",
+    "seconds": 0.18
+  },
+  {
+    "filename": "20260901000300_total_loss_insurer_response_dispatch.sql",
+    "sha256": "6d8696a9fb0bb7e389bedeca1a1fbc1395ce0947ad1d5d21faa892c6cafcd01f",
+    "seconds": 0.053
+  },
+  {
+    "filename": "20260901000400_total_loss_insurer_response_grounding.sql",
+    "sha256": "2e58bbd2ef8696c40cf4090c602f8d3b789a4cc03f14bb57fc17c718434477d0",
+    "seconds": 0.057
+  },
+  {
+    "filename": "20260901000500_total_loss_insurer_response_failure_reason.sql",
+    "sha256": "193b077dab2983e33b24a11b6de9f46c0e1c73c82fd17ddb03fd2fed652ec173",
+    "seconds": 0.09
+  },
+  {
+    "filename": "20260902000100_total_loss_insurer_response_reliability.sql",
+    "sha256": "4562c71ccb75c9d8f42709ce8a68d7b5223b7ac7ce3f0c12d37c1cb9268917f3",
+    "seconds": 0.052
+  },
+  {
+    "filename": "20260902000200_total_loss_insurer_response_original_access.sql",
+    "sha256": "905c7215f5a99557fac8e5e0abb867f1dc41ecea12cf15b6c7beb8cc5d06c051",
+    "seconds": 0.05
+  },
+  {
+    "filename": "20260902000300_total_loss_response_recommendation_decision.sql",
+    "sha256": "85b5498440f6ce419b463ef80bb970128e6c91b5f2488b19adda7eb4890c620b",
+    "seconds": 0.083
+  },
+  {
+    "filename": "20260902000400_ground_insurer_recommendation_in_assessment.sql",
+    "sha256": "42dba59dd3f541b4060edc9f873e7ae4540a8931c487033581289152e471c038",
+    "seconds": 0.05
+  },
+  {
+    "filename": "20260902000500_total_loss_follow_up_request.sql",
+    "sha256": "cf42c677a25004092ed16841749185d83c2ea1d3bc27936b7af21f4564ab816e",
+    "seconds": 0.074
+  },
+  {
+    "filename": "20260902000600_total_loss_repeatable_response_rounds.sql",
+    "sha256": "ceff149a73df7bf192c965c7410ba687a191de98c9b9b5a237d5d69ef34dc9f9",
+    "seconds": 0.065
+  },
+  {
+    "filename": "20260902000700_total_loss_case_resolution.sql",
+    "sha256": "bd223069f09d28ff6b85accedddb1a8766dd7cb226206734f362d32415c3586c",
+    "seconds": 0.06
+  },
+  {
+    "filename": "20260903000000_total_loss_superseded_follow_up_history.sql",
+    "sha256": "4d3d3112f37d7cd1c8b9c9532b7c0e5540a01e8e6237daea9f04d5482f440cf0",
+    "seconds": 0.09
+  },
+  {
+    "filename": "20260903000100_total_loss_offer_provenance.sql",
+    "sha256": "b1399b62064f9b12a9b6c7711f3dab9c8c1dabdfc150df77cac1541f6b20f5ba",
+    "seconds": 0.063
+  },
+  {
+    "filename": "20260904000000_total_loss_insurer_response_upload_preflight.sql",
+    "sha256": "88180b082a29d0587de8eb11fc79d4a445b9f97a235ad651a7ad5b6a4a0fce30",
+    "seconds": 0.077
+  },
+  {
+    "filename": "20260904000100_total_loss_successful_intake_correction.sql",
+    "sha256": "0fe6b836a5ee3547733caaf487183bb36b178aab8fdc8369f7cb2d04e07a26b4",
+    "seconds": 0.064
+  },
+  {
+    "filename": "20260904000200_total_loss_response_vehicle_context.sql",
+    "sha256": "b8b98c389ea6493004c3f54cf9e8bd441037c0a470ec6bdee99317a27ad7e573",
+    "seconds": 0.078
+  },
+  {
+    "filename": "20260904000300_total_loss_response_context_recovery.sql",
+    "sha256": "d8bbb53f349904db3ea6c96c6fb25ae3762f31b94845dc4dd479b8021bb570a7",
+    "seconds": 0.058
+  },
+  {
+    "filename": "20260904000400_total_loss_response_output_retry.sql",
+    "sha256": "15d4f0e2827a9106e049bdd662917917b5fed10f34c4a5c035368b4592214dab",
+    "seconds": 0.066
+  },
+  {
+    "filename": "20260905000000_total_loss_resolution_conflicts.sql",
+    "sha256": "a98b4ffd0ff5bf644b79b987e7ee4804dcd1a8066ca99cec6474930b8cf16f01",
+    "seconds": 0.07
+  },
+  {
+    "filename": "20260905000100_total_loss_report_source_prices.sql",
+    "sha256": "8bc8ec4add262d2e1794a841d6c7888ec93904fa9c1d258202045bd27affe0cf",
+    "seconds": 0.068
+  },
+  {
+    "filename": "20260905000200_market_fact_cache.sql",
+    "sha256": "729f1af9f53af705f4ebb3ddd84964b2565eecb8d245267d49e65dc44c99bc16",
+    "seconds": 0.064
+  },
+  {
+    "filename": "20260905000300_market_fact_cache_conflicts.sql",
+    "sha256": "0b0816eae1ed6b047799e4f59283820bab62354dafea2c941234927fcc884691",
+    "seconds": 0.046
+  },
+  {
+    "filename": "20260907000000_staff_admin_workspace.sql",
+    "sha256": "adf98a424f88576574e132b03fd979064aa5cd59cd156c7781b89c15d9b9288f",
+    "seconds": 0.059
+  },
+  {
+    "filename": "20260908000000_referral_partner_onboarding.sql",
+    "sha256": "d35f02eb81cfaefd72f62c55ef400cc618ace2b0abdb940a720ba7985fd79ef1",
+    "seconds": 0.073
+  },
+  {
+    "filename": "20260908000100_referral_partner_attribution.sql",
+    "sha256": "f468f42b218a8f45596b6543b57a5056afe42923dd4b88fd9e8e45483244c28e",
+    "seconds": 0.055
+  },
+  {
+    "filename": "20260909000100_market_request_budget.sql",
+    "sha256": "f8ff1f55fc813e9f46871a860633823a4f513bdaa41c7586c90a0395b2b5c280",
+    "seconds": 0.056
+  },
+  {
+    "filename": "20260909000200_case_market_search_progress.sql",
+    "sha256": "25069cda59553c0434815e54a2a23ca06796bfc79a19de1814141ef49feb58a6",
+    "seconds": 0.041
+  },
+  {
+    "filename": "20260909000300_supporting_listing_delivery.sql",
+    "sha256": "99606274ac1bd8b1fcc506686a1d2a99feaefb30e75c14f08606e62d5ac4bcaa",
+    "seconds": 0.041
+  },
+  {
+    "filename": "20260909000400_referral_guest_cleanup_protection.sql",
+    "sha256": "7a46d2c653352679e170a8470fa5707450404b07fd669670d6fd8e9acd21b23f",
+    "seconds": 0.045
+  },
+  {
+    "filename": "20260911000100_total_loss_subject_vehicle_facts.sql",
+    "sha256": "83f3eb4f3f26452941f3c0688069b347a998de6194b3f4cdf478a72159184c26",
+    "seconds": 0.042
+  },
+  {
+    "filename": "20260911000200_communications.sql",
+    "sha256": "5613a70ab98695f45d34fd7d641cf263b0a4c9e2282e5413cb30cc9f348963ae",
+    "seconds": 0.058
+  },
+  {
+    "filename": "20260911000300_total_loss_full_review_readiness.sql",
+    "sha256": "2f6f8f9b169d624b076c056b760b6aabc8e9345adaa5d3353b6633c9b286b2f4",
+    "seconds": 0.083
+  },
+  {
+    "filename": "20260913000100_market_accounting_recovery.sql",
+    "sha256": "c69ea1ba1385cd447ef8521cea34acb9d33194eb941b3397d540a4ea0562efb5",
+    "seconds": 0.074
+  },
+  {
+    "filename": "20260914000100_market_search_diagnostics.sql",
+    "sha256": "a038baa8bf62a944a8f6b933465cd6b136eac2224232c32d1652645f87818e10",
+    "seconds": 0.044
+  },
+  {
+    "filename": "20260914000200_total_loss_submission_input_fence.sql",
+    "sha256": "71eb0f71f3cd2885d9486bc3c9a590959acb943a0e0cbf71d30cf75ae7264d0d",
+    "seconds": 0.049
+  },
+  {
+    "filename": "20260914000300_total_loss_checkout_initialization.sql",
+    "sha256": "61a3ed86050d8df82b70a2caeec5b04597dbf96ec010f9211011b39bb8937f2b",
+    "seconds": 0.063
+  },
+  {
+    "filename": "20260914000400_paid_work_delivery_recovery.sql",
+    "sha256": "cc8ca5b410ef6d4be9093a90775afa0623bce1c52c9c282f23e99cf42665e9e5",
+    "seconds": 0.067
+  },
+  {
+    "filename": "20260914000500_full_review_payment_gate.sql",
+    "sha256": "8a338d9753cf980df676ab36879b566467b9d2ccaf9e0d186d4eb12e9570aedc",
+    "seconds": 0.062
+  },
+  {
+    "filename": "20260915000100_manual_payment_approval.sql",
+    "sha256": "7aaaf1fbaa35d7b5923ea8dc3f4a55a599f10ec193e6ee551ead965879c0d4fb",
+    "seconds": 0.051
+  },
+  {
+    "filename": "20260915000200_customer_workspace_navigation.sql",
+    "sha256": "888e468a43794fa141c8b758d498571ca5e71d2c4492b4aba147df17cecc8577",
+    "seconds": 0.041
+  },
+  {
+    "filename": "20260915000300_automatic_payment_eligibility.sql",
+    "sha256": "e757174e41bdc43d3efdd1218a893fa56eda0512630a8615f712421aed1c5d39",
+    "seconds": 0.035
+  },
+  {
+    "filename": "20260916000000_total_loss_adjuster_message_copy.sql",
+    "sha256": "d7063da302ce7c9a087ac58ae42d1826db0d69b730d70c169d7a339cc478fff4",
+    "seconds": 0.06
+  },
+  {
+    "filename": "20260916000100_total_loss_reconsideration_template.sql",
+    "sha256": "521ee9bfc5538b14aa270afbecd5f6b090bb4f2525a76b66dad76dd087077f5c",
+    "seconds": 0.039
+  },
+  {
+    "filename": "20260916000200_total_loss_reconsideration_generation.sql",
+    "sha256": "b79acbc9e2a4d321c72dd810437430b35ac6eb581392d553ef8cbe60166b637a",
+    "seconds": 0.043
+  },
+  {
+    "filename": "20260916000300_referral_partner_agreement_proposal.sql",
+    "sha256": "00015b6b339db4f66f297cde2a357b8b8d40ed008633c6c7db9f83dd9e8eecd4",
+    "seconds": 0.041
+  },
+  {
+    "filename": "20260916000400_referral_partner_earnings.sql",
+    "sha256": "21c9bb4f630a8ff3392f4b8121c28c33aca5bf53222635cdcf25679099415137",
+    "seconds": 0.05
+  },
+  {
+    "filename": "20260916000500_referral_outcome_review.sql",
+    "sha256": "c5fac36839a3e08a431eb7a3bbe2b154584d145e494708ad20dbd813c9ff0ca5",
+    "seconds": 0.044
+  },
+  {
+    "filename": "20260916000600_referral_partner_readable_links.sql",
+    "sha256": "4804a7293137f3ca923ed35f5522ec56102644cab03b5d747874af28bf2b87ae",
+    "seconds": 0.05
+  },
+  {
+    "filename": "20260917000000_customer_scope_and_incomplete_intakes.sql",
+    "sha256": "4838dc14060ceae5d71ff92c6ca99442418d2f93cf1764656d2a0273663548ee",
+    "seconds": 0.057
+  },
+  {
+    "filename": "20260917000100_staff_email_history.sql",
+    "sha256": "bce4ecff1bf1c358a8d0fc6eaaff45f4155d980576f5980de66c09a7e6399219",
+    "seconds": 0.039
+  },
+  {
+    "filename": "20260922000000_jurisdiction_foundation.sql",
+    "sha256": "9807d7c3da1b61791ec14ac7696fbd98bd044bb7d1ba60d04c2760de021947bb",
+    "seconds": 0.048
+  },
+  {
+    "filename": "20260922000100_paid_delivery_holds.sql",
+    "sha256": "b1c0fbd17bdd1a76c746af46673af1c08541b72d4926b35b12cc21b5160704e8",
+    "seconds": 0.115
+  },
+  {
+    "filename": "20260922000200_jurisdiction_trusted_authority.sql",
+    "sha256": "0e609581652de1d3105dc0c705765260f04e0d218a3912b89008ad7e88edf20a",
+    "seconds": 0.106
+  },
+  {
+    "filename": "20260923000000_nationwide_product_context.sql",
+    "sha256": "33b2cc15a353d08ea943e7e32c07de1200eee581deabe698309dfb33c4baa75a",
+    "seconds": 0.042
+  },
+  {
+    "filename": "20260924000000_search_measurement.sql",
+    "sha256": "94dd58adb89ac3b354dee53c39f7fea2171becfe165ceefaae4ef78d64904be3",
+    "seconds": 0.048
+  }
+]

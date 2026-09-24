@@ -1,0 +1,2 @@
+psql:<stdin>:4: WARNING:  there is already a transaction in progress
+psql:<stdin>:296: WARNING:  there is no transaction in progress

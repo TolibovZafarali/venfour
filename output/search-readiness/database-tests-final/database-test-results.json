@@ -1,0 +1,37 @@
+[
+  {
+    "file": "059_search_measurement.test.sql",
+    "assertions": 31,
+    "success": true,
+    "failures": [],
+    "exit_code": 0
+  },
+  {
+    "file": "015_total_loss_stripe_commerce.test.sql",
+    "assertions": 152,
+    "success": true,
+    "failures": [],
+    "exit_code": 0
+  },
+  {
+    "file": "056_jurisdiction_foundation.test.sql",
+    "assertions": 35,
+    "success": true,
+    "failures": [],
+    "exit_code": 0
+  },
+  {
+    "file": "057_jurisdiction_authority.test.sql",
+    "assertions": 23,
+    "success": true,
+    "failures": [],
+    "exit_code": 0
+  },
+  {
+    "file": "058_nationwide_product.test.sql",
+    "assertions": 20,
+    "success": true,
+    "failures": [],
+    "exit_code": 0
+  }
+]

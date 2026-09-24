@@ -1,0 +1,290 @@
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - link "Skip to content" [ref=e5] [cursor=pointer]:
+      - /url: "#main-content"
+    - banner [ref=e7]:
+      - generic [ref=e9]:
+        - link "Venfour home" [ref=e11] [cursor=pointer]:
+          - /url: https://venfour.com/
+          - generic [ref=e13]: Venfour
+        - generic [ref=e14]:
+          - generic [ref=e15]: Already have an account?
+          - button "Sign In" [ref=e16] [cursor=pointer]
+    - main [ref=e17]:
+      - generic [ref=e19]:
+        - generic [ref=e21]:
+          - group "Choose an appraisal service" [ref=e22]:
+            - generic [ref=e24]:
+              - generic [ref=e25] [cursor=pointer]:
+                - radio "Total Loss" [checked] [ref=e26]
+                - text: Total Loss
+              - generic [ref=e27] [cursor=pointer]:
+                - radio "Diminished Value" [ref=e28]
+                - text: Diminished Value
+          - paragraph [ref=e29]: Total Loss valuation
+          - heading "Start your Total Loss review" [level=1] [ref=e30]
+          - paragraph [ref=e31]: Upload your insurer’s valuation report from any provider, or continue without one. Venfour will gather the facts needed for independent market research and a truthful evidence review.
+          - region [ref=e32]:
+            - paragraph [ref=e33]: Illustrative example
+            - heading "2024 Hyundai Elantra SEL" [level=2] [ref=e34]:
+              - generic [ref=e36]: 2024 Hyundai Elantra SEL
+            - generic [ref=e37]:
+              - generic [ref=e38]:
+                - term [ref=e39]:
+                  - generic [ref=e41]: Insurer valuation
+                - definition [ref=e42]:
+                  - generic "$19,050" [ref=e43]
+              - generic [ref=e44]:
+                - term [ref=e45]:
+                  - generic [ref=e47]: Local market evidence
+                - definition [ref=e48]:
+                  - generic "$20,480" [ref=e49]
+              - generic [ref=e50]:
+                - term [ref=e51]:
+                  - generic [ref=e53]: Potential value gap
+                - definition [ref=e54]:
+                  - generic "+$1,430" [ref=e55]
+            - paragraph [ref=e56]:
+              - generic [ref=e58]: 12 comparable vehicles · within 87 miles
+            - 'img "Value comparison: Insurer valuation, $19,050; Market evidence, $20,480" [ref=e59]':
+              - generic [ref=e61]:
+                - generic [ref=e63]: Insurer valuation
+                - generic [ref=e64]: $19,050
+              - generic [ref=e69]:
+                - generic [ref=e71]: Market evidence
+                - generic [ref=e72]: $20,480
+            - paragraph [ref=e76]:
+              - generic [ref=e78]: A Total Loss review compares the insurer’s stated valuation with relevant market evidence when that value is available. Report-specific findings depend on the evidence supplied.
+        - generic [ref=e202]:
+          - generic "Appraisal progress" [ref=e203]:
+            - list "Appraisal steps" [ref=e204]:
+              - listitem "Start, step 1, completed" [ref=e205]
+              - listitem "Vehicle, step 2, completed" [ref=e206]
+              - listitem "Claim, step 3, current" [ref=e207]
+              - listitem "Contact, step 4" [ref=e208]
+          - generic [ref=e209]:
+            - heading "Add the claim details" [level=2] [ref=e210]
+            - paragraph [ref=e211]: These details help Venfour understand the insurer’s vehicle value in context.
+          - status [ref=e212]: "Vehicle: 2020 Toyota Corolla Other / Not sure"
+          - region [ref=e213]:
+            - heading "Vehicle and loss information" [level=3] [ref=e214]
+            - paragraph [ref=e215]: Add the facts that most directly affect the vehicle appraisal.
+            - generic [ref=e216]:
+              - generic [ref=e217]:
+                - generic [ref=e218]: Mileage at time of loss
+                - textbox "Mileage at time of loss" [ref=e220]:
+                  - /placeholder: 48,250
+                  - text: 10,000
+              - generic [ref=e221]:
+                - generic [ref=e222]: ZIP code
+                - textbox "ZIP code" [ref=e224]:
+                  - /placeholder: "60611"
+                  - text: "63101"
+              - generic [ref=e225]:
+                - generic [ref=e226]: Date of loss
+                - button "Date of loss" [expanded] [ref=e228] [cursor=pointer]:
+                  - generic [ref=e229]: Choose a date
+          - region [ref=e232]:
+            - heading "Insurance information" [level=3] [ref=e233]
+            - paragraph [ref=e234]: Add the insurer details separately from the vehicle appraisal facts.
+            - generic [ref=e235]:
+              - generic [ref=e236]:
+                - generic [ref=e237]:
+                  - generic [ref=e238] [cursor=pointer]: Insurance company
+                  - generic [ref=e239]: Optional
+                - combobox "Insurance company" [ref=e241] [cursor=pointer]
+              - generic [ref=e242]:
+                - generic [ref=e243]:
+                  - generic [ref=e244]:
+                    - generic [ref=e245] [cursor=pointer]: Insurer’s vehicle valuation
+                    - button "More information about Insurer’s vehicle valuation" [ref=e246] [cursor=pointer]
+                  - generic [ref=e250]: Optional
+                - textbox "Insurer’s vehicle valuation" [ref=e251]:
+                  - /placeholder: $18,750.00
+          - generic [ref=e252]:
+            - button "Back" [ref=e253] [cursor=pointer]
+            - button "Continue" [ref=e256] [cursor=pointer]
+  - dialog [ref=e260]:
+    - generic [ref=e261]:
+      - button "Previous month" [active] [ref=e262] [cursor=pointer]
+      - generic [ref=e265]:
+        - combobox "Calendar month" [ref=e266]:
+          - option "January"
+          - option "February"
+          - option "March"
+          - option "April"
+          - option "May"
+          - option "June"
+          - option "July"
+          - option "August"
+          - option "September" [selected]
+          - option "October" [disabled]
+          - option "November" [disabled]
+          - option "December" [disabled]
+        - combobox "Calendar year" [ref=e267] [cursor=pointer]:
+          - option "2026" [selected]
+          - option "2025"
+          - option "2024"
+          - option "2023"
+          - option "2022"
+          - option "2021"
+          - option "2020"
+          - option "2019"
+          - option "2018"
+          - option "2017"
+          - option "2016"
+          - option "2015"
+          - option "2014"
+          - option "2013"
+          - option "2012"
+          - option "2011"
+          - option "2010"
+          - option "2009"
+          - option "2008"
+          - option "2007"
+          - option "2006"
+          - option "2005"
+          - option "2004"
+          - option "2003"
+          - option "2002"
+          - option "2001"
+          - option "2000"
+          - option "1999"
+          - option "1998"
+          - option "1997"
+          - option "1996"
+          - option "1995"
+          - option "1994"
+          - option "1993"
+          - option "1992"
+          - option "1991"
+          - option "1990"
+          - option "1989"
+          - option "1988"
+          - option "1987"
+          - option "1986"
+          - option "1985"
+          - option "1984"
+          - option "1983"
+          - option "1982"
+          - option "1981"
+          - option "1980"
+          - option "1979"
+          - option "1978"
+          - option "1977"
+          - option "1976"
+          - option "1975"
+          - option "1974"
+          - option "1973"
+          - option "1972"
+          - option "1971"
+          - option "1970"
+          - option "1969"
+          - option "1968"
+          - option "1967"
+          - option "1966"
+          - option "1965"
+          - option "1964"
+          - option "1963"
+          - option "1962"
+          - option "1961"
+          - option "1960"
+          - option "1959"
+          - option "1958"
+          - option "1957"
+          - option "1956"
+          - option "1955"
+          - option "1954"
+          - option "1953"
+          - option "1952"
+          - option "1951"
+          - option "1950"
+          - option "1949"
+          - option "1948"
+          - option "1947"
+          - option "1946"
+          - option "1945"
+          - option "1944"
+          - option "1943"
+          - option "1942"
+          - option "1941"
+          - option "1940"
+          - option "1939"
+          - option "1938"
+          - option "1937"
+          - option "1936"
+          - option "1935"
+          - option "1934"
+          - option "1933"
+          - option "1932"
+          - option "1931"
+          - option "1930"
+          - option "1929"
+          - option "1928"
+          - option "1927"
+          - option "1926"
+          - option "1925"
+          - option "1924"
+          - option "1923"
+          - option "1922"
+          - option "1921"
+          - option "1920"
+          - option "1919"
+          - option "1918"
+          - option "1917"
+          - option "1916"
+          - option "1915"
+          - option "1914"
+          - option "1913"
+          - option "1912"
+          - option "1911"
+          - option "1910"
+          - option "1909"
+          - option "1908"
+          - option "1907"
+          - option "1906"
+          - option "1905"
+          - option "1904"
+          - option "1903"
+          - option "1902"
+          - option "1901"
+          - option "1900"
+      - button "Next month" [disabled] [ref=e268]
+    - grid "Choose date of loss" [ref=e271]:
+      - generic [aria-hidden] [ref=e272]: Sun
+      - generic [aria-hidden] [ref=e273]: Mon
+      - generic [aria-hidden] [ref=e274]: Tue
+      - generic [aria-hidden] [ref=e275]: Wed
+      - generic [aria-hidden] [ref=e276]: Thu
+      - generic [aria-hidden] [ref=e277]: Fri
+      - generic [aria-hidden] [ref=e278]: Sat
+      - gridcell "September 1, 2026" [ref=e281] [cursor=pointer]: "1"
+      - gridcell "September 2, 2026" [ref=e282] [cursor=pointer]: "2"
+      - gridcell "September 3, 2026" [ref=e283] [cursor=pointer]: "3"
+      - gridcell "September 4, 2026" [ref=e284] [cursor=pointer]: "4"
+      - gridcell "September 5, 2026" [ref=e285] [cursor=pointer]: "5"
+      - gridcell "September 6, 2026" [ref=e286] [cursor=pointer]: "6"
+      - gridcell "September 7, 2026" [ref=e287] [cursor=pointer]: "7"
+      - gridcell "September 8, 2026" [ref=e288] [cursor=pointer]: "8"
+      - gridcell "September 9, 2026" [ref=e289] [cursor=pointer]: "9"
+      - gridcell "September 10, 2026" [ref=e290] [cursor=pointer]: "10"
+      - gridcell "September 11, 2026" [ref=e291] [cursor=pointer]: "11"
+      - gridcell "September 12, 2026" [ref=e292] [cursor=pointer]: "12"
+      - gridcell "September 13, 2026" [ref=e293] [cursor=pointer]: "13"
+      - gridcell "September 14, 2026" [ref=e294] [cursor=pointer]: "14"
+      - gridcell "September 15, 2026" [ref=e295] [cursor=pointer]: "15"
+      - gridcell "September 16, 2026" [ref=e296] [cursor=pointer]: "16"
+      - gridcell "September 17, 2026" [ref=e297] [cursor=pointer]: "17"
+      - gridcell "September 18, 2026" [ref=e298] [cursor=pointer]: "18"
+      - gridcell "September 19, 2026" [ref=e299] [cursor=pointer]: "19"
+      - gridcell "September 20, 2026" [ref=e300] [cursor=pointer]: "20"
+      - gridcell "September 21, 2026" [ref=e301] [cursor=pointer]: "21"
+      - gridcell "September 22, 2026" [ref=e302] [cursor=pointer]: "22"
+      - gridcell "September 23, 2026" [ref=e303] [cursor=pointer]: "23"
+      - gridcell "September 24, 2026" [ref=e304] [cursor=pointer]: "24"
+      - gridcell "September 25, 2026" [disabled] [ref=e305]: "25"
+      - gridcell "September 26, 2026" [disabled] [ref=e306]: "26"
+      - gridcell "September 27, 2026" [disabled] [ref=e307]: "27"
+      - gridcell "September 28, 2026" [disabled] [ref=e308]: "28"
+      - gridcell "September 29, 2026" [disabled] [ref=e309]: "29"
+      - gridcell "September 30, 2026" [disabled] [ref=e310]: "30"

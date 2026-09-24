@@ -1,0 +1,413 @@
+// frontend/worker/index.ts
+var API_RESPONSE_HEADERS = /* @__PURE__ */ new Set([
+  // Representation metadata must stay with the unread upstream body. Framing
+  // metadata such as Content-Length is intentionally left to the runtime.
+  "accept-ranges",
+  "allow",
+  "content-disposition",
+  "content-encoding",
+  "content-language",
+  "content-range",
+  "content-type",
+  "etag",
+  "last-modified",
+  "location",
+  "retry-after",
+  "vary",
+  "www-authenticate",
+  "x-request-id"
+]);
+var PROXY_REQUEST_HEADERS_TO_REMOVE = [
+  "connection",
+  "content-length",
+  "expect",
+  "host",
+  "keep-alive",
+  "proxy-authenticate",
+  "proxy-authorization",
+  "te",
+  "trailer",
+  "transfer-encoding",
+  "upgrade",
+  "x-venfour-staging-proxy"
+];
+var STAGING_PROXY_HEADER_NAME = "X-Venfour-Staging-Proxy";
+var STRIPE_WEBHOOK_PATH = "/webhooks/stripe";
+var PUBLIC_ORIGIN = "https://venfour.com";
+var APP_ORIGIN = "https://app.venfour.com";
+var PARTNER_ORIGIN = "https://partners.venfour.com";
+var PRODUCTION_ORIGINS = /* @__PURE__ */ new Set([PUBLIC_ORIGIN, APP_ORIGIN, PARTNER_ORIGIN, "https://www.venfour.com"]);
+var PUBLIC_PATHS = /* @__PURE__ */ new Set(["/", "/total-loss-review", "/contact", "/cookies", "/methodology", "/privacy", "/terms", "/refund-policy", "/referral-partners", "/about", "/resources/understanding-your-report", "/resources/valuation-review-checklist"]);
+var CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "connect-src 'self' https:",
+  "font-src 'self' data:",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  "frame-src 'self' https://challenges.cloudflare.com https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com",
+  "img-src 'self' data: blob: https:",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "script-src 'self' https://challenges.cloudflare.com https://js.stripe.com https://*.js.stripe.com",
+  "style-src 'self' 'unsafe-inline'",
+  "upgrade-insecure-requests",
+  "worker-src 'self' blob:"
+].join("; ");
+var defaultDependencies = {
+  fetch: (request, init) => fetch(request, init)
+};
+var RuntimeConfigurationError = class extends Error {
+};
+function originOnlyHttpsUrl(value, label) {
+  if (typeof value !== "string" || value !== value.trim() || !value) {
+    throw new RuntimeConfigurationError(`${label} is unavailable.`);
+  }
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new RuntimeConfigurationError(`${label} is invalid.`);
+  }
+  if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.pathname !== "/" || parsed.search || parsed.hash) {
+    throw new RuntimeConfigurationError(`${label} is invalid.`);
+  }
+  return parsed;
+}
+function requiredProxySecret(value) {
+  if (typeof value !== "string" || value.length < 32 || value.length > 512 || [...value].some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint < 33 || codePoint > 126;
+  })) {
+    throw new RuntimeConfigurationError(
+      "The staging API proxy credential is unavailable."
+    );
+  }
+  return value;
+}
+function runtimeConfiguration(env) {
+  if (env.DEPLOYMENT_ENVIRONMENT === "production") {
+    const apiOrigin = originOnlyHttpsUrl(env.API_ORIGIN, "The production API origin");
+    if (env.STAGING_HOSTNAME || apiOrigin.hostname.includes("staging") || PRODUCTION_ORIGINS.has(apiOrigin.origin)) {
+      throw new RuntimeConfigurationError("The production API boundary is invalid.");
+    }
+    return { apiOrigin, apiProxySecret: requiredProxySecret(env.API_PROXY_SECRET), environment: "production" };
+  }
+  if (env.DEPLOYMENT_ENVIRONMENT !== "staging") {
+    throw new RuntimeConfigurationError(
+      "The staging deployment environment is unavailable."
+    );
+  }
+  const stagingHostname = env.STAGING_HOSTNAME?.trim().toLowerCase();
+  if (!stagingHostname || stagingHostname !== env.STAGING_HOSTNAME || stagingHostname.includes(":") || !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/u.test(stagingHostname)) {
+    throw new RuntimeConfigurationError("The staging hostname is unavailable.");
+  }
+  return {
+    apiOrigin: originOnlyHttpsUrl(env.API_ORIGIN, "The staging API origin"),
+    apiProxySecret: requiredProxySecret(env.API_PROXY_SECRET),
+    stagingHostname,
+    environment: "staging"
+  };
+}
+function securityHeaders(headers, indexable = false) {
+  headers.set("Content-Security-Policy", CONTENT_SECURITY_POLICY);
+  headers.set("Permissions-Policy", "camera=(), geolocation=(), microphone=()");
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  headers.set(
+    "Strict-Transport-Security",
+    "max-age=31536000; includeSubDomains"
+  );
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("X-Frame-Options", "DENY");
+  if (indexable) headers.delete("X-Robots-Tag");
+  else headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+}
+function securedResponse(response, cacheControl, {
+  encodedBody = false,
+  noStore = false,
+  responseHeaders = response.headers,
+  indexable = false
+} = {}) {
+  const headers = new Headers(responseHeaders);
+  headers.set("Cache-Control", cacheControl);
+  headers.set("CDN-Cache-Control", cacheControl);
+  if (noStore) {
+    headers.set("Expires", "0");
+    headers.set("Pragma", "no-cache");
+  }
+  securityHeaders(headers, indexable);
+  const responseInit = {
+    headers,
+    status: response.status,
+    statusText: response.statusText
+  };
+  if (encodedBody) responseInit.encodeBody = "manual";
+  return new Response(response.body, responseInit);
+}
+function noStoreResponse(response) {
+  return securedResponse(response, "private, no-store, max-age=0", {
+    noStore: true
+  });
+}
+function jsonResponse(status, code, message) {
+  return noStoreResponse(
+    new Response(JSON.stringify({ error: { code, message } }), {
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      status
+    })
+  );
+}
+function isApiRequest(pathname) {
+  return pathname === "/api" || pathname.startsWith("/api/");
+}
+function stripeWebhookMethodNotAllowedResponse() {
+  const response = jsonResponse(
+    405,
+    "METHOD_NOT_ALLOWED",
+    "This webhook endpoint requires POST."
+  );
+  response.headers.set("Allow", "POST");
+  return response;
+}
+function upstreamResponseHeaders(response) {
+  const headers = new Headers();
+  for (const [name, value] of response.headers) {
+    if (API_RESPONSE_HEADERS.has(name.toLowerCase()))
+      headers.append(name, value);
+  }
+  for (const cookie of response.headers.getSetCookie()) {
+    headers.append("Set-Cookie", cookie);
+  }
+  return headers;
+}
+async function proxyToApi(request, configuration, dependencies) {
+  const incomingUrl = new URL(request.url);
+  const upstreamUrl = new URL(configuration.apiOrigin);
+  upstreamUrl.pathname = incomingUrl.pathname;
+  upstreamUrl.search = incomingUrl.search;
+  const upstreamHeaders = new Headers(request.headers);
+  for (const name of PROXY_REQUEST_HEADERS_TO_REMOVE) {
+    upstreamHeaders.delete(name);
+  }
+  upstreamHeaders.set(STAGING_PROXY_HEADER_NAME, configuration.apiProxySecret);
+  const upstreamRequestInit = {
+    headers: upstreamHeaders,
+    method: request.method,
+    redirect: "manual"
+  };
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    upstreamRequestInit.body = request.body;
+    upstreamRequestInit.duplex = "half";
+  }
+  const upstreamRequest = new Request(upstreamUrl, upstreamRequestInit);
+  let upstreamResponse;
+  try {
+    upstreamResponse = await dependencies.fetch(upstreamRequest, {
+      redirect: "manual"
+    });
+  } catch {
+    return jsonResponse(
+      502,
+      configuration.environment === "staging" ? "STAGING_API_UNAVAILABLE" : "API_UNAVAILABLE",
+      configuration.environment === "staging" ? "The staging API is temporarily unavailable." : "The API is temporarily unavailable."
+    );
+  }
+  const responseHeaders = upstreamResponseHeaders(upstreamResponse);
+  return securedResponse(upstreamResponse, "private, no-store, max-age=0", {
+    encodedBody: responseHeaders.has("content-encoding"),
+    noStore: true,
+    responseHeaders
+  });
+}
+function assetCacheControl(request, response) {
+  if (!response.ok) return "private, no-store, max-age=0";
+  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+  if (contentType.includes("text/html")) {
+    return "private, no-store, max-age=0";
+  }
+  const pathname = new URL(request.url).pathname;
+  if (/^\/assets\/.+-[A-Za-z0-9_-]{8,}\.[A-Za-z0-9]+$/u.test(pathname)) {
+    return "public, max-age=31536000, immutable";
+  }
+  return "public, max-age=3600, must-revalidate";
+}
+async function serveAsset(request, env, indexable = false) {
+  const assetUrl = new URL(request.url);
+  if (assetUrl.pathname.replace(/\/+$/, "") === "/total-loss-review") assetUrl.pathname = "/total-loss-review.html";
+  const response = await env.ASSETS.fetch(new Request(assetUrl, request));
+  const cacheControl = assetCacheControl(request, response);
+  const secured = securedResponse(response, cacheControl, {
+    noStore: cacheControl.includes("no-store"),
+    indexable: indexable && response.ok
+  });
+  applyMeasurementPolicy(secured, request, env);
+  return secured;
+}
+function applyMeasurementPolicy(response, request, env) {
+  const url = new URL(request.url);
+  if (env.GOOGLE_ADS_MEASUREMENT !== "true" || ![PUBLIC_ORIGIN, APP_ORIGIN].includes(url.origin) || /^\/(admin|partners|auth)(\/|$)/.test(url.pathname)) return;
+  const policy = response.headers.get("Content-Security-Policy");
+  if (!policy) return;
+  const additions = {
+    "script-src": "https://www.googletagmanager.com https://www.googleadservices.com https://www.google.com",
+    "connect-src": "https://www.googletagmanager.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://pagead2.googlesyndication.com https://www.google.com https://ad.doubleclick.net",
+    "img-src": "https://www.googletagmanager.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://pagead2.googlesyndication.com https://www.google.com",
+    "frame-src": "https://www.googletagmanager.com"
+  };
+  response.headers.set("Content-Security-Policy", policy.split("; ").map((d) => additions[d.split(" ")[0]] ? `${d} ${additions[d.split(" ")[0]]}` : d).join("; "));
+  response.headers.set("Referrer-Policy", "no-referrer");
+}
+function redirectToOrigin(url, origin) {
+  const target = new URL(origin);
+  target.pathname = url.pathname;
+  target.search = url.search;
+  return noStoreResponse(new Response(null, { status: 308, headers: { Location: target.href } }));
+}
+function productionRequestOriginAllowed(request, url) {
+  const origin = request.headers.get("origin");
+  return (origin === null || origin === url.origin) && request.headers.get("sec-fetch-site") !== "cross-site";
+}
+async function handleProductionRequest(request, env, configuration, dependencies) {
+  const url = new URL(request.url);
+  if (![APP_ORIGIN, PARTNER_ORIGIN].includes(url.origin)) {
+    return jsonResponse(421, "PRODUCTION_HOST_REQUIRED", "This request is not addressed to the production application host.");
+  }
+  if (url.origin === PARTNER_ORIGIN) {
+    const partnerApiPath = /^\/api\/v1\/partners\/(?:access|operations|agreements\/[0-9a-f-]{36}\/document)$/iu.test(url.pathname);
+    if (isApiRequest(url.pathname) && !partnerApiPath || url.pathname === "/webhooks" || url.pathname.startsWith("/webhooks/") || url.pathname === "/admin" || url.pathname.startsWith("/admin/")) {
+      return jsonResponse(404, "NOT_FOUND", "This endpoint was not found.");
+    }
+  }
+  if (url.pathname === STRIPE_WEBHOOK_PATH) {
+    if (request.method !== "POST") return stripeWebhookMethodNotAllowedResponse();
+    return proxyToApi(request, configuration, dependencies);
+  }
+  if (url.pathname.startsWith("/webhooks/") || url.pathname === "/internal" || url.pathname.startsWith("/internal/")) {
+    return jsonResponse(404, "NOT_FOUND", "This endpoint was not found.");
+  }
+  if (isApiRequest(url.pathname) || url.pathname === "/health") {
+    if (!productionRequestOriginAllowed(request, url)) {
+      return jsonResponse(403, "ORIGIN_NOT_ALLOWED", "This request origin is not allowed.");
+    }
+    return proxyToApi(request, configuration, dependencies);
+  }
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    const response = jsonResponse(405, "METHOD_NOT_ALLOWED", "This page requires GET or HEAD.");
+    response.headers.set("Allow", "GET, HEAD");
+    return response;
+  }
+  if (url.pathname.replace(/\/+$/, "") === "/auth/callback") {
+    const response = await serveAsset(request, env);
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
+  if (url.pathname === "/robots.txt") {
+    return securedResponse(new Response("User-agent: *\nDisallow: /\n", {
+      headers: { "Content-Type": "text/plain; charset=utf-8" }
+    }), "public, max-age=3600, must-revalidate");
+  }
+  if (url.origin === PARTNER_ORIGIN && url.pathname.startsWith("/r/")) return redirectToOrigin(url, APP_ORIGIN);
+  const publicPage = PUBLIC_PATHS.has(url.pathname.replace(/\/+$/, "") || "/");
+  if (publicPage && url.pathname !== "/") return redirectToOrigin(url, PUBLIC_ORIGIN);
+  if (url.origin === APP_ORIGIN && url.pathname === "/auth/sign-in") {
+    const response = await serveAsset(request, env);
+    response.headers.set("Content-Security-Policy", CONTENT_SECURITY_POLICY.replace(
+      "frame-ancestors 'none'",
+      `frame-ancestors ${PUBLIC_ORIGIN} https://www.venfour.com`
+    ));
+    response.headers.delete("X-Frame-Options");
+    return response;
+  }
+  return serveAsset(request, env);
+}
+async function handleRequest(request, env, dependencies = defaultDependencies) {
+  if (env.DEPLOYMENT_ENVIRONMENT === "public-site") {
+    return handlePublicSiteRequest(request, env);
+  }
+  let configuration;
+  try {
+    configuration = runtimeConfiguration(env);
+  } catch (error) {
+    if (!(error instanceof RuntimeConfigurationError)) throw error;
+    return jsonResponse(
+      503,
+      env.DEPLOYMENT_ENVIRONMENT === "production" ? "PRODUCTION_CONFIGURATION_UNAVAILABLE" : "STAGING_CONFIGURATION_UNAVAILABLE",
+      env.DEPLOYMENT_ENVIRONMENT === "production" ? "The production boundary is unavailable." : "The staging boundary is unavailable."
+    );
+  }
+  if (configuration.environment === "production") {
+    return handleProductionRequest(request, env, configuration, dependencies);
+  }
+  const url = new URL(request.url);
+  if (url.hostname.toLowerCase() !== configuration.stagingHostname) {
+    return jsonResponse(
+      421,
+      "STAGING_HOST_REQUIRED",
+      "This request is not addressed to the staging host."
+    );
+  }
+  if (url.pathname === STRIPE_WEBHOOK_PATH) {
+    if (request.method !== "POST") {
+      return stripeWebhookMethodNotAllowedResponse();
+    }
+    return proxyToApi(request, configuration, dependencies);
+  }
+  if (isApiRequest(url.pathname) || url.pathname === "/health") {
+    return proxyToApi(request, configuration, dependencies);
+  }
+  return serveAsset(request, env);
+}
+async function handlePublicSiteRequest(request, env) {
+  const url = new URL(request.url);
+  if (![PUBLIC_ORIGIN, "https://www.venfour.com", "http://venfour.com", "http://www.venfour.com"].includes(url.origin)) {
+    return jsonResponse(421, "PUBLIC_HOST_REQUIRED", "This request is not addressed to the public website.");
+  }
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return jsonResponse(405, "METHOD_NOT_ALLOWED", "This website accepts GET and HEAD requests only.");
+  }
+  if (url.protocol === "http:" || url.hostname === "www.venfour.com") return redirectToOrigin(url, PUBLIC_ORIGIN);
+  if (/^\/r\/[a-z0-9-]{3,256}\/?$/.test(url.pathname) || /^\/admin\/partners\/[a-z0-9-]{3,63}(?:\/|$)/.test(url.pathname)) return redirectToOrigin(url, APP_ORIGIN);
+  if (url.pathname === "/robots.txt") {
+    return securedResponse(new Response("User-agent: *\nAllow: /\nSitemap: https://venfour.com/sitemap.xml\n", {
+      headers: { "Content-Type": "text/plain; charset=utf-8" }
+    }), "public, max-age=3600, must-revalidate", { indexable: true });
+  }
+  if (url.pathname === "/sitemap.xml") {
+    const urls = [...PUBLIC_PATHS].map((path) => `<url><loc>${PUBLIC_ORIGIN}${path}</loc></url>`).join("");
+    return securedResponse(new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`, { headers: { "Content-Type": "application/xml; charset=utf-8" } }), "public, max-age=3600, must-revalidate", { indexable: true });
+  }
+  const publicPage = PUBLIC_PATHS.has(url.pathname.replace(/\/+$/, "") || "/");
+  const asset = url.pathname.startsWith("/assets/") || url.pathname === "/favicon.svg";
+  if (!publicPage && !asset) {
+    return noStoreResponse(new Response('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Page not found | Venfour</title><body><h1>Page not found</h1><p>This page is not available on the Venfour public website.</p><a href="/">Return to Venfour</a></body></html>', {
+      status: 404,
+      headers: { "Content-Type": "text/html; charset=utf-8" }
+    }));
+  }
+  const response = await serveAsset(request, env, publicPage || asset);
+  response.headers.set("Content-Security-Policy", [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "connect-src 'self'",
+    "font-src 'self' data:",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    `frame-src ${APP_ORIGIN}/auth/sign-in`,
+    "img-src 'self' data: blob:",
+    "object-src 'none'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "upgrade-insecure-requests"
+  ].join("; "));
+  applyMeasurementPolicy(response, request, env);
+  return response;
+}
+var index_default = {
+  fetch(request, env) {
+    return handleRequest(request, env);
+  }
+};
+export {
+  index_default as default,
+  handleRequest
+};

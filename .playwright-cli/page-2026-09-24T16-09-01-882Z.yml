@@ -1,0 +1,62 @@
+- generic [ref=f10e4]:
+  - link "Skip to content" [ref=f10e5] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=f10e7]:
+    - generic [ref=f10e9]:
+      - link "Venfour home" [ref=f10e11] [cursor=pointer]:
+        - /url: https://venfour.com/
+        - generic [ref=f10e13]: Venfour
+      - generic [ref=f10e14]:
+        - generic [ref=f10e15]: Already have an account?
+        - button "Sign In" [ref=f10e16] [cursor=pointer]
+  - main [ref=f10e17]:
+    - generic [ref=f10e19]:
+      - generic [ref=f10e21]:
+        - group "Choose an appraisal service" [ref=f10e22]:
+          - generic [ref=f10e24]:
+            - generic [ref=f10e25] [cursor=pointer]:
+              - radio "Total Loss" [checked] [ref=f10e26]
+              - text: Total Loss
+            - generic [ref=f10e27] [cursor=pointer]:
+              - radio "Diminished Value" [ref=f10e28]
+              - text: Diminished Value
+        - paragraph [ref=f10e29]: Total Loss valuation
+        - heading "Start with a free valuation." [level=1] [ref=f10e30]
+        - paragraph [ref=f10e31]: See how your vehicle compares with the market. Upload your insurer’s valuation report, or start with your vehicle details.
+        - paragraph [ref=f10e32]:
+          - text: "Free valuation · Full review and report:"
+          - strong [ref=f10e33]: $199
+          - text: one-time
+        - region [ref=f10e34]:
+          - paragraph [ref=f10e35]: Illustrative example
+          - heading "2024 Hyundai Elantra SEL" [level=2] [ref=f10e36]:
+            - generic [ref=f10e38]: 2024 Hyundai Elantra SEL
+          - generic [ref=f10e39]:
+            - generic [ref=f10e40]:
+              - term [ref=f10e41]:
+                - generic [ref=f10e43]: Insurer valuation
+              - definition [ref=f10e44]:
+                - generic "$19,050" [ref=f10e45]
+            - generic [ref=f10e46]:
+              - term [ref=f10e47]:
+                - generic [ref=f10e49]: Local market evidence
+              - definition [ref=f10e50]:
+                - generic "$20,480" [ref=f10e51]
+            - generic [ref=f10e52]:
+              - term [ref=f10e53]:
+                - generic [ref=f10e55]: Potential value gap
+              - definition [ref=f10e56]:
+                - generic "+$1,430" [ref=f10e57]
+          - paragraph [ref=f10e58]:
+            - generic [ref=f10e60]: 12 comparable vehicles · within 87 miles
+          - 'img "Value comparison: Insurer valuation, $19,050; Market evidence, $20,480" [ref=f10e61]':
+            - generic [ref=f10e63]:
+              - generic [ref=f10e65]: Insurer valuation
+              - generic [ref=f10e66]: $19,050
+            - generic [ref=f10e71]:
+              - generic [ref=f10e73]: Market evidence
+              - generic [ref=f10e74]: $20,480
+          - paragraph [ref=f10e78]:
+            - generic [ref=f10e80]: A Total Loss review compares the insurer’s stated valuation with relevant market evidence when that value is available. Report-specific findings depend on the evidence supplied.
+      - status [aria-hidden] [ref=f10e84]:
+        - paragraph [ref=f10e86]: Opening your workspace…

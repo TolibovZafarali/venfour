@@ -1,0 +1,193 @@
+- generic [ref=e4]:
+  - link "Skip to content" [ref=e5] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=e7]:
+    - generic [ref=e9]:
+      - link "Venfour home" [ref=e11] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e13]: Venfour
+      - navigation "Primary navigation" [ref=e14]:
+        - link "Total Loss" [ref=e15] [cursor=pointer]:
+          - /url: "#total-loss"
+        - link "Diminished Value" [ref=e16] [cursor=pointer]:
+          - /url: "#diminished-value"
+        - link "How It Works" [ref=e17] [cursor=pointer]:
+          - /url: "#how-it-works"
+        - button "Sign In" [ref=e18] [cursor=pointer]
+        - link "Get Started" [ref=e19] [cursor=pointer]:
+          - /url: https://app.venfour.com/start?service=total-loss
+  - main [ref=e20]:
+    - generic [ref=e21]:
+      - region [ref=e23]:
+        - generic [ref=e25]:
+          - heading "Your Vehicle’s Value, Made Clear." [level=1] [ref=e26]:
+            - generic [ref=e27]: Your Vehicle’s Value,
+            - generic [ref=e28]: Made Clear.
+          - paragraph [ref=e29]: Understand your total-loss valuation, see how it compares with the market, and know what to discuss with your adjuster.
+          - link "Start Total Loss review" [ref=e31] [cursor=pointer]:
+            - /url: https://app.venfour.com/start?service=total-loss
+          - paragraph [ref=e34]:
+            - text: Already started?
+            - link "Find my review" [ref=e35] [cursor=pointer]:
+              - /url: https://app.venfour.com/find-review
+      - region [ref=e36]:
+        - generic [ref=e37]:
+          - generic [ref=e38]:
+            - paragraph [ref=e39]: How it works
+            - heading "Start online in a few steps" [level=2] [ref=e40]
+            - paragraph [ref=e41]: From the details you have to a review you can understand.
+          - list [ref=e42]:
+            - listitem [ref=e43]:
+              - generic [ref=e45]: "01"
+              - heading "Add your valuation details" [level=3] [ref=e47]
+              - paragraph [ref=e48]: Start with your insurer’s report, or enter details for a preliminary estimate. The paid report requires your insurer’s valuation report.
+            - listitem [ref=e49]:
+              - generic [ref=e51]: "02"
+              - heading "Venfour checks the market" [level=3] [ref=e53]
+              - paragraph [ref=e54]: We look at similar vehicles and the details that affect the comparison.
+            - listitem [ref=e55]:
+              - generic [ref=e57]: "03"
+              - heading "See the evidence review" [level=3] [ref=e59]
+              - paragraph [ref=e60]: Understand the findings and what you can discuss with your adjuster.
+      - generic [ref=e61]:
+        - region [ref=e62]:
+          - generic [ref=e63]:
+            - generic [ref=e64]:
+              - paragraph [ref=e65]: A simple example
+              - heading "Two numbers. A clearer picture." [level=2] [ref=e66]:
+                - generic [ref=e67]: Two numbers.
+                - generic [ref=e68]: A clearer picture.
+              - paragraph [ref=e69]: See the insurer’s valuation alongside a similar vehicle’s asking price. We put the difference in context.
+              - list [ref=e70]:
+                - listitem [ref=e71]: Relevant vehicle comparisons
+                - listitem [ref=e74]: Findings in plain language
+                - listitem [ref=e77]: The limitations, clearly explained
+              - link "How we review the evidence" [ref=e80] [cursor=pointer]:
+                - /url: /methodology
+            - figure "Example valuation comparison" [ref=e83]:
+              - generic [ref=e84]:
+                - generic [ref=e85]: Valuation, in perspective
+                - generic [ref=e86]: Illustrative example
+              - generic [ref=e87]:
+                - paragraph [ref=e92]: 2024 Hyundai Elantra SEL
+                - generic [ref=e93]:
+                  - generic [ref=e94]:
+                    - term [ref=e95]: Insurer’s valuation
+                    - definition [ref=e96]:
+                      - generic [ref=e97]: $19,000
+                      - text: $0
+                  - generic [ref=e100]:
+                    - term [ref=e101]: A similar vehicle’s asking price
+                    - definition [ref=e102]:
+                      - generic [ref=e103]: $21,000
+                      - text: $0
+                - generic [ref=e105]:
+                  - paragraph [ref=e106]: A difference to understand.
+                  - paragraph [ref=e107]: A higher asking price is a starting point. Vehicle details and more evidence help explain whether the difference matters.
+                - generic [ref=e108]: Illustrative figures only. Asking prices are not sale prices or a promised settlement.
+        - region [ref=e109]:
+          - generic [ref=e110]:
+            - generic [ref=e111]:
+              - paragraph [ref=e112]: Frequently asked questions
+              - heading "A few things you might be wondering." [level=2] [ref=e113]
+            - generic [ref=e114]:
+              - group [ref=e115]:
+                - generic "Do I need an insurance report?" [ref=e116] [cursor=pointer]
+              - group [ref=e119]:
+                - generic "What does Venfour compare?" [ref=e120] [cursor=pointer]
+              - group [ref=e123]:
+                - generic "Does a higher asking price mean a higher settlement?" [ref=e124] [cursor=pointer]
+              - group [ref=e127]:
+                - generic "Will Venfour speak to my insurer?" [ref=e128] [cursor=pointer]
+              - group [ref=e131]:
+                - generic "Can I return to my review later?" [ref=e132] [cursor=pointer]
+              - group [ref=e135]:
+                - generic "Is Diminished Value available?" [ref=e136] [cursor=pointer]
+            - generic [ref=e139]:
+              - paragraph [ref=e140]: Still have a question?
+              - link "Get in touch" [ref=e141] [cursor=pointer]:
+                - /url: /contact
+      - region [ref=e144]:
+        - generic [ref=e145]:
+          - generic [ref=e146]:
+            - heading "Go into the conversation informed." [level=2] [ref=e147]
+            - paragraph [ref=e148]: Start with your vehicle details. We’ll help make sense of the evidence.
+          - link "Start Total Loss review" [ref=e149] [cursor=pointer]:
+            - /url: https://app.venfour.com/start?service=total-loss
+  - contentinfo [ref=e152]:
+    - generic [ref=e153]:
+      - generic [ref=e154]:
+        - generic [ref=e155]:
+          - link "Venfour home" [ref=e156] [cursor=pointer]:
+            - /url: /
+            - generic [ref=e158]: Venfour
+          - paragraph [ref=e159]: Your vehicle’s value,made clear.
+          - paragraph [ref=e160]: Evidence to help you speak with your insurer.
+          - link "support@venfour.com" [ref=e161] [cursor=pointer]:
+            - /url: mailto:support@venfour.com
+        - navigation "Footer navigation" [ref=e162]:
+          - generic [ref=e163]:
+            - heading "Services" [level=2] [ref=e164]
+            - list [ref=e165]:
+              - listitem [ref=e166]:
+                - link "Total Loss" [ref=e167] [cursor=pointer]:
+                  - /url: "#total-loss"
+              - listitem [ref=e168]:
+                - link "Diminished Value" [ref=e169] [cursor=pointer]:
+                  - /url: "#diminished-value"
+                - generic [ref=e170]: New requests paused
+          - generic [ref=e171]:
+            - heading "Resources" [level=2] [ref=e172]
+            - list [ref=e173]:
+              - listitem [ref=e174]:
+                - link "Understanding your report" [ref=e175] [cursor=pointer]:
+                  - /url: /resources/understanding-your-report
+              - listitem [ref=e176]:
+                - link "Valuation checklist" [ref=e177] [cursor=pointer]:
+                  - /url: /resources/valuation-review-checklist
+              - listitem [ref=e178]:
+                - link "How we review reports" [ref=e179] [cursor=pointer]:
+                  - /url: /methodology
+          - generic [ref=e180]:
+            - heading "Company" [level=2] [ref=e181]
+            - list [ref=e182]:
+              - listitem [ref=e183]:
+                - link "About Venfour" [ref=e184] [cursor=pointer]:
+                  - /url: /about
+              - listitem [ref=e185]:
+                - link "Contact" [ref=e186] [cursor=pointer]:
+                  - /url: /contact
+              - listitem [ref=e187]:
+                - link "Referral partners" [ref=e188] [cursor=pointer]:
+                  - /url: /referral-partners
+      - generic [ref=e189]:
+        - paragraph [ref=e190]: © 2026 Venfour LLC. All rights reserved.
+        - navigation "Footer legal navigation" [ref=e191]:
+          - list [ref=e192]:
+            - listitem [ref=e193]:
+              - link "Terms" [ref=e194] [cursor=pointer]:
+                - /url: /terms
+            - listitem [ref=e195]:
+              - link "Privacy" [ref=e196] [cursor=pointer]:
+                - /url: /privacy
+            - listitem [ref=e197]:
+              - link "Refund policy" [ref=e198] [cursor=pointer]:
+                - /url: /refund-policy
+            - listitem [ref=e199]:
+              - link "Cookie Policy" [ref=e200] [cursor=pointer]:
+                - /url: /cookies
+            - listitem [ref=e201]:
+              - button "Cookie preferences" [ref=e202] [cursor=pointer]
+  - region [ref=e203]:
+    - generic [ref=e204]:
+      - generic [ref=e205]:
+        - heading "Your privacy, your choice" [level=2] [ref=e206]
+        - paragraph [ref=e207]: Venfour uses essential cookies and similar storage to keep this site working. We don’t currently use analytics; your choice will control optional analytics if introduced.
+        - paragraph [ref=e208]:
+          - link "Privacy Policy" [ref=e209] [cursor=pointer]:
+            - /url: /privacy
+          - link "Cookie Policy" [ref=e210] [cursor=pointer]:
+            - /url: /cookies
+      - generic [ref=e211]:
+        - button "Accept All" [ref=e212] [cursor=pointer]
+        - button "Manage Preferences" [ref=e213] [cursor=pointer]

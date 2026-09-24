@@ -1,0 +1,24 @@
+1..23
+ok 1 - zero reviewed publications
+ok 2 - zero operating epochs
+ok 3 - zero credentials and document releases
+ok 4 - no retroactive acceptance
+ok 5 - empty reviewers
+ok 6 - empty writers
+ok 7 - empty publishers
+ok 8 - service cannot publish
+ok 9 - staff/customer cannot publish
+ok 10 - anonymous cannot publish
+ok 11 - service cannot self-grant
+ok 12 - customer cannot self-grant
+ok 13 - publisher cannot grant reviewer authority
+ok 14 - writer cannot read other signing keys
+ok 15 - service cannot forge review authenticators
+ok 16 - partner cannot attest credentials
+ok 17 - service cannot attest credentials
+ok 18 - service cannot claim customer acceptance
+ok 19 - authenticated acceptance seam exists
+ok 20 - service key alone cannot accept
+ok 21 - bare authority edit rejected
+ok 22 - reviewer history cannot be rewritten
+ok 23 - only verified infrastructure administration reaches restricted roles

@@ -1,0 +1,23 @@
+1..20
+ok 1 - signed-out product reads denied
+ok 2 - authenticated product read seam available
+ok 3 - customers cannot capture worker report facts
+ok 4 - report worker capture is service-only
+ok 5 - workers cannot bypass capture RPC
+ok 6 - captured facts have RLS
+58111111-1111-4111-8111-111111111111
+ok 7 - owned guest intake has explicit unknown facts
+ok 8 - customer read does not expose internal authority
+ok 9 - staff flag is not an authorization bypass
+ok 10 - existing version RPC saves confirmed product facts
+ok 11 - product projection reads persisted revision
+ok 12 - stale update cannot overwrite facts
+58222222-2222-4222-8222-222222222222
+ok 13 - another customer cannot read facts
+ok 14 - ordinary authenticated identity is not staff
+ok 15 - existing staff role can inspect facts
+ok 16 - unenrolled status is explicit
+ok 17 - unenrolled is not approved
+ok 18 - missing cases do not invent a product context
+ok 19 - product facts do not enroll or release a case
+ok 20 - product facts do not publish authority

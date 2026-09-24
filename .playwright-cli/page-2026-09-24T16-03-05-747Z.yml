@@ -1,0 +1,235 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - link [aria-hidden]:
+          - /url: "#main-content"
+          - text: Skip to content
+        - generic [aria-hidden]:
+          - banner:
+            - generic:
+              - generic:
+                - generic:
+                  - link:
+                    - /url: /
+                    - generic: Venfour
+                - generic:
+                  - link:
+                    - /url: /start?service=total-loss
+                    - text: Get Started
+                  - button
+        - main [aria-hidden]:
+          - article:
+            - generic:
+              - paragraph: Total-loss valuation review
+              - heading [level=1]: Think your insurer’s total-loss valuation may be too low?
+              - paragraph: Venfour reviews your insurer’s valuation report, vehicle details, and relevant market evidence to help you understand whether there is support for asking your insurer to reconsider the valuation.
+              - generic:
+                - link:
+                  - /url: /start?service=total-loss
+                  - text: Review My Valuation
+                - paragraph:
+                  - strong: $199 per case
+                  - generic: One-time payment for the full review. Check eligibility first.
+              - paragraph: Have your insurer’s complete valuation report ready. It is required for the paid review.
+            - region:
+              - generic:
+                - paragraph: A clearer view of the evidence
+                - heading [level=2]: Understand what supports the valuation.
+              - generic:
+                - generic:
+                  - heading [level=3]: Your insurer’s report
+                  - paragraph: Vehicle specifications, comparable vehicles, condition information, and the adjustments shown in the report.
+                - generic:
+                  - heading [level=3]: Your vehicle details
+                  - paragraph: The information you provide about mileage, equipment, and condition, together with the report’s description.
+                - generic:
+                  - heading [level=3]: Relevant market evidence
+                  - paragraph: Comparable advertised vehicles and the differences that affect their usefulness. Asking prices are evidence, not completed sale prices.
+            - region:
+              - generic:
+                - paragraph: What you receive
+                - heading [level=2]: Findings you can understand and use.
+              - generic:
+                - paragraph: A completed valuation review and downloadable Total-Loss Valuation Report explaining the findings, supporting market evidence, and limitations.
+                - paragraph: When the evidence supports reconsideration, Venfour helps you prepare a request and supporting materials for your insurer. You review and send the message yourself. You can return with the insurer’s response for help understanding the next step.
+                - paragraph: A higher valuation, payment, or insurer acceptance is not guaranteed. Outcomes depend on the evidence and the insurer’s response.
+            - region:
+              - paragraph: The process
+              - heading [level=2]: Start with your report.
+              - list:
+                - listitem:
+                  - generic: "01"
+                  - heading [level=3]: Share your valuation details
+                  - paragraph: Use the existing secure intake to add your vehicle information and insurer valuation report.
+                - listitem:
+                  - generic: "02"
+                  - heading [level=3]: Confirm eligibility
+                  - paragraph: Venfour checks the report and available evidence. If your case is eligible, you can purchase the full review for $199.
+                - listitem:
+                  - generic: "03"
+                  - heading [level=3]: Review your findings
+                  - paragraph: Read the completed report and decide what to discuss with your insurer. You remain in control of your claim.
+            - region:
+              - generic:
+                - paragraph: Fair-Result Refund Policy
+                - heading [level=2]: Two separate refund protections.
+              - generic:
+                - paragraph:
+                  - strong: "No supported dispute:"
+                  - text: if the completed review does not reasonably support challenging the insurer’s valuation, Venfour refunds the full purchase automatically. You keep access to your completed review and report.
+                - paragraph:
+                  - strong: "Supported dispute, final increase under $1,000:"
+                  - text: after following the Venfour-supported reconsideration process, you may request a full refund if the final verified vehicle-value increase is below $1,000. Submit the required documentation within 30 days of the insurer’s final written response. Exactly $1,000 does not qualify.
+                - paragraph:
+                  - text: These are refund protections, not a promise of a higher payout.
+                  - link:
+                    - /url: /refund-policy
+                    - text: Read the full refund policy and requirements.
+            - region:
+              - heading [level=2]: Make your next step an informed one.
+              - link:
+                - /url: /start?service=total-loss
+                - text: Review My Valuation
+              - paragraph: Venfour LLC provides an independent evidence review. We are not your insurer, a law firm, or a government agency. We do not represent you or negotiate directly with your insurer. The service is not a legal opinion or a formal appraisal-clause appraisal.
+              - paragraph:
+                - text: Questions?
+                - link:
+                  - /url: mailto:support@venfour.com
+                  - text: support@venfour.com
+                - text: .
+              - navigation:
+                - link:
+                  - /url: /privacy
+                  - text: Privacy Policy
+                - link:
+                  - /url: /terms
+                  - text: Terms of Use
+                - link:
+                  - /url: /refund-policy
+                  - text: Refund Policy
+                - link:
+                  - /url: /contact
+                  - text: Contact & support
+        - contentinfo [aria-hidden]:
+          - generic:
+            - generic:
+              - generic:
+                - link:
+                  - /url: /
+                  - generic: Venfour
+                - paragraph: Your vehicle’s value, made clear.
+                - paragraph: Evidence to help you speak with your insurer.
+                - link:
+                  - /url: mailto:support@venfour.com
+                  - text: support@venfour.com
+              - navigation:
+                - generic:
+                  - heading [level=2]: Services
+                  - list:
+                    - listitem:
+                      - link:
+                        - /url: /#total-loss
+                        - text: Total Loss
+                    - listitem:
+                      - link:
+                        - /url: /#diminished-value
+                        - text: Diminished Value
+                      - generic: New requests paused
+                - generic:
+                  - heading [level=2]: Resources
+                  - list:
+                    - listitem:
+                      - link:
+                        - /url: /resources/understanding-your-report
+                        - text: Understanding your report
+                    - listitem:
+                      - link:
+                        - /url: /resources/valuation-review-checklist
+                        - text: Valuation checklist
+                    - listitem:
+                      - link:
+                        - /url: /methodology
+                        - text: How we review reports
+                - generic:
+                  - heading [level=2]: Company
+                  - list:
+                    - listitem:
+                      - link:
+                        - /url: /about
+                        - text: About Venfour
+                    - listitem:
+                      - link:
+                        - /url: /contact
+                        - text: Contact
+                    - listitem:
+                      - link:
+                        - /url: /referral-partners
+                        - text: Referral partners
+            - generic:
+              - paragraph: © 2026 Venfour LLC. All rights reserved.
+              - navigation:
+                - list:
+                  - listitem:
+                    - link:
+                      - /url: /terms
+                      - text: Terms
+                  - listitem:
+                    - link:
+                      - /url: /privacy
+                      - text: Privacy
+                  - listitem:
+                    - link:
+                      - /url: /refund-policy
+                      - text: Refund policy
+                  - listitem:
+                    - link:
+                      - /url: /cookies
+                      - text: Cookie Policy
+                  - listitem:
+                    - button: Cookie preferences
+        - region [ref=e147]:
+          - generic [ref=e148]:
+            - generic [ref=e149]:
+              - heading "Your privacy, your choice" [level=2] [ref=e150]
+              - paragraph [ref=e151]: Venfour uses essential cookies and similar storage to keep this site working. Optional analytics and advertising measurement are off unless you allow them. Your review works either way.
+              - paragraph [ref=e152]:
+                - link "Privacy Policy" [ref=e153] [cursor=pointer]:
+                  - /url: /privacy
+                - link "Cookie Policy" [ref=e154] [cursor=pointer]:
+                  - /url: /cookies
+            - generic [ref=e155]:
+              - button "Accept All" [ref=e156] [cursor=pointer]
+              - button "Manage Preferences" [ref=e157] [cursor=pointer]
+  - dialog [ref=e163]:
+    - generic [ref=e164]:
+      - heading "Cookie preferences" [level=2] [ref=e165]
+      - paragraph [ref=e166]: Essential storage is always active. Choose whether Venfour may use optional analytics and advertising measurement when configured.
+    - button "Close cookie preferences" [active] [ref=e167] [cursor=pointer]
+    - generic [ref=e171]:
+      - generic [ref=e172]:
+        - generic [ref=e173]:
+          - heading "Essential" [level=3] [ref=e179]
+          - paragraph [ref=e180]: Required for core site functions and to remember this choice.
+        - switch "Essential cookies, always enabled" [checked] [disabled] [ref=e182]
+      - generic [ref=e184]:
+        - generic [ref=e185]:
+          - heading "Analytics" [level=3] [ref=e186]
+          - paragraph [ref=e187]: Measure use of the review process without claim or document details.
+        - switch "Allow analytics" [ref=e188] [cursor=pointer]
+      - generic [ref=e190]:
+        - generic [ref=e191]:
+          - heading "Advertising measurement" [level=3] [ref=e192]
+          - paragraph [ref=e193]: Remember campaign and click identifiers and measure purchases with Google when configured. If enabled, enhanced conversions use your purchase email. No claim details or personalized advertising.
+        - switch "Allow advertising measurement" [ref=e194] [cursor=pointer]
+    - paragraph [ref=e196]:
+      - text: Read the
+      - link "Privacy Policy" [ref=e197] [cursor=pointer]:
+        - /url: /privacy
+      - text: and
+      - link "Cookie Policy" [ref=e198] [cursor=pointer]:
+        - /url: /cookies
+      - text: .
+    - generic [ref=e199]:
+      - button "Reject Non-Essential" [ref=e200] [cursor=pointer]
+      - button "Save Preferences" [ref=e201] [cursor=pointer]

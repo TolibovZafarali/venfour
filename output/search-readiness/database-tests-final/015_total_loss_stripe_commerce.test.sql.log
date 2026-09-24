@@ -1,0 +1,186 @@
+1..152
+ok 1 - Stripe webhook, refund-operation, and dispute projections reuse the Milestone 1 commerce foundation
+ok 2 - orders freeze provider mode and verified email while checkout attempts support controlled replacement generations
+ok 3 - refund operations preserve immutable Stripe balance and reversal transaction identities
+ok 4 - all new provider and financial operation tables have RLS enabled
+ok 5 - provider audit, refund, and dispute rows remain server-only
+ok 6 - Milestone 3 exposes the exact narrow service RPC surface
+ok 7 - all commerce RPCs are security-definer functions with empty search paths
+ok 8 - session attachment and signed terminal transitions lock case then order then attempt consistently
+ok 9 - refund result processing acquires the case advisory lock before mutable refund and order row locks
+ok 10 - only service_role can execute authoritative commerce mutations
+ok 11 - claim resume preserves commerce fields and adds only customer-safe delivery and response projections
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ok 12 - preflight authorizes the exact permanent verified-email owner before provider lookup
+ok 13 - preflight denies another permanent user without disclosing the case
+ok 14 - preflight denies an authenticated anonymous owner
+ok 15 - reservation freezes the server-resolved commercial contract and first attempt
+ok 16 - the same client request reuses its logical order and active attempt
+ok 17 - two browser tabs cannot reserve independent active Checkout Sessions
+ok 18 - duplicate requests create one logical order and one attempt
+ok 19 - a configured Price change cannot rewrite an existing logical order
+ok 20 - a version change cannot create a second payable order beside a non-void order
+ok 21 - a reserved attempt accepts exactly one authoritative hosted Checkout Session
+ok 22 - metadata-loss lookup resolves one exact locally bound Session using only frozen commerce context
+ok 23 - metadata-loss lookup returns no disclosure for an invalid or unknown Session identity
+ok 24 - wrong-user reconciliation is owner-safe before provider retrieval
+ok 25 - authorized reconciliation returns the frozen local contract before Stripe retrieval
+ok 26 - browser reconciliation observes provider payment but never grants entitlement
+ok 27 - a completed paid observation awaiting webhook authority blocks every replacement request
+ok 28 - preflight projects payment pending instead of allowing a second Checkout while fulfillment awaits its webhook
+ok 29 - the customer-safe claim projection reports payment pending while webhook fulfillment is outstanding
+ok 30 - service-role table access cannot rewrite provider identity on a terminal Checkout attempt
+ok 31 - a successful browser return alone creates no payment authority or access
+ok 32 - the first signature-verified event reserves one processing lease
+ok 33 - an ambiguous claim retry with the same fencing token idempotently resumes its lease
+ok 34 - a concurrent duplicate event cannot take over an active processing lease
+ok 35 - event-ID reuse with a different raw-body digest is rejected
+ok 36 - webhook fulfillment rejects a Price mismatch against the frozen order
+ok 37 - a claimed supported checkout webhook atomically fulfills one purchase
+ok 38 - fulfillment records one payment and entitlement without starting package work or changing appraisal status
+ok 39 - processed webhook audit is bound to its case and logical order
+ok 40 - a duplicate delivered event is acknowledged without reprocessing
+ok 41 - secured owners receive only the safe authoritative paid projection
+ok 42 - browser roles cannot mutate immutable financial transactions
+ok 43 - service-role API grants do not permit financial-record updates after insertion
+attached|d2000000-0000-4000-8000-000000000002|d08ce479-cbc7-4517-bc5e-af7d30771d57|pending|d1000000-0000-4000-8000-000000000001|6cd42a5e-1d02-4ffc-a699-e5734dbbfb8a|d3000000-0000-4000-8000-000000000020|1|open|cs_test_two_old||9900|USD|price_test_total_loss_v1|f|2026-09-24 17:08:23.976545+00|buyer@example.test|
+observed|d2000000-0000-4000-8000-000000000002|d08ce479-cbc7-4517-bc5e-af7d30771d57|6cd42a5e-1d02-4ffc-a699-e5734dbbfb8a|pending|expired|
+ok 44 - a stale browser observation cannot reopen an expired Checkout attempt
+ok 45 - an expired Session receives a controlled second-generation local attempt for the same client request
+ok 46 - replacement retains history while allowing exactly one active attempt
+attached|d2000000-0000-4000-8000-000000000003|2b4067a8-325a-47da-b50d-811a7a089b14|pending|d1000000-0000-4000-8000-000000000001|613fbed8-964b-4ea3-95b7-05ba699902ce|d3000000-0000-4000-8000-000000000030|1|open|cs_test_three||9900|USD|price_test_total_loss_v1|f|2026-09-24 17:08:24.757499+00|buyer@example.test|
+ok 47 - a claimed asynchronous failure terminates the attempt without granting access
+ok 48 - a stale completed observation cannot reopen an asynchronously failed Checkout attempt
+ok 49 - retry after an authoritative async failure creates one controlled replacement generation
+ok 50 - a claimed expiration closes the creating attempt when the provider callback won the attachment race
+ok 51 - a signed crash-window expiration enables one controlled replacement generation
+ok 52 - complete-unpaid idempotency recovery binds the original generation as payment-pending without access
+ok 53 - complete-unpaid recovery cannot create a replacement even when the provider expiry is locally past
+ok 54 - expired-Session crash recovery rejects a different purchaser before binding provider identity
+ok 55 - service recovery atomically binds an idempotently returned expired Session and closes the creating attempt
+ok 56 - exact expired-Session crash recovery replay is idempotent
+ok 57 - authoritative expired recovery enables exactly one controlled replacement generation
+ok 58 - complete-paid idempotency recovery binds the original generation without granting payment authority
+ok 59 - complete-paid recovery remains payment-pending and blocks every replacement before webhook fulfillment
+ok 60 - the later signed webhook fulfills a recovered complete-paid Session exactly once
+attached|d2000000-0000-4000-8000-000000000009|f5eb93b4-1643-4668-93b0-92939aa07047|pending|d1000000-0000-4000-8000-000000000001|3f34ac0e-9a3f-495f-8d92-9fee4e2c0c7a|4661a505-1607-417f-bd65-f8beea6c2dd4|1|open|cs_test_nine||9900|USD|price_test_total_loss_v1|f|2026-09-24 17:08:27.665287+00|buyer@example.test|
+ok 61 - a locally elapsed Session expiry remains authoritative Stripe state and cannot create a replacement
+ok 62 - webhook context uses the order-frozen verified email after the Auth email changes
+ok 63 - a verified webhook fulfills against frozen purchase identity despite later Auth email mutation
+ok 64 - a delayed paid webhook fulfills the past-local-expiry attempt exactly once without replacement
+attached|d2000000-0000-4000-8000-000000000010|ebd3c896-49c8-41b0-a692-a09f814f6132|pending|d1000000-0000-4000-8000-000000000001|9800de3c-116f-47be-bd16-bb709db8de00|6e33fff5-963f-4858-919f-b3d6f0f45944|1|open|cs_test_ten||9900|USD|price_test_total_loss_v1|f|2026-09-24 17:08:28.424734+00|buyer@example.test|
+ok 65 - workflow drift rejects first-payment fulfillment before any authority is recorded
+ok 66 - rejected drift leaves order, attempt, payment, and entitlement state unchanged
+ok 67 - preflight treats a void logical order as conservatively unavailable
+ok 68 - reservation agrees that a same-version void order is unavailable
+ok 69 - a void order cannot silently authorize a new-version purchase
+ok 70 - customer projection exposes a coherent unavailable void state
+
+ok 71 - a delayed expiration for an old attempt is acknowledged after its replacement fulfilled the order
+ok 72 - refund reservation returns the server-only PaymentIntent and frozen full amount
+ok 73 - a requires-action refund remains non-final without changing order or access
+ok 74 - an older pending refund event cannot erase requires-action provider truth
+ok 75 - requires-action can resolve to a verified full refund with explicit access revocation
+ok 76 - an exact successful refund retry returns a complete zero-provider replay projection
+ok 77 - an equal-second authoritative failed refund records one reversal and restores paid access
+ok 78 - an exact replay of the refund reversal is idempotent
+ok 79 - an equal-second reverse success cannot regress an authoritative refund failure
+ok 80 - refund success and provider reversal remain distinct linked immutable movements
+ok 81 - service table access cannot rewrite recorded refund reversal identity
+ok 82 - a later valid refund can succeed after the earlier refund and its reversal are terminal
+ok 83 - replaying an earlier reversed refund returns its own audit state with the later refund projection
+ok 84 - a second request cannot silently replace an active refund access policy or reason
+ok 85 - a verified full fair-result refund retains explanatory access explicitly
+ok 86 - successful refund replay cannot create another immutable refund transaction
+
+ok 87 - a provider-failed refund does not alter paid order or entitlement authority
+ok 88 - an older pending refund event is acknowledged without regressing terminal failure
+
+ok 89 - a delayed asynchronous failure for an old attempt is acknowledged after its replacement fulfilled the order
+ok 90 - an accidental second successful PaymentIntent is recorded but cannot grant another entitlement
+ok 91 - an exact creating refund crash-retry remains provider-retriable after later duplicate-payment evidence
+ok 92 - duplicate-payment evidence is durable while entitlement remains unique
+a976c57d-690b-491c-9272-827997a104c2|failed|1
+ok 93 - duplicate-payment retry remains an operational exception rather than becoming already fulfilled
+ok 94 - an active dispute on one payment leaves paid access covered by another clean payment
+ok 95 - clean duplicate-payment coverage preserves every order and entitlement field and timestamp
+ok 96 - a lost dispute on one payment still leaves access covered by another clean payment
+ok 97 - a newer late win keeps both successful payments clean and access active
+ok 98 - the other payment can also become adverse while the primary clean payment preserves access
+ok 99 - adverse disputes across both payments suspend access when no clean coverage remains
+ok 100 - winning either dispute restores clean aggregate payment coverage and active access
+ok 101 - a remaining lost dispute cannot suspend access while the duplicate payment is clean
+ok 102 - all favorable disputes leave both payment coverages clean
+ok 103 - refunding the primary payment preserves paid access through the clean duplicate payment
+ok 104 - a nonterminal single-payment refund preserves aggregate order and entitlement timestamps
+ok 105 - the duplicate payment can reserve its own exact refund remediation operation
+ok 106 - refunding every successful payment applies the latest effective refund access policy
+ok 107 - the final effective refund deterministically supplies the access-policy reason
+ok 108 - reversing either effective refund restores clean payment coverage and active access
+ok 109 - reversing the remaining refund leaves both immutable successful payments as clean coverage
+ok 110 - aggregate coverage preserves both payment and refund-remediation evidence with one entitlement
+
+pending|d2000000-0000-4000-8000-000000000004|79791d48-30d0-456b-8590-8732c67e07ea|1ca8cc2d-c7ff-4caf-a0fc-e056ae8d8aaf|pending|pending|||paid|active
+ok 111 - a positive partial dispute warning suspends access without inventing a funds movement
+ok 112 - an exact persisted refund retry returns zero-provider projection after a later dispute
+ok 113 - warning and inquiry state is separate from authoritative funds movement evidence
+ok 114 - a warning can progress to a formal active dispute without recording a debit
+ok 115 - only an authoritative funds-withdrawn event records the immutable dispute debit
+ok 116 - a favorable sibling cannot restore access while another dispute remains active
+ok 117 - later disputes inherit the original pre-dispute baseline and favorable closure has no debit
+ok 118 - an older out-of-order status event cannot regress the current dispute projection
+ok 119 - access restores only after every known sibling dispute is favorable
+ok 120 - funds reinstatement records a separate reversal without changing favorable access
+ok 121 - replayed funds reinstatement is idempotent
+ok 122 - dispute debit and reinstatement remain distinct, linked, immutable movements
+
+ok 123 - a favorable first-observed dispute closes without inventing debit or changing access
+ok 124 - a later larger-than-charge loss preserves the earlier favorable sibling and suspends access
+ok 125 - an older reported win cannot rewrite a terminal loss
+ok 126 - an equal-second authoritative late win can restore access after all disputes become favorable
+ok 127 - a replayed late win is idempotent
+ok 128 - reinstatement arriving before withdrawal is retained without inventing a reversal source
+ok 129 - an older funds-withdrawn event still records debit and pairs deferred reinstatement
+ok 130 - out-of-order funds movements remain linked once each at the provider amount
+ok 131 - replayed out-of-order movement events cannot duplicate financial history
+
+ok 132 - a favorable first dispute closes against the then-current paid baseline
+ok 133 - a retained-access refund establishes a newer post-dispute commerce baseline
+ok 134 - a later dispute suspends access without erasing the effective full-refund projection
+ok 135 - a new dispute inherits only an unresolved sibling baseline and otherwise freezes current refund state
+ok 136 - an equal-second active-to-won transition restores the current retained-refund projection
+ok 137 - an exact favorable dispute replay is idempotent
+ok 138 - duplicate dispute replay preserves the complete order and entitlement rows including timestamps
+ok 139 - an equal-second reverse event cannot regress a won dispute or the later refund baseline
+ok 140 - stale dispute replay preserves the complete order and entitlement rows including timestamps
+
+applied|d2000000-0000-4000-8000-000000000014|7ca7bb53-c2bb-4de2-a9a3-963a298d29dd|dab90b33-349b-4dc9-82d6-874ff0cfa909|active||disputed|suspended
+ok 141 - refund success during an active dispute preserves suspended access and records refunded payment state
+ok 142 - winning the dispute after refund success restores the explicit retained-refund access policy
+
+ok 143 - an earlier provider-failed refund leaves the order eligible for a later request
+applied|d2000000-0000-4000-8000-000000000015|2a0a6c9b-c9d5-47bf-9223-2604361d57d2|562286e1-20af-42c7-b7c9-b2543beddf34|active||disputed|suspended
+succeeded|d2000000-0000-4000-8000-000000000015|2a0a6c9b-c9d5-47bf-9223-2604361d57d2|ff10a625-4e83-4e8d-9517-d769431700f4|succeeded|succeeded|0e58a12c-03ea-49a9-ac67-d34e0fd9f532||refunded|suspended
+ok 144 - replaying an earlier failed refund preserves its audit row while returning the later disputed refund projection
+ok 145 - an equal-second active-to-lost transition keeps refunded payment state and suspended access
+ok 146 - PaymentIntent lookup supplies the authoritative local refund/dispute context
+ok 147 - paid commerce and entitlement continue fencing later ordinary ownership transfer
+ok 148 - provider audit tables contain no raw payload or unnecessary customer claim facts
+ok 149 - the current permanent owner receives commerce state only through bounded projections
+ok 150 - browser owners cannot read server-only logical orders directly
+ok 151 - a wrong permanent owner cannot read another customer entitlement
+ok 152 - an anonymous Auth identity cannot read post-payment entitlements

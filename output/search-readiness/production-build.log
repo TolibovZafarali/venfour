@@ -1,0 +1,30 @@
+
+> venfour-frontend@0.1.0 build:production
+> npm run validate:production-env && npm run check:contracts && tsc -b --pretty false && vite build --mode production
+
+
+> venfour-frontend@0.1.0 validate:production-env
+> node scripts/validate-production-env.mjs
+
+Production browser environment is valid.
+
+> venfour-frontend@0.1.0 check:contracts
+> node scripts/analysis-contract.mjs --check
+
+vite v8.2.1 building client environment for production...
+[2Ktransforming...✓ 2504 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                         0.85 kB │ gzip:   0.46 kB
+dist/total-loss-review.html                             1.40 kB │ gzip:   0.58 kB
+dist/assets/index-b72HX4-q.css                        373.20 kB │ gzip:  60.49 kB
+dist/assets/blue-button-fluid-renderer-D8lZONA1.js      7.02 kB │ gzip:   2.67 kB
+dist/assets/browser-CLw1UXzh.js                        23.46 kB │ gzip:   8.85 kB
+dist/assets/index-CY8NZCDy.js                       2,173.33 kB │ gzip: 663.78 kB
+
+✓ built in 485ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.

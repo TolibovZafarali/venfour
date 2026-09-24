@@ -1,0 +1,9 @@
+[
+  {
+    "file": "059_search_measurement.test.sql",
+    "assertions": 31,
+    "success": true,
+    "failures": [],
+    "exit_code": 0
+  }
+]

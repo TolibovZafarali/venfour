@@ -1,0 +1,103 @@
+- generic [ref=e4]:
+  - link "Skip to content" [ref=e5] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=e7]:
+    - generic [ref=e9]:
+      - link "Venfour home" [ref=e11] [cursor=pointer]:
+        - /url: https://venfour.com/
+        - generic [ref=e13]: Venfour
+      - generic [ref=e14]:
+        - generic [ref=e15]: Already have an account?
+        - button "Sign In" [ref=e16] [cursor=pointer]
+  - main [ref=e17]:
+    - generic [ref=e19]:
+      - generic [ref=e21]:
+        - group "Choose an appraisal service" [ref=e22]:
+          - generic [ref=e24]:
+            - generic [ref=e25] [cursor=pointer]:
+              - radio "Total Loss" [checked] [ref=e26]
+              - text: Total Loss
+            - generic [ref=e27] [cursor=pointer]:
+              - radio "Diminished Value" [ref=e28]
+              - text: Diminished Value
+        - paragraph [ref=e29]: Total Loss valuation
+        - heading "Start your Total Loss review" [level=1] [ref=e30]
+        - paragraph [ref=e31]: Upload your insurer’s valuation report from any provider, or continue without one. Venfour will gather the facts needed for independent market research and a truthful evidence review.
+        - region [ref=e32]:
+          - paragraph [ref=e33]: Illustrative example
+          - heading "2024 Hyundai Elantra SEL" [level=2] [ref=e34]:
+            - generic [ref=e36]: 2024 Hyundai Elantra SEL
+          - generic [ref=e37]:
+            - generic [ref=e38]:
+              - term [ref=e39]:
+                - generic [ref=e41]: Insurer valuation
+              - definition [ref=e42]:
+                - generic "$19,050" [ref=e43]
+            - generic [ref=e44]:
+              - term [ref=e45]:
+                - generic [ref=e47]: Local market evidence
+              - definition [ref=e48]:
+                - generic "$20,480" [ref=e49]
+            - generic [ref=e50]:
+              - term [ref=e51]:
+                - generic [ref=e53]: Potential value gap
+              - definition [ref=e54]:
+                - generic "+$1,430" [ref=e55]
+          - paragraph [ref=e56]:
+            - generic [ref=e58]: 12 comparable vehicles · within 87 miles
+          - 'img "Value comparison: Insurer valuation, $19,050; Market evidence, $20,480" [ref=e59]':
+            - generic [ref=e61]:
+              - generic [ref=e63]: Insurer valuation
+              - generic [ref=e64]: $19,050
+            - generic [ref=e69]:
+              - generic [ref=e71]: Market evidence
+              - generic [ref=e72]: $20,480
+          - paragraph [ref=e76]:
+            - generic [ref=e78]: A Total Loss review compares the insurer’s stated valuation with relevant market evidence when that value is available. Report-specific findings depend on the evidence supplied.
+      - generic [ref=e202]:
+        - generic "Appraisal progress" [ref=e203]:
+          - list "Appraisal steps" [ref=e204]:
+            - listitem "Start, step 1, completed" [ref=e205]
+            - listitem "Vehicle, step 2, completed" [ref=e206]
+            - listitem "Claim, step 3, current" [ref=e207]
+            - listitem "Contact, step 4" [ref=e208]
+        - generic [ref=e209]:
+          - heading "Add the claim details" [level=2] [ref=e210]
+          - paragraph [ref=e211]: These details help Venfour understand the insurer’s vehicle value in context.
+        - status [ref=e212]: "Vehicle: 2020 Toyota Corolla Other / Not sure"
+        - region [ref=e213]:
+          - heading "Vehicle and loss information" [level=3] [ref=e214]
+          - paragraph [ref=e215]: Add the facts that most directly affect the vehicle appraisal.
+          - generic [ref=e216]:
+            - generic [ref=e217]:
+              - generic [ref=e218]: Mileage at time of loss
+              - textbox "Mileage at time of loss" [ref=e220]:
+                - /placeholder: 48,250
+            - generic [ref=e221]:
+              - generic [ref=e222]: ZIP code
+              - textbox "ZIP code" [ref=e224]:
+                - /placeholder: "60611"
+            - generic [ref=e225]:
+              - generic [ref=e226]: Date of loss
+              - button "Date of loss" [ref=e228] [cursor=pointer]:
+                - generic [ref=e229]: Choose a date
+        - region [ref=e232]:
+          - heading "Insurance information" [level=3] [ref=e233]
+          - paragraph [ref=e234]: Add the insurer details separately from the vehicle appraisal facts.
+          - generic [ref=e235]:
+            - generic [ref=e236]:
+              - generic [ref=e237]:
+                - generic [ref=e238] [cursor=pointer]: Insurance company
+                - generic [ref=e239]: Optional
+              - combobox "Insurance company" [ref=e241] [cursor=pointer]
+            - generic [ref=e242]:
+              - generic [ref=e243]:
+                - generic [ref=e244]:
+                  - generic [ref=e245] [cursor=pointer]: Insurer’s vehicle valuation
+                  - button "More information about Insurer’s vehicle valuation" [ref=e246] [cursor=pointer]
+                - generic [ref=e250]: Optional
+              - textbox "Insurer’s vehicle valuation" [ref=e251]:
+                - /placeholder: $18,750.00
+        - generic [ref=e252]:
+          - button "Back" [ref=e253] [cursor=pointer]
+          - button "Continue" [ref=e256] [cursor=pointer]

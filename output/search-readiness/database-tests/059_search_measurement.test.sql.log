@@ -1,0 +1,37 @@
+1..31
+f1000000-0000-4000-8000-000000000001
+authenticated
+ok 1 - unpaid cases have no purchase event
+ok 2 - an owner can attach validated attribution
+ok 3 - the first paid source can replace organic
+ok 4 - later clicks do not fail intake
+ok 5 - private fields are rejected
+ok 6 - oversized identifiers are rejected
+ok 7 - malformed identifiers are rejected
+ok 8 - the browser cannot create a purchase event
+ok 9 - ordinary funnel events are accepted
+ok 10 - repeated funnel events are harmless
+ok 11 - funnel events are idempotent per case
+ok 12 - first paid touch is immutable
+f1000000-0000-4000-8000-000000000001
+ok 13 - a settled ledger entry produces one purchase
+ok 14 - value uses the actual ledger amount, not the advertised price
+ok 15 - purchase currency is USD
+ok 16 - order reference is stable
+ok 17 - refreshes return the identical event
+ok 18 - email is absent by default
+ok 19 - explicit enhanced receipt uses the order email
+ok 20 - receipt omits private valuation data
+ok 21 - consent can be withdrawn after purchase
+ok 22 - withdrawal suppresses enhanced data
+ok 23 - withdrawal removes acquisition association
+f1000000-0000-4000-8000-000000000002
+ok 24 - other customers cannot read receipts or identity
+ok 25 - other customers cannot overwrite attribution
+f1000000-0000-4000-8000-000000000003
+ok 26 - anonymous owners can preserve acquisition without signing up
+ok 27 - financial and attribution tables are not directly exposed
+ok 28 - a requested refund is not an issued refund
+ok 29 - refund requires a confirmed succeeded state
+ok 30 - confirmed refund produces one authoritative event
+ok 31 - refund preserves original purchase history

@@ -1,0 +1,161 @@
+- generic [ref=f6e4]:
+  - link "Skip to content" [ref=f6e5] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=f6e7]:
+    - generic [ref=f6e9]:
+      - link "Venfour home" [ref=f6e11] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f6e13]: Venfour
+      - generic [ref=f6e14]:
+        - link "Get Started" [ref=f6e15] [cursor=pointer]:
+          - /url: /start?service=total-loss
+        - button "Open navigation" [ref=f6e16] [cursor=pointer]
+  - main [active] [ref=f6e18]:
+    - article [ref=f6e19]:
+      - generic [ref=f6e20]:
+        - paragraph [ref=f6e21]: Total-loss valuation review
+        - heading "Think your insurer’s total-loss valuation may be too low?" [level=1] [ref=f6e22]
+        - paragraph [ref=f6e23]: Venfour reviews your insurer’s valuation report, vehicle details, and relevant market evidence to help you understand whether there is support for asking your insurer to reconsider the valuation.
+        - generic [ref=f6e24]:
+          - link "Review My Valuation" [ref=f6e25] [cursor=pointer]:
+            - /url: /start?service=total-loss
+          - paragraph [ref=f6e28]:
+            - strong [ref=f6e29]: $199 per case
+            - generic [ref=f6e30]: One-time payment for the full review. Check eligibility first.
+        - paragraph [ref=f6e31]: Have your insurer’s complete valuation report ready. It is required for the paid review.
+      - region [ref=f6e32]:
+        - generic [ref=f6e33]:
+          - paragraph [ref=f6e34]: A clearer view of the evidence
+          - heading "Understand what supports the valuation." [level=2] [ref=f6e35]
+        - generic [ref=f6e36]:
+          - generic [ref=f6e37]:
+            - heading "Your insurer’s report" [level=3] [ref=f6e38]
+            - paragraph [ref=f6e39]: Vehicle specifications, comparable vehicles, condition information, and the adjustments shown in the report.
+          - generic [ref=f6e40]:
+            - heading "Your vehicle details" [level=3] [ref=f6e41]
+            - paragraph [ref=f6e42]: The information you provide about mileage, equipment, and condition, together with the report’s description.
+          - generic [ref=f6e43]:
+            - heading "Relevant market evidence" [level=3] [ref=f6e44]
+            - paragraph [ref=f6e45]: Comparable advertised vehicles and the differences that affect their usefulness. Asking prices are evidence, not completed sale prices.
+      - region [ref=f6e46]:
+        - generic [ref=f6e47]:
+          - paragraph [ref=f6e48]: What you receive
+          - heading "Findings you can understand and use." [level=2] [ref=f6e49]
+        - generic [ref=f6e50]:
+          - paragraph [ref=f6e51]: A completed valuation review and downloadable Total-Loss Valuation Report explaining the findings, supporting market evidence, and limitations.
+          - paragraph [ref=f6e52]: When the evidence supports reconsideration, Venfour helps you prepare a request and supporting materials for your insurer. You review and send the message yourself. You can return with the insurer’s response for help understanding the next step.
+          - paragraph [ref=f6e53]: A higher valuation, payment, or insurer acceptance is not guaranteed. Outcomes depend on the evidence and the insurer’s response.
+      - region [ref=f6e54]:
+        - paragraph [ref=f6e55]: The process
+        - heading "Start with your report." [level=2] [ref=f6e56]
+        - list [ref=f6e57]:
+          - listitem [ref=f6e58]:
+            - generic [ref=f6e59]: "01"
+            - heading "Share your valuation details" [level=3] [ref=f6e60]
+            - paragraph [ref=f6e61]: Use the existing secure intake to add your vehicle information and insurer valuation report.
+          - listitem [ref=f6e62]:
+            - generic [ref=f6e63]: "02"
+            - heading "Confirm eligibility" [level=3] [ref=f6e64]
+            - paragraph [ref=f6e65]: Venfour checks the report and available evidence. If your case is eligible, you can purchase the full review for $199.
+          - listitem [ref=f6e66]:
+            - generic [ref=f6e67]: "03"
+            - heading "Review your findings" [level=3] [ref=f6e68]
+            - paragraph [ref=f6e69]: Read the completed report and decide what to discuss with your insurer. You remain in control of your claim.
+      - region [ref=f6e70]:
+        - generic [ref=f6e71]:
+          - paragraph [ref=f6e72]: Fair-Result Refund Policy
+          - heading "Two separate refund protections." [level=2] [ref=f6e73]
+        - generic [ref=f6e74]:
+          - paragraph [ref=f6e75]:
+            - strong [ref=f6e76]: "No supported dispute:"
+            - text: if the completed review does not reasonably support challenging the insurer’s valuation, Venfour refunds the full purchase automatically. You keep access to your completed review and report.
+          - paragraph [ref=f6e77]:
+            - strong [ref=f6e78]: "Supported dispute, final increase under $1,000:"
+            - text: after following the Venfour-supported reconsideration process, you may request a full refund if the final verified vehicle-value increase is below $1,000. Submit the required documentation within 30 days of the insurer’s final written response. Exactly $1,000 does not qualify.
+          - paragraph [ref=f6e79]:
+            - text: These are refund protections, not a promise of a higher payout.
+            - link "Read the full refund policy and requirements." [ref=f6e80] [cursor=pointer]:
+              - /url: /refund-policy
+      - region [ref=f6e81]:
+        - heading "Make your next step an informed one." [level=2] [ref=f6e82]
+        - link "Review My Valuation" [ref=f6e83] [cursor=pointer]:
+          - /url: /start?service=total-loss
+        - paragraph [ref=f6e86]: Venfour LLC provides an independent evidence review. We are not your insurer, a law firm, or a government agency. We do not represent you or negotiate directly with your insurer. The service is not a legal opinion or a formal appraisal-clause appraisal.
+        - paragraph [ref=f6e87]:
+          - text: Questions?
+          - link "support@venfour.com" [ref=f6e88] [cursor=pointer]:
+            - /url: mailto:support@venfour.com
+          - text: .
+        - navigation "Review policies" [ref=f6e89]:
+          - link "Privacy Policy" [ref=f6e90] [cursor=pointer]:
+            - /url: /privacy
+          - link "Terms of Use" [ref=f6e91] [cursor=pointer]:
+            - /url: /terms
+          - link "Refund Policy" [ref=f6e92] [cursor=pointer]:
+            - /url: /refund-policy
+          - link "Contact & support" [ref=f6e93] [cursor=pointer]:
+            - /url: /contact
+  - contentinfo [ref=f6e94]:
+    - generic [ref=f6e95]:
+      - generic [ref=f6e96]:
+        - generic [ref=f6e97]:
+          - link "Venfour home" [ref=f6e98] [cursor=pointer]:
+            - /url: /
+            - generic [ref=f6e100]: Venfour
+          - paragraph [ref=f6e101]: Your vehicle’s value,made clear.
+          - paragraph [ref=f6e102]: Evidence to help you speak with your insurer.
+          - link "support@venfour.com" [ref=f6e103] [cursor=pointer]:
+            - /url: mailto:support@venfour.com
+        - navigation "Footer navigation" [ref=f6e104]:
+          - generic [ref=f6e105]:
+            - heading "Services" [level=2] [ref=f6e106]
+            - list [ref=f6e107]:
+              - listitem [ref=f6e108]:
+                - link "Total Loss" [ref=f6e109] [cursor=pointer]:
+                  - /url: /#total-loss
+              - listitem [ref=f6e110]:
+                - link "Diminished Value" [ref=f6e111] [cursor=pointer]:
+                  - /url: /#diminished-value
+                - generic [ref=f6e112]: New requests paused
+          - generic [ref=f6e113]:
+            - heading "Resources" [level=2] [ref=f6e114]
+            - list [ref=f6e115]:
+              - listitem [ref=f6e116]:
+                - link "Understanding your report" [ref=f6e117] [cursor=pointer]:
+                  - /url: /resources/understanding-your-report
+              - listitem [ref=f6e118]:
+                - link "Valuation checklist" [ref=f6e119] [cursor=pointer]:
+                  - /url: /resources/valuation-review-checklist
+              - listitem [ref=f6e120]:
+                - link "How we review reports" [ref=f6e121] [cursor=pointer]:
+                  - /url: /methodology
+          - generic [ref=f6e122]:
+            - heading "Company" [level=2] [ref=f6e123]
+            - list [ref=f6e124]:
+              - listitem [ref=f6e125]:
+                - link "About Venfour" [ref=f6e126] [cursor=pointer]:
+                  - /url: /about
+              - listitem [ref=f6e127]:
+                - link "Contact" [ref=f6e128] [cursor=pointer]:
+                  - /url: /contact
+              - listitem [ref=f6e129]:
+                - link "Referral partners" [ref=f6e130] [cursor=pointer]:
+                  - /url: /referral-partners
+      - generic [ref=f6e131]:
+        - paragraph [ref=f6e132]: © 2026 Venfour LLC. All rights reserved.
+        - navigation "Footer legal navigation" [ref=f6e133]:
+          - list [ref=f6e134]:
+            - listitem [ref=f6e135]:
+              - link "Terms" [ref=f6e136] [cursor=pointer]:
+                - /url: /terms
+            - listitem [ref=f6e137]:
+              - link "Privacy" [ref=f6e138] [cursor=pointer]:
+                - /url: /privacy
+            - listitem [ref=f6e139]:
+              - link "Refund policy" [ref=f6e140] [cursor=pointer]:
+                - /url: /refund-policy
+            - listitem [ref=f6e141]:
+              - link "Cookie Policy" [ref=f6e142] [cursor=pointer]:
+                - /url: /cookies
+            - listitem [ref=f6e143]:
+              - button "Cookie preferences" [ref=f6e144] [cursor=pointer]

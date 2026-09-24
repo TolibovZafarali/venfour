@@ -1,0 +1,70 @@
+[
+  {
+    "path": "/",
+    "status": 200,
+    "robots": null,
+    "google_script": false
+  },
+  {
+    "path": "/total-loss-review",
+    "status": 404
+  },
+  {
+    "path": "/terms",
+    "status": 200,
+    "robots": null,
+    "google_script": false
+  },
+  {
+    "path": "/privacy",
+    "status": 200,
+    "robots": null,
+    "google_script": false
+  },
+  {
+    "path": "/refund-policy",
+    "status": 200,
+    "robots": null,
+    "google_script": false
+  },
+  {
+    "path": "/contact",
+    "status": 200,
+    "robots": null,
+    "google_script": false
+  },
+  {
+    "path": "/methodology",
+    "status": 200,
+    "robots": null,
+    "google_script": false
+  },
+  {
+    "path": "/about",
+    "status": 200,
+    "robots": null,
+    "google_script": false
+  },
+  {
+    "path": "/resources/understanding-your-report",
+    "status": 200,
+    "robots": null,
+    "google_script": false
+  },
+  {
+    "path": "/resources/valuation-review-checklist",
+    "status": 200,
+    "robots": null,
+    "google_script": false
+  },
+  {
+    "path": "/robots.txt",
+    "status": 200,
+    "robots": null,
+    "google_script": false
+  },
+  {
+    "path": "/sitemap.xml",
+    "status": 404
+  }
+]

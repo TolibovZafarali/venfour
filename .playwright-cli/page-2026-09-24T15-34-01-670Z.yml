@@ -1,0 +1,87 @@
+- generic [ref=e4]:
+  - link "Skip to content" [ref=e5] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=e7]:
+    - generic [ref=e9]:
+      - link "Venfour home" [ref=e11] [cursor=pointer]:
+        - /url: https://venfour.com/
+        - generic [ref=e13]: Venfour
+      - generic [ref=e14]:
+        - generic [ref=e15]: Already have an account?
+        - button "Sign In" [ref=e16] [cursor=pointer]
+  - main [ref=e17]:
+    - generic [ref=e19]:
+      - generic [ref=e21]:
+        - group "Choose an appraisal service" [ref=e22]:
+          - generic [ref=e24]:
+            - generic [ref=e25] [cursor=pointer]:
+              - radio "Total Loss" [checked] [ref=e26]
+              - text: Total Loss
+            - generic [ref=e27] [cursor=pointer]:
+              - radio "Diminished Value" [ref=e28]
+              - text: Diminished Value
+        - paragraph [ref=e29]: Total Loss valuation
+        - heading "Start your Total Loss review" [level=1] [ref=e30]
+        - paragraph [ref=e31]: Upload your insurer’s valuation report from any provider, or continue without one. Venfour will gather the facts needed for independent market research and a truthful evidence review.
+        - region [ref=e32]:
+          - paragraph [ref=e33]: Illustrative example
+          - heading "2024 Hyundai Elantra SEL" [level=2] [ref=e34]:
+            - generic [ref=e36]: 2024 Hyundai Elantra SEL
+          - generic [ref=e37]:
+            - generic [ref=e38]:
+              - term [ref=e39]:
+                - generic [ref=e41]: Insurer valuation
+              - definition [ref=e42]:
+                - generic "$19,050" [ref=e43]
+            - generic [ref=e44]:
+              - term [ref=e45]:
+                - generic [ref=e47]: Local market evidence
+              - definition [ref=e48]:
+                - generic "$20,480" [ref=e49]
+            - generic [ref=e50]:
+              - term [ref=e51]:
+                - generic [ref=e53]: Potential value gap
+              - definition [ref=e54]:
+                - generic "+$1,430" [ref=e55]
+          - paragraph [ref=e56]:
+            - generic [ref=e58]: 12 comparable vehicles · within 87 miles
+          - 'img "Value comparison: Insurer valuation, $19,050; Market evidence, $20,480" [ref=e59]':
+            - generic [ref=e61]:
+              - generic [ref=e63]: Insurer valuation
+              - generic [ref=e64]: $19,050
+            - generic [ref=e69]:
+              - generic [ref=e71]: Market evidence
+              - generic [ref=e72]: $20,480
+          - paragraph [ref=e76]:
+            - generic [ref=e78]: A Total Loss review compares the insurer’s stated valuation with relevant market evidence when that value is available. Report-specific findings depend on the evidence supplied.
+      - generic [ref=e120]:
+        - generic "Appraisal progress" [ref=e121]:
+          - list "Appraisal steps" [ref=e122]:
+            - listitem "Start, step 1, completed" [ref=e123]
+            - listitem "Vehicle, step 2, current" [ref=e124]
+            - listitem "Claim, step 3" [ref=e125]
+            - listitem "Contact, step 4" [ref=e126]
+        - generic [ref=e127]:
+          - heading "Tell us about your vehicle" [level=2] [ref=e128]
+          - paragraph [ref=e129]: Use your VIN for the quickest match, or choose your vehicle from the lists.
+        - group "How would you like to identify your vehicle?" [ref=e130]:
+          - generic [ref=e132]:
+            - generic [ref=e133] [cursor=pointer]:
+              - radio "Use my VIN" [checked] [ref=e134]
+              - text: Use my VIN
+            - generic [ref=e138] [cursor=pointer]:
+              - radio "Select vehicle details" [ref=e139]
+              - text: Select vehicle details
+        - generic [ref=e145]:
+          - generic [ref=e146]:
+            - generic [ref=e147]:
+              - generic [ref=e148] [cursor=pointer]: Enter your VIN
+              - button "VIN requirements" [ref=e150] [cursor=pointer]
+            - generic [ref=e154]:
+              - generic [aria-hidden] [ref=e155]: 0 / 17
+              - generic [ref=e156]: 0 of 17 characters entered
+          - textbox "VIN" [ref=e158]:
+            - /placeholder: 1HGCM82633A004352
+        - generic [ref=e159]:
+          - button "Back" [ref=e160] [cursor=pointer]
+          - button "Find vehicle" [ref=e163] [cursor=pointer]

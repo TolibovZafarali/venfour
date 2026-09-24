@@ -1,0 +1,15 @@
+
+> venfour-frontend@0.1.0 test
+> vitest run src/features/privacy/cookie-consent.test.tsx src/features/measurement src/pages/total-loss-review-page.test.tsx
+
+
+ RUN  v4.1.10 /Users/zafaralitolibov/Documents/venfour/frontend
+
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+
+ Test Files  4 passed (4)
+      Tests  42 passed (42)
+   Start at  11:19:13
+   Duration  5.52s (transform 2.53s, setup 1.32s, import 3.72s, tests 2.76s, environment 4.08s)
+

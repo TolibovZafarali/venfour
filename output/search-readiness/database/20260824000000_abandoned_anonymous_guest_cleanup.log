@@ -1,0 +1,2 @@
+1
+psql:<stdin>:4: NOTICE:  extension "supabase_vault" already exists, skipping

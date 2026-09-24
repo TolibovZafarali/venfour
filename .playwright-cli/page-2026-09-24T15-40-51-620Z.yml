@@ -1,0 +1,112 @@
+- generic [ref=e4]:
+  - link "Skip to content" [ref=e5] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=e7]:
+    - generic [ref=e9]:
+      - link "Venfour home" [ref=e11] [cursor=pointer]:
+        - /url: https://venfour.com/
+        - generic [ref=e13]: Venfour
+      - generic [ref=e14]:
+        - generic [ref=e15]: Already have an account?
+        - button "Sign In" [ref=e16] [cursor=pointer]
+  - main [ref=e17]:
+    - generic [ref=e19]:
+      - generic [ref=e21]:
+        - group "Choose an appraisal service" [ref=e22]:
+          - generic [ref=e24]:
+            - generic [ref=e25] [cursor=pointer]:
+              - radio "Total Loss" [checked] [ref=e26]
+              - text: Total Loss
+            - generic [ref=e27] [cursor=pointer]:
+              - radio "Diminished Value" [ref=e28]
+              - text: Diminished Value
+        - paragraph [ref=e29]: Total Loss valuation
+        - heading "Start your Total Loss review" [level=1] [ref=e30]
+        - paragraph [ref=e31]: Upload your insurer’s valuation report from any provider, or continue without one. Venfour will gather the facts needed for independent market research and a truthful evidence review.
+        - region [ref=e32]:
+          - paragraph [ref=e33]: Illustrative example
+          - heading "2024 Hyundai Elantra SEL" [level=2] [ref=e34]:
+            - generic [ref=e36]: 2024 Hyundai Elantra SEL
+          - generic [ref=e37]:
+            - generic [ref=e38]:
+              - term [ref=e39]:
+                - generic [ref=e41]: Insurer valuation
+              - definition [ref=e42]:
+                - generic "$19,050" [ref=e43]
+            - generic [ref=e44]:
+              - term [ref=e45]:
+                - generic [ref=e47]: Local market evidence
+              - definition [ref=e48]:
+                - generic "$20,480" [ref=e49]
+            - generic [ref=e50]:
+              - term [ref=e51]:
+                - generic [ref=e53]: Potential value gap
+              - definition [ref=e54]:
+                - generic "+$1,430" [ref=e55]
+          - paragraph [ref=e56]:
+            - generic [ref=e58]: 12 comparable vehicles · within 87 miles
+          - 'img "Value comparison: Insurer valuation, $19,050; Market evidence, $20,480" [ref=e59]':
+            - generic [ref=e61]:
+              - generic [ref=e63]: Insurer valuation
+              - generic [ref=e64]: $19,050
+            - generic [ref=e69]:
+              - generic [ref=e71]: Market evidence
+              - generic [ref=e72]: $20,480
+          - paragraph [ref=e76]:
+            - generic [ref=e78]: A Total Loss review compares the insurer’s stated valuation with relevant market evidence when that value is available. Report-specific findings depend on the evidence supplied.
+      - generic [ref=e312]:
+        - generic "Appraisal progress" [ref=e313]:
+          - list "Appraisal steps" [ref=e314]:
+            - listitem "Start, step 1, completed" [ref=e315]
+            - listitem "Vehicle, step 2, completed" [ref=e316]
+            - listitem "Claim, step 3, completed" [ref=e317]
+            - listitem "Contact, step 4, current" [ref=e318]
+        - generic [ref=e319]:
+          - heading "Contact details" [level=2] [ref=e320]
+          - paragraph [ref=e321]: Tell us where to save your private result.
+        - generic [ref=e322]:
+          - generic [ref=e323]:
+            - generic [ref=e324]: First name
+            - textbox "First name" [ref=e326]
+          - generic [ref=e327]:
+            - generic [ref=e328]: Last name
+            - textbox "Last name" [ref=e330]
+          - generic [ref=e331]:
+            - generic [ref=e332]: Email address
+            - textbox "Email address" [ref=e334]
+            - paragraph [ref=e335]: Used to save your appraisal.
+          - generic [ref=e336]:
+            - generic [ref=e337]:
+              - generic [ref=e338] [cursor=pointer]: Phone number
+              - generic [ref=e339]: Optional
+            - textbox "Phone number" [ref=e340]:
+              - /placeholder: (555) 123-4567
+        - region [ref=e341]:
+          - generic [ref=e342]:
+            - heading "Consent" [level=3] [ref=e343]
+            - paragraph [ref=e344]: Review the required acknowledgements.
+          - generic [ref=e345]:
+            - generic [ref=e346] [cursor=pointer]:
+              - checkbox "I agree to Venfour’s Terms of Use." [ref=e347]
+              - generic [ref=e348]:
+                - text: I agree to Venfour’s
+                - link "Terms of Use" [ref=e349]:
+                  - /url: /terms
+                - text: .
+            - generic [ref=e350] [cursor=pointer]:
+              - checkbox "I acknowledge Venfour’s Privacy Policy." [ref=e351]
+              - generic [ref=e352]:
+                - text: I acknowledge Venfour’s
+                - link "Privacy Policy" [ref=e353]:
+                  - /url: /privacy
+                - text: .
+        - region [ref=e354]:
+          - generic [ref=e355]:
+            - generic [ref=e356]:
+              - heading "Case follow-up" [level=3] [ref=e357]
+              - generic [ref=e358]: Optional
+            - switch "Case follow-up" [checked] [ref=e359] [cursor=pointer]
+          - paragraph [ref=e361]: Venfour may contact me about this case or related service follow-up. This is optional and separate from essential messages I request.
+        - generic [ref=e362]:
+          - button "Back" [ref=e363] [cursor=pointer]
+          - button "Review & analyze" [ref=e366] [cursor=pointer]
