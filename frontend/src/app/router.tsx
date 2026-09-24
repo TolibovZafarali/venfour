@@ -1,3 +1,4 @@
+import { searchLandingMetadata } from "@/config/search-landing";
 import { isPartnerHost } from "@/features/referral-partners/urls";
 import {
   createBrowserRouter,
@@ -26,6 +27,7 @@ import { ContactPage } from "@/pages/contact-page";
 import { CookiePolicyPage } from "@/pages/cookie-policy-page";
 import { AppEntryPage } from "@/pages/app-entry-page";
 import { AppraisalResumePage } from "@/pages/appraisal-resume-page";
+import { TotalLossReviewPage } from "@/pages/total-loss-review-page";
 import { HomePage } from "@/pages/home-page";
 import { AboutPage, UnderstandingReportPage, ValuationChecklistPage } from "@/pages/public-resources";
 import { MethodologyPage } from "@/pages/methodology-page";
@@ -107,7 +109,8 @@ const combinedRoutes: RouteObject[] = [
       },
       {
         path: "total-loss-review",
-        loader: redirectToTotalLossStart,
+        element: <TotalLossReviewPage />,
+        handle: searchLandingMetadata,
       },
       {
         path: "appraisals",

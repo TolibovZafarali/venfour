@@ -1,3 +1,4 @@
+import { trackCaseEvent, measureFinancialEvents } from "@/features/measurement/service";
 import { environment } from "@/config/env";
 import type { HigherPricedComparableListings, MarketSearchContext } from "@/features/analyses/analysis-presentation.generated";
 import type {
@@ -2712,6 +2713,7 @@ export async function getTotalLossClaim(
       "The claim service returned a different case.",
     );
   }
+  void measureFinancialEvents(caseId);
   return result;
 }
 
@@ -2758,7 +2760,9 @@ export async function createTotalLossCheckout(
     { clientRequestId },
     { accessToken, signal },
   );
-  return mapCheckout(response);
+  const checkout = mapCheckout(response);
+  trackCaseEvent("checkout_started", caseId);
+  return checkout;
 }
 
 export async function getTotalLossCheckoutQuote(
@@ -2771,7 +2775,9 @@ export async function getTotalLossCheckoutQuote(
     `/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/checkout-quote`,
     { accessToken, signal },
   );
-  return mapCheckoutQuote(response);
+  const quote = mapCheckoutQuote(response);
+  if (quote.availability === "available") trackCaseEvent("review_eligible", caseId);
+  return quote;
 }
 
 export async function reconcileTotalLossCheckout(

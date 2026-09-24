@@ -11,7 +11,7 @@ export function PrivacyPage() {
       eyebrow="Privacy"
       title="How Venfour handles your information"
       introduction="This page describes the current Venfour service in practical terms: what is stored when you use an account, start a supported total-loss review, or have a previously saved diminished-value request, and what controls are not yet available."
-      updated="Last updated September 7, 2026"
+      updated="Last updated September 24, 2026"
       tone="privacy"
     >
       <PublicPageSection title="Information you provide">
@@ -136,6 +136,13 @@ export function PrivacyPage() {
           valuation report, or private case information. Venfour retains purchase
           attribution with the associated commercial records.
         </p>
+      </PublicPageSection>
+
+      <PublicPageSection title="Optional analytics and advertising measurement">
+        <p>With your permission, Venfour records limited steps such as starting a review, uploading a report, becoming eligible, beginning checkout, and completing a purchase. Measurement records do not contain the report, VIN, claim narrative, insurer identity, valuation amounts, or market comparable details.</p>
+        <p>If you allow advertising measurement, a first-party acquisition cookie remembers validated campaign parameters and Google click identifiers for up to 30 days across venfour.com and app.venfour.com. The first paid source can be attached to your private case before purchase and retained with its commercial records. Your consent preference is remembered for up to 180 days. Rejecting measurement does not prevent a review or purchase.</p>
+        <p>Google advertising measurement is optional and only loads when configured and you allow advertising measurement. When active, it receives a purchase reference, the actual Venfour fee paid, USD currency, and relevant click identifiers. It does not receive the insurer’s valuation or settlement amount. If enhanced conversions are explicitly enabled, the Google tag normalizes and hashes only the purchase email before transmission for conversion matching. Venfour does not use this integration for personalized advertising.</p>
+        <p>You can change your choice through Cookie preferences on the public site or customer application. Global Privacy Control keeps optional measurement off. Withdrawing advertising permission clears the acquisition cookie and clears the acquisition association for the case open in that browser when it can reach the service. Contact support for retained records or choices made on another device. Essential payment and refund records remain necessary to provide the service.</p>
       </PublicPageSection>
 
       <PublicPageSection title="Total-loss report and analysis handling">

@@ -1,3 +1,4 @@
+import { MeasurementLifecycle } from "@/features/measurement/lifecycle";
 import { applicationHref, hostAudience, publicHref, routeAudience } from "@/app/site-boundary";
 import { visualSystemForLocation } from "@/app/visual-system";
 import { publicSiteOnly, publicIntakeClosed } from "@/config/public-site";
@@ -55,6 +56,7 @@ export function AppShell() {
   const workspace = Boolean(caseRoute || analysisRoute || intakeCaseId);
   return (
     <SignInDialogProvider>
+      <MeasurementLifecycle caseId={caseRoute?.params.caseId ?? intakeCaseId ?? undefined} />
       <FreeValuationProcessingProvider inline={workspace} accountControl={isPermanentAuthState(auth) ? <AccountControl /> : null}>
         <AppShellContent workspace={workspace} workspaceCaseId={caseRoute?.params.caseId ?? intakeCaseId ?? undefined} />
       </FreeValuationProcessingProvider>
@@ -611,7 +613,8 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
           </div>
         </footer>
       ) : null}
-      {!appVisualSystem ? <CookieConsent /> : null}
+      {appVisualSystem && !adminRoute ? <div className="px-5 py-2 text-center"><button type="button" onClick={openPreferences} className="inline-flex min-h-11 items-center text-xs text-neutral-500 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4">Cookie preferences</button></div> : null}
+      <CookieConsent showBanner={!appVisualSystem} />
     </div>
   );
 }

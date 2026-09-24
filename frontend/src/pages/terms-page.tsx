@@ -17,7 +17,7 @@ export function TermsPage() {
     >
       <PublicPageSection title="The service">
         <p>
-          By using Venfour, you agree to use the service within the boundaries
+          Venfour is operated by Venfour LLC. The full Total-Loss Review Package costs $199 per eligible case. By using Venfour, you agree to use the service within the boundaries
           described on this page.
         </p>
         <p>

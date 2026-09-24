@@ -9,7 +9,7 @@ export function CookiePolicyPage() {
       eyebrow="Cookie policy"
       title="Cookies and browser storage at Venfour"
       introduction="This page describes the site’s current use of cookies and similar browser storage."
-      updated="Last updated August 21, 2026"
+      updated="Last updated September 24, 2026"
       tone="cookies"
     >
       <PublicPageSection title="Current use">
@@ -25,9 +25,11 @@ export function CookiePolicyPage() {
           controls.
         </p>
         <p>
-          Venfour does not currently use optional analytics, advertising, or
-          cross-site tracking tools. If optional analytics are introduced, they
-          will remain off unless your saved preference permits them.
+          Optional analytics and advertising measurement are off until you allow
+          them. Advertising measurement remembers validated campaign and click
+          identifiers in a first-party cookie for up to 30 days across the public
+          site and customer application. Google tags load only when configured
+          and allowed. Consent preferences last up to 180 days.
         </p>
       </PublicPageSection>
 
@@ -35,7 +37,7 @@ export function CookiePolicyPage() {
         <p>
           You can accept or reject non-essential purposes and change that choice
           later through “Cookie preferences” in the site footer. Venfour also
-          respects Global Privacy Control by keeping optional analytics off when
+          respects Global Privacy Control by keeping analytics and advertising measurement off when
           that browser signal is active.
         </p>
       </PublicPageSection>

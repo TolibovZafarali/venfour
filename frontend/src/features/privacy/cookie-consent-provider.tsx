@@ -61,8 +61,8 @@ export function CookieConsentProvider({
   }, []);
 
   const persistConsent = useCallback(
-    (analytics: boolean, source: ConsentSource) => {
-      const nextConsent = createCookieConsent(analytics, source);
+    (analytics: boolean, source: ConsentSource, advertising = false) => {
+      const nextConsent = createCookieConsent(analytics, source, advertising);
       writeStoredCookieConsent(nextConsent);
       setConsent(nextConsent);
       changePreferencesOpen(false);
@@ -77,11 +77,7 @@ export function CookieConsentProvider({
   }, [consent, globalPrivacyControl]);
 
   useEffect(() => {
-    const onStorage = (event: StorageEvent) => {
-      if (event.key !== COOKIE_CONSENT_STORAGE_KEY) {
-        return;
-      }
-
+    const refresh = () => {
       const storedConsent = readStoredCookieConsent();
       setConsent(
         storedConsent ??
@@ -90,9 +86,15 @@ export function CookieConsentProvider({
             : null),
       );
     };
-
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === COOKIE_CONSENT_STORAGE_KEY) refresh();
+    };
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", refresh);
+    };
   }, [globalPrivacyControl]);
 
   const value = useMemo<CookieConsentContextValue>(
@@ -101,11 +103,11 @@ export function CookieConsentProvider({
       globalPrivacyControl,
       bannerVisible: consent === null,
       preferencesOpen,
-      acceptAll: () => persistConsent(true, "accept-all"),
+      acceptAll: () => persistConsent(true, "accept-all", true),
       rejectNonEssential: () =>
         persistConsent(false, "reject-non-essential"),
-      savePreferences: (analytics) =>
-        persistConsent(analytics, "preferences"),
+      savePreferences: (analytics, advertising) =>
+        persistConsent(analytics, "preferences", advertising),
       openPreferences,
       setPreferencesOpen: changePreferencesOpen,
     }),

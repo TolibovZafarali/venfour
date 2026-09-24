@@ -38,7 +38,7 @@ const PUBLIC_ORIGIN = "https://venfour.com";
 const APP_ORIGIN = "https://app.venfour.com";
 const PARTNER_ORIGIN = "https://partners.venfour.com";
 const PRODUCTION_ORIGINS = new Set([PUBLIC_ORIGIN, APP_ORIGIN, PARTNER_ORIGIN, "https://www.venfour.com"]);
-const PUBLIC_PATHS = new Set(["/", "/contact", "/cookies", "/methodology", "/privacy", "/terms", "/refund-policy", "/referral-partners", "/about", "/resources/understanding-your-report", "/resources/valuation-review-checklist"]);
+const PUBLIC_PATHS = new Set(["/", "/total-loss-review", "/contact", "/cookies", "/methodology", "/privacy", "/terms", "/refund-policy", "/referral-partners", "/about", "/resources/understanding-your-report", "/resources/valuation-review-checklist"]);
 
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
@@ -57,7 +57,8 @@ const CONTENT_SECURITY_POLICY = [
   "worker-src 'self' blob:",
 ].join("; ");
 
-export interface Env extends Omit<ProductionWorkerEnvironment, "API_ORIGIN" | "API_PROXY_SECRET"> {
+export interface Env extends Omit<ProductionWorkerEnvironment, "API_ORIGIN" | "API_PROXY_SECRET" | "GOOGLE_ADS_MEASUREMENT"> {
+  GOOGLE_ADS_MEASUREMENT?: string;
   API_ORIGIN?: string;
   API_PROXY_SECRET?: string;
   STAGING_HOSTNAME?: string;
@@ -309,12 +310,32 @@ function assetCacheControl(request: Request, response: Response) {
 }
 
 async function serveAsset(request: Request, env: Env, indexable = false) {
-  const response = await env.ASSETS.fetch(request);
+  const assetUrl = new URL(request.url);
+  if (assetUrl.pathname.replace(/\/+$/, "") === "/total-loss-review") assetUrl.pathname = "/total-loss-review.html";
+  const response = await env.ASSETS.fetch(new Request(assetUrl, request));
   const cacheControl = assetCacheControl(request, response);
-  return securedResponse(response, cacheControl, {
+  const secured = securedResponse(response, cacheControl, {
     noStore: cacheControl.includes("no-store"),
     indexable: indexable && response.ok,
   });
+  applyMeasurementPolicy(secured, request, env);
+  return secured;
+}
+
+function applyMeasurementPolicy(response: Response, request: Request, env: Env) {
+  const url = new URL(request.url);
+  if (env.GOOGLE_ADS_MEASUREMENT !== "true" || ![PUBLIC_ORIGIN, APP_ORIGIN].includes(url.origin)
+    || /^\/(admin|partners|auth)(\/|$)/.test(url.pathname)) return;
+  const policy = response.headers.get("Content-Security-Policy");
+  if (!policy) return;
+  const additions: Record<string,string> = {
+    "script-src": "https://www.googletagmanager.com https://www.googleadservices.com https://www.google.com",
+    "connect-src": "https://www.googletagmanager.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://pagead2.googlesyndication.com https://www.google.com https://ad.doubleclick.net",
+    "img-src": "https://www.googletagmanager.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://pagead2.googlesyndication.com https://www.google.com",
+    "frame-src": "https://www.googletagmanager.com",
+  };
+  response.headers.set("Content-Security-Policy", policy.split("; ").map(d => additions[d.split(" ")[0]] ? `${d} ${additions[d.split(" ")[0]]}` : d).join("; "));
+  response.headers.set("Referrer-Policy", "no-referrer");
 }
 
 function redirectToOrigin(url: URL, origin: string) {
@@ -441,9 +462,13 @@ async function handlePublicSiteRequest(request: Request, env: Env) {
   if (url.protocol === "http:" || url.hostname === "www.venfour.com") return redirectToOrigin(url, PUBLIC_ORIGIN);
   if (/^\/r\/[a-z0-9-]{3,256}\/?$/.test(url.pathname) || /^\/admin\/partners\/[a-z0-9-]{3,63}(?:\/|$)/.test(url.pathname)) return redirectToOrigin(url, APP_ORIGIN);
   if (url.pathname === "/robots.txt") {
-    return securedResponse(new Response("User-agent: *\nAllow: /\n", {
+    return securedResponse(new Response("User-agent: *\nAllow: /\nSitemap: https://venfour.com/sitemap.xml\n", {
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     }), "public, max-age=3600, must-revalidate", { indexable: true });
+  }
+  if (url.pathname === "/sitemap.xml") {
+    const urls = [...PUBLIC_PATHS].map(path => `<url><loc>${PUBLIC_ORIGIN}${path}</loc></url>`).join("");
+    return securedResponse(new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`, { headers: { "Content-Type": "application/xml; charset=utf-8" } }), "public, max-age=3600, must-revalidate", { indexable: true });
   }
   const publicPage = PUBLIC_PATHS.has(url.pathname.replace(/\/+$/, "") || "/");
   const asset = url.pathname.startsWith("/assets/") || url.pathname === "/favicon.svg";
@@ -458,6 +483,7 @@ async function handlePublicSiteRequest(request: Request, env: Env) {
     "form-action 'self'", "frame-ancestors 'none'", `frame-src ${APP_ORIGIN}/auth/sign-in`, "img-src 'self' data: blob:",
     "object-src 'none'", "script-src 'self'", "style-src 'self' 'unsafe-inline'", "upgrade-insecure-requests",
   ].join("; "));
+  applyMeasurementPolicy(response, request, env);
   return response;
 }
 

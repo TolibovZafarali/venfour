@@ -1,6 +1,9 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
+  readonly VITE_GOOGLE_ADS_CONVERSION_ID?: string;
+  readonly VITE_GOOGLE_ADS_PURCHASE_LABEL?: string;
+  readonly VITE_GOOGLE_ENHANCED_CONVERSIONS?: string;
   readonly VITE_PUBLIC_SITE_ONLY?: string;
   readonly VITE_PUBLIC_INTAKE_OPEN?: string;
   readonly VITE_ENABLE_POST_CONTINUE_FLOW?: string;

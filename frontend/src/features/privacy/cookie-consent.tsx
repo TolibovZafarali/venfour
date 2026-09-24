@@ -6,7 +6,7 @@ import { Dialog, Switch } from "radix-ui";
 import { useCookieConsent } from "@/features/privacy/cookie-consent-context";
 
 const focusRingClassName =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2";
+  "report-action-focus focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2";
 
 const bannerButtonClassName =
   "inline-flex min-h-11 items-center justify-center rounded-lg px-4 text-[0.8125rem] font-semibold transition-colors motion-reduce:transition-none";
@@ -14,7 +14,7 @@ const bannerButtonClassName =
 const policyLinkClassName =
   "rounded-sm font-medium text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:text-brand hover:decoration-brand/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none";
 
-export function CookieConsent() {
+export function CookieConsent({ showBanner = true }: { showBanner?: boolean }) {
   const {
     acceptAll,
     bannerVisible,
@@ -31,6 +31,9 @@ export function CookieConsent() {
 
   const acceptWithMotion = () => {
     const banner = bannerRef.current;
+    if (banner?.contains(document.activeElement)) {
+      document.getElementById("main-content")?.focus({ preventScroll: true });
+    }
     const reducedMotion = window.matchMedia?.(
       "(prefers-reduced-motion: reduce)",
     ).matches;
@@ -55,7 +58,7 @@ export function CookieConsent() {
 
   return (
     <>
-      {bannerVisible || bannerExiting ? (
+      {showBanner && (bannerVisible || bannerExiting) ? (
         <div
           ref={bannerRef}
           className="width-before-scroll-bar pointer-events-none fixed inset-x-0 bottom-3 z-50 px-3 sm:bottom-5 sm:px-5"
@@ -81,8 +84,8 @@ export function CookieConsent() {
                   className="mt-1 max-w-3xl text-[0.8125rem] leading-5 text-copy"
                 >
                   Venfour uses essential cookies and similar storage to keep
-                  this site working. We don’t currently use analytics; your
-                  choice will control optional analytics if introduced.
+                  this site working. Optional analytics and advertising measurement
+                  are off unless you allow them. Your review works either way.
                 </p>
                 <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-copy">
                   <Link to="/privacy" className={policyLinkClassName}>
@@ -118,6 +121,7 @@ export function CookieConsent() {
       {preferencesOpen ? (
         <CookiePreferencesDialog
           analyticsEnabled={consent?.analytics ?? false}
+          advertisingEnabled={consent?.advertising ?? false}
           globalPrivacyControl={globalPrivacyControl}
           open
           onOpenChange={setPreferencesOpen}
@@ -131,15 +135,17 @@ export function CookieConsent() {
 
 interface CookiePreferencesDialogProps {
   analyticsEnabled: boolean;
+  advertisingEnabled: boolean;
   globalPrivacyControl: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onReject: () => void;
-  onSave: (analytics: boolean) => void;
+  onSave: (analytics: boolean, advertising: boolean) => void;
 }
 
 function CookiePreferencesDialog({
   analyticsEnabled,
+  advertisingEnabled,
   globalPrivacyControl,
   open,
   onOpenChange,
@@ -149,6 +155,7 @@ function CookiePreferencesDialog({
   const [analytics, setAnalytics] = useState(
     globalPrivacyControl ? false : analyticsEnabled,
   );
+  const [advertising, setAdvertising] = useState(globalPrivacyControl ? false : advertisingEnabled);
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -161,7 +168,7 @@ function CookiePreferencesDialog({
             </Dialog.Title>
             <Dialog.Description className="mt-2 text-sm leading-6 text-copy">
               Essential storage is always active. Choose whether Venfour may use
-              optional analytics if they are added in the future.
+              optional analytics and advertising measurement when configured.
             </Dialog.Description>
           </div>
 
@@ -205,8 +212,7 @@ function CookiePreferencesDialog({
               <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-semibold text-ink">Analytics</h3>
                 <p className="mt-1 text-xs leading-5 text-copy">
-                  Optional measurement tools. No analytics are active on
-                  Venfour today.
+                  Measure use of the review process without claim or document details.
                 </p>
                 {globalPrivacyControl ? (
                   <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-market-strong">
@@ -222,6 +228,17 @@ function CookiePreferencesDialog({
                 className={`relative h-6 w-11 shrink-0 rounded-full bg-line-strong transition-colors data-[state=checked]:bg-brand disabled:cursor-not-allowed disabled:opacity-60 ${focusRingClassName}`}
                 aria-label="Allow analytics"
               >
+                <Switch.Thumb className="block size-5 translate-x-0.5 rounded-full bg-white shadow-sm transition-transform data-[state=checked]:translate-x-[1.375rem] motion-reduce:transition-none" />
+              </Switch.Root>
+            </div>
+            <div className="flex items-center gap-4 p-4">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-semibold text-ink">Advertising measurement</h3>
+                <p className="mt-1 text-xs leading-5 text-copy">Remember campaign and click identifiers and measure purchases with Google when configured. If enabled, enhanced conversions use your purchase email. No claim details or personalized advertising.</p>
+              </div>
+              <Switch.Root checked={advertising} disabled={globalPrivacyControl} onCheckedChange={setAdvertising}
+                className={`relative h-6 w-11 shrink-0 rounded-full bg-line-strong transition-colors data-[state=checked]:bg-brand disabled:opacity-60 ${focusRingClassName}`}
+                aria-label="Allow advertising measurement">
                 <Switch.Thumb className="block size-5 translate-x-0.5 rounded-full bg-white shadow-sm transition-transform data-[state=checked]:translate-x-[1.375rem] motion-reduce:transition-none" />
               </Switch.Root>
             </div>
@@ -250,7 +267,7 @@ function CookiePreferencesDialog({
             <button
               type="button"
               className={`${bannerButtonClassName} ${focusRingClassName} bg-brand text-white hover:bg-brand-strong`}
-              onClick={() => onSave(analytics)}
+              onClick={() => onSave(analytics, advertising)}
             >
               Save Preferences
             </button>

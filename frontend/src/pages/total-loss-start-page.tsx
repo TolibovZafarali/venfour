@@ -1,3 +1,5 @@
+import { useCaseMeasurement } from "@/features/measurement/use-case-measurement";
+import { trackCaseEvent } from "@/features/measurement/service";
 import { ProductFactsForm, type SaveProductFacts } from "@/features/nationwide/product-panel";
 import { ValuationStatus } from "@/components/valuation-status";
 import { AppEntryLoading } from "@/components/app-entry-loading";
@@ -295,6 +297,8 @@ function TotalLossDraftBootstrapGate({
     : newCaseId
       ? reservedAppraisalCase
       : canonicalAppraisalCase;
+
+  useCaseMeasurement(appraisalCase?.userId === userId ? appraisalCase?.id : undefined, true);
 
   useEffect(() => {
     if (referralCode === undefined || !appraisalCase || appraisalCase.userId !== userId) return;
@@ -2065,6 +2069,7 @@ function TotalLossIntakeFlowContent({
       setSavedFilename(result.details.reportOriginalFilename);
       setReportRecoveryRequired(false);
       setUploadState("success");
+      trackCaseEvent("valuation_report_uploaded", caseId);
       applyDraft(
         (current) => {
           const reportZipCode = normalizeZipCode(current.manual.zipCode);

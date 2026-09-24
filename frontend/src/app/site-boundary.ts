@@ -2,7 +2,7 @@ export const PUBLIC_ORIGIN = "https://venfour.com";
 export const PARTNER_ORIGIN = "https://partners.venfour.com";
 export const APPLICATION_ORIGIN = "https://app.venfour.com";
 
-const publicPaths = new Set(["/", "/contact", "/cookies", "/methodology", "/privacy", "/terms", "/refund-policy", "/referral-partners", "/about", "/resources/understanding-your-report", "/resources/valuation-review-checklist"]);
+const publicPaths = new Set(["/", "/total-loss-review", "/contact", "/cookies", "/methodology", "/privacy", "/terms", "/refund-policy", "/referral-partners", "/about", "/resources/understanding-your-report", "/resources/valuation-review-checklist"]);
 
 export function routeAudience(pathname: string): "public" | "application" {
   return publicPaths.has(pathname.replace(/\/+$/, "") || "/") ? "public" : "application";

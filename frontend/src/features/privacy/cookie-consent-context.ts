@@ -9,7 +9,7 @@ export interface CookieConsentContextValue {
   preferencesOpen: boolean;
   acceptAll: () => void;
   rejectNonEssential: () => void;
-  savePreferences: (analytics: boolean) => void;
+  savePreferences: (analytics: boolean, advertising?: boolean) => void;
   openPreferences: () => void;
   setPreferencesOpen: (open: boolean) => void;
 }

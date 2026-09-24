@@ -55,7 +55,7 @@ describe("cookie consent", () => {
     });
     expect(banner.parentElement).toHaveClass("width-before-scroll-bar");
     expect(
-      within(banner).getByText(/we don’t currently use analytics/i),
+      within(banner).getByText(/Optional analytics and advertising measurement/i),
     ).toBeVisible();
     expect(
       within(banner).getByRole("button", { name: "Accept All" }),
@@ -127,7 +127,7 @@ describe("cookie consent", () => {
     expect(essential).toBeDisabled();
     expect(analytics).not.toBeChecked();
     expect(
-      within(dialog).getByText(/no analytics are active on Venfour today/i),
+      within(dialog).getByText(/Measure use of the review process/i),
     ).toBeVisible();
 
     await user.click(analytics);
@@ -167,6 +167,7 @@ describe("cookie consent", () => {
       source: "accept-all",
     });
     expect(hasAnalyticsConsent()).toBe(true);
+    expect(screen.getByRole("main")).toHaveFocus();
   });
 
   test("supports keyboard navigation and restores focus after preferences", async () => {

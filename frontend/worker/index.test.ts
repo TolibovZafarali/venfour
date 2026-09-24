@@ -676,3 +676,40 @@ describe("partner domain and readable referral redirects", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 });
+
+describe("search destination and optional advertising boundary", () => {
+  const env = (enabled = false): Env => ({
+    DEPLOYMENT_ENVIRONMENT: "public-site", GOOGLE_ADS_MEASUREMENT: String(enabled),
+    ASSETS: { fetch: vi.fn(async () => new Response("landing", { headers: { "Content-Type": "text/html" } })) } as unknown as Fetcher,
+  });
+  it("serves the dedicated landing HTML and allows indexing", async () => {
+    const config = env();
+    const response = await handleRequest(new Request("https://venfour.com/total-loss-review?gclid=unit_test"), config);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("X-Robots-Tag")).toBeNull();
+    expect(new URL(vi.mocked(config.ASSETS.fetch).mock.calls[0][0] instanceof Request ? (vi.mocked(config.ASSETS.fetch).mock.calls[0][0] as Request).url : "https://invalid.test").pathname).toBe("/total-loss-review.html");
+    expect(response.headers.get("Content-Security-Policy")).not.toContain("googletagmanager");
+  });
+  it("publishes the landing in a public sitemap", async () => {
+    const response = await handleRequest(new Request("https://venfour.com/sitemap.xml"), env());
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("<loc>https://venfour.com/total-loss-review</loc>");
+    const robots = await handleRequest(new Request("https://venfour.com/robots.txt"), env());
+    expect(await robots.text()).toContain("Sitemap: https://venfour.com/sitemap.xml");
+  });
+  it("adds exact Google origins only when explicitly configured without permitting unsafe scripts", async () => {
+    const response = await handleRequest(new Request("https://venfour.com/total-loss-review"), env(true));
+    const csp = response.headers.get("Content-Security-Policy")!;
+    expect(csp).toContain("https://www.googletagmanager.com");
+    expect(csp).toContain("script-src 'self' https://www.googletagmanager.com https://www.googleadservices.com https://www.google.com;");
+    expect(csp).not.toContain("unsafe-eval");
+    expect(csp).not.toContain("script-src 'unsafe-inline'");
+    expect(response.headers.get("Referrer-Policy")).toBe("no-referrer");
+  });
+  it("redirects the customer-host landing to its canonical public route", async () => {
+    const config = { ...createEnv(), DEPLOYMENT_ENVIRONMENT: "production", API_ORIGIN: "https://venfour-api-production-usmgwdpgqq-uk.a.run.app", STAGING_HOSTNAME: undefined };
+    const response = await handleRequest(new Request("https://app.venfour.com/total-loss-review"), config);
+    expect(response.status).toBe(308);
+    expect(response.headers.get("Location")).toBe("https://venfour.com/total-loss-review");
+  });
+});
