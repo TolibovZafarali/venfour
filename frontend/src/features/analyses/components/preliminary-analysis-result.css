@@ -52,16 +52,11 @@
 .preliminary-result__next h2 { font-size: 22px; font-weight: 500; line-height: 1.35; letter-spacing: -.025em; text-wrap: pretty; }
 .preliminary-result__next-description { max-width: 520px; margin-top: 10px; color: var(--result-copy); font-size: 14px; line-height: 1.7; text-wrap: pretty; }
 .preliminary-result__action { max-width: 380px; margin-top: 22px; }
-.preliminary-result .valuation-result__upload-introduction,
-.preliminary-result__action > div:not([data-report-review-complete]) > .valuation-result__payment-note { display: none; }
 .preliminary-result .valuation-result__next-copy { max-width: none; margin: 0 0 18px; color: var(--result-copy); font-size: 14px; line-height: 1.7; text-align: left; }
 .preliminary-result .preliminary-result__action [data-slot="button"] { width: 100%; min-width: 0; min-height: 52px; height: auto; margin: 0; padding: 14px 20px; justify-content: space-between; gap: 16px; border-radius: 7px; font-size: 14px; font-weight: 500; line-height: 1.5; white-space: normal; text-align: left; box-shadow: 0 1px 2px rgb(0 0 0 / .04); }
 .preliminary-result .preliminary-result__action [data-slot="button"]:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
 .preliminary-result .preliminary-result__action [data-slot="button"] svg { width: 17px; height: 17px; flex-shrink: 0; }
 .preliminary-result .valuation-result__payment-note { margin-top: 10px; color: var(--result-copy); font-size: 13px; line-height: 1.6; text-align: left; }
-.preliminary-result__sequence { display: flex; flex-wrap: wrap; gap: 2px 4px; margin-top: 12px; color: var(--result-copy); font-size: 12px; line-height: 1.7; }
-.preliminary-result__next:has([data-report-review-complete]) .preliminary-result__next-description,
-.preliminary-result__next:has([data-report-review-complete]) .preliminary-result__sequence > span:first-child { display: none; }
 .preliminary-result__review-details { margin-top: 8px; }
 .preliminary-result__checks { display: grid; gap: 18px; }
 .preliminary-result__checks > div { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 20px; }

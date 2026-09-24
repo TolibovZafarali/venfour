@@ -1369,15 +1369,19 @@ class CaseAnalysisService:
                             raise AnalysisCreationExecutionError(
                                 "Confirmed-input analysis creation is unavailable"
                             )
-                        result = create_confirmed(
-                            input_snapshot,
-                            report_extraction_available=True,
-                            normalized_report=ingestion.to_dict()[
-                                "normalizedReport"
-                            ],
-                            report_adapter=ingestion.adapter,
-                            partial_extraction=ingestion.partial,
-                        )
+                        recover_cached = getattr(creation_service, "create_from_cached_report", None)
+                        if (ingestion.adapter == "CCC" and "engineDetails" not in ingestion.normalized_report["vehicle"]
+                                and callable(recover_cached)):
+                            with self._gateway.materialize_total_loss_report_from_locator(case_id, row, job_id) as report_path:
+                                result = recover_cached(report_path, input_snapshot, ingestion)
+                        else:
+                            result = create_confirmed(
+                                input_snapshot,
+                                report_extraction_available=True,
+                                normalized_report=ingestion.to_dict()["normalizedReport"],
+                                report_adapter=ingestion.adapter,
+                                partial_extraction=ingestion.partial,
+                            )
                     else:
                         create_report = getattr(creation_service, "create", None)
                         if not callable(create_report):

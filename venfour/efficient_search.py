@@ -113,6 +113,7 @@ def _historical_result(data: Mapping[str, Any]) -> HistoricalMarketSearchResult:
 
 
 def subject_material_facts(report: Mapping[str, Any]) -> dict[str, Any]:
+    from venfour.report_vehicle_facts import engine_matching_facts
     vehicle = report.get("vehicle") or {}
     facts = {key: vehicle.get(source) for key, source in (
         ("bodyType", "bodyStyle"), ("engine", "engine"), ("fuelType", "fuelType"),
@@ -122,6 +123,7 @@ def subject_material_facts(report: Mapping[str, Any]) -> dict[str, Any]:
         ("bodySubtype", "bodySubtype"), ("cabType", "cabType"),
         ("bedLength", "bedLength"), ("doors", "doors"),
     )}
+    facts.update(engine_matching_facts(vehicle))
     # Drive type already belongs to the canonical target and query filters.
     # Keep the supplemental facts inside the existing audit contract.
     confirmed = report.get("confirmedVehicleFacts") or {}

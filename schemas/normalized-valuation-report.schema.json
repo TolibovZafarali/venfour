@@ -82,6 +82,67 @@
         "location": { "$ref": "#/$defs/nullableText" },
         "bodyStyle": { "$ref": "#/$defs/nullableText" },
         "engine": { "$ref": "#/$defs/nullableText" },
+        "engineDetails": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "displacementLiters",
+            "cylinders",
+            "sourceReferences"
+          ],
+          "properties": {
+            "displacementLiters": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "exclusiveMinimum": 0,
+              "exclusiveMaximum": 20
+            },
+            "cylinders": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 19
+            },
+            "sourceReferences": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "page",
+                  "section",
+                  "label",
+                  "text"
+                ],
+                "properties": {
+                  "page": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "section": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
         "transmission": { "$ref": "#/$defs/nullableText" },
         "fuelType": { "$ref": "#/$defs/nullableText" },
         "equipment": {

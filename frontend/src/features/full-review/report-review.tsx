@@ -84,20 +84,26 @@ export function FullReviewReport({ caseId, userId, accessToken, headingLevel = "
     : issue ? "One detail to confirm."
     : state?.ready ? state.paymentReadiness.eligible ? "Ready for your full review." : "Your report is saved."
     : state?.status === "report_invalid" ? "We need the complete valuation report."
+    : state?.canReuseReport ? "Your valuation report is already saved."
+    : state?.status === "extraction_failed" ? "We couldn’t read your saved report."
+    : state?.report ? "Your report is saved."
     : "Add your insurer’s valuation report";
   const Heading = headingLevel;
+  const UploadContainer = state?.canReuseReport ? "details" : "div";
   return <section className="workspace-stage" aria-labelledby="full-review-heading">
     <p className="workspace-stage__eyebrow">Full valuation review</p>
     <Heading id="full-review-heading" className="workspace-stage__heading">{heading}</Heading>
-    {!state?.report && !busy && !recovering ? <p className="workspace-stage__description">Add the complete PDF so we can review your vehicle details, comparable vehicles, and adjustments.</p> : null}
+    {!state?.report && !busy && !recovering ? <p className="workspace-stage__description">{state?.canReuseReport ? "Use the report you uploaded at the start. You don’t need to upload it again." : "Add the complete PDF so we can review your vehicle details, comparable vehicles, and adjustments."}</p> : null}
     {query.isError ? <div className="mt-6" role="alert"><p>We couldn’t open the report details.</p><Button className="mt-3" variant="outline" onClick={() => void query.refetch()}>Try again</Button></div> : null}
     {state ? <>
       {state.report ? <div className="workspace-report-file"><FileText aria-hidden /><div><strong>{state.report.filename}</strong><span>Saved securely to this case</span></div></div> : null}
-      {busy || recovering || preparing || (!state.ready && state.status !== "report_required") ? <p className="workspace-report-status" role="status">{busy ? "Saving your report…" : recovering && !state.report ? "Checking for your saved upload…" : preparing ? "Checking your report and saved evidence. Your progress is saved." : state.message}</p> : null}
+      {busy || recovering || preparing || (!state.ready && state.status !== "report_required" && !state.canReuseReport) ? <p className="workspace-report-status" role="status">{busy ? "Saving your report…" : recovering && !state.report ? "Checking for your saved upload…" : preparing ? "Checking your report and saved evidence. Your progress is saved." : state.message}</p> : null}
       {preparing || busy ? <div className="workspace-processing__line" aria-hidden /> : null}
       {!state.ready && !state.locked && !preparing && !issue ? <>
         {state.canReuseReport ? <Button className="mt-5" disabled={busy} onClick={() => void run(() => extractFullReview(caseId, accessToken))}>Use my saved valuation report</Button> : null}
         {state.paymentReadiness.status !== "failed" && (state.status === "extraction_failed" || state.status === "uploaded" || state.status === "uploading") ? <Button className="mt-5 mr-3" disabled={busy} variant="outline" onClick={() => void run(() => extractFullReview(caseId, accessToken))}>Try reading the saved report again</Button> : null}
+        <UploadContainer className={state.canReuseReport ? "workspace-report-help" : undefined}>
+        {state.canReuseReport ? <summary>Use a different report</summary> : null}
         <label htmlFor="full-review-report" className="workspace-upload">
           <Upload aria-hidden />
           <span className="workspace-upload__title">{state.report ? "Upload a replacement PDF" : "Choose the complete valuation PDF"}</span>
@@ -113,6 +119,7 @@ export function FullReviewReport({ caseId, userId, accessToken, headingLevel = "
               event.currentTarget.value = "";
             }} />
         </label>
+        </UploadContainer>
       </> : null}
       {issue && state.report ? <form key={`${state.report.id}:${issue.field}`} className="workspace-confirmation" onSubmit={event => { event.preventDefault(); if (answer && state.report) void run(() => confirmFullReview(caseId, accessToken, state.report!, { [issue.field]: answer })); }}>
         <fieldset disabled={busy}><legend className="font-medium text-ink">{issue.message}</legend>
@@ -138,6 +145,6 @@ export function FullReviewReport({ caseId, userId, accessToken, headingLevel = "
       {busy ? <LoaderCircle className="sr-only" aria-label="Checking report" /> : null}
     </> : null}
     {error ? <p className="mt-4 text-sm text-danger" role="alert">{error}</p> : null}
-    {!state?.report && !busy && !recovering ? <details className="workspace-report-help"><summary>Don’t have it yet?</summary><p>Ask your insurer for the complete total-loss vehicle valuation report, including comparable vehicles and adjustments. Add it here whenever you’re ready.</p></details> : null}
+    {!state?.report && !state?.canReuseReport && !busy && !recovering ? <details className="workspace-report-help"><summary>Don’t have it yet?</summary><p>Ask your insurer for the complete total-loss vehicle valuation report, including comparable vehicles and adjustments. Add it here whenever you’re ready.</p></details> : null}
   </section>;
 }

@@ -49,7 +49,8 @@ _FACT_LABELS = {
 }
 
 
-def search_recovery(search: Mapping[str, Any]) -> dict[str, Any]:
+def search_recovery(search: Mapping[str, Any], *, report_available: bool = False,
+                    source_vehicle: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Explain the first actionable limitation without recalculating valuation."""
     from venfour.subject_readiness import free_estimate_ambiguity, FIELD_LABELS
     facts = search.get("input", {}).get("subjectFacts", {})
@@ -58,7 +59,7 @@ def search_recovery(search: Mapping[str, Any]) -> dict[str, Any]:
     field = ambiguity[0]["field"] if ambiguity else None
     # Older saved searches can expose the observed family-label defect. This
     # explains retained evidence; it does not requalify or rewrite that run.
-    if field is None and rows:
+    if field is None and rows and not report_available:
         from venfour.vehicle_specs import comparison
         for candidate_field in ("engine", "bodyType", "fuelType", "transmission", "cabType", "bedLength"):
             affected = [row for row in rows if comparison(candidate_field, facts.get(candidate_field), (row.get("materialFacts") or {}).get(candidate_field),
@@ -67,18 +68,35 @@ def search_recovery(search: Mapping[str, Any]) -> dict[str, Any]:
             if facts.get(candidate_field) and len(affected) == len(rows):
                 field = candidate_field
                 break
+    if report_available and "engineDetails" not in (source_vehicle or {}) and any(
+        code in row.get("assessment", {}).get("reasonCodes", [])
+        for row in rows for code in ("ENGINE_ESTIMATE_UNRESOLVED", "CYLINDERS_ESTIMATE_UNRESOLVED")
+    ):
+        return {"kind": "UNRESOLVED_CONFIGURATION", "field": "engine", "correctionStep": None,
+                "message": "Your valuation report is saved. We need to recheck its vehicle specifications before asking you for more details. Continue with your saved report; you do not need to upload it again."}
+    if field is None and rows and not search.get("input", {}).get("target", {}).get("drivetrain") and any(
+        "DRIVETRAIN_ESTIMATE_UNRESOLVED" in row.get("assessment", {}).get("reasonCodes", []) for row in rows
+    ):
+        field = "drivetrain"
+    if field is None and rows and not facts.get("engine") and any(
+        "ENGINE_ESTIMATE_UNRESOLVED" in row.get("assessment", {}).get("reasonCodes", []) for row in rows
+    ):
+        field = "engine"
     if field:
         return {"kind": "UNRESOLVED_CONFIGURATION", "field": field, "correctionStep": "vehicle",
-                "message": f"We couldn’t confirm the {FIELD_LABELS[field].lower()} well enough to match comparable vehicles. Confirm this detail or add your insurer’s valuation report. Your saved information is preserved."}
+                "message": f"Confirm your vehicle’s {FIELD_LABELS[field].lower()} so we can check the right configuration. "
+                           + ("Your valuation report and other details are saved." if report_available else "Your other details are saved.")}
     reasons = set(search.get("stopReasons", {}).values())
     if "CUSTOMER_LOCATION_UNAVAILABLE" in reasons:
         return {"kind": "MISSING_INFORMATION", "field": "postalCode", "correctionStep": "claim",
                 "message": "Confirm your vehicle ZIP code so we can compare evidence from the right area. Your other information is saved."}
     if reasons & {"BUDGET_OR_QUOTA_LIMITED", "PROVIDER_FAILURE", "OBSERVATION_LIMIT"}:
         return {"kind": "SEARCH_INTERRUPTED", "field": None, "correctionStep": None,
-                "message": "The market search ended before enough evidence could be verified. This does not tell us whether your insurer’s offer is fair. You can add the insurer’s valuation report for a closer review."}
+                "message": "The market search ended before enough evidence could be verified. This does not tell us whether your insurer’s offer is fair. "
+                           + ("Your report is saved and can be used for a closer review." if report_available else "You can add the insurer’s valuation report for a closer review.")}
     return {"kind": "SPARSE_EVIDENCE", "field": None, "correctionStep": None,
-            "message": "We couldn’t establish a reliable estimate from the available comparable evidence. This does not tell us whether your insurer’s offer is fair. Your insurer’s valuation report can help us review the details."}
+            "message": "The available comparable vehicles did not provide enough reliable evidence for a market range. "
+                       + ("Your report is saved. Continue to review the insurer’s comparable vehicles and adjustments." if report_available else "Your insurer’s valuation report can help us review the details.")}
 
 
 @lru_cache(maxsize=1)
@@ -105,7 +123,9 @@ def validate_market_evidence_display(value: Mapping[str, Any], kind: str) -> Non
                     raise ValueError("Supporting listing URL is invalid")
 
 
-def project_market_search_context(search: Mapping[str, Any] | None, *, customer_recovery: bool = True) -> dict[str, Any] | None:
+def project_market_search_context(search: Mapping[str, Any] | None, *, customer_recovery: bool = True,
+                                  report_available: bool = False,
+                                  source_vehicle: Mapping[str, Any] | None = None) -> dict[str, Any] | None:
     if not isinstance(search, Mapping):
         return None
     status = search["baselineStatus"]
@@ -125,16 +145,16 @@ def project_market_search_context(search: Mapping[str, Any] | None, *, customer_
             "This approximate market range is an early signal from comparable asking prices. "
             "It does not account for every option, condition adjustment, or detail in the insurer's report. "
             + ("Some vehicle details or comparable evidence remain unverified, which limits precision. " if status == "LIMITED" else "")
-            + "The full review requires your complete insurer valuation report."
+            + ("Your insurer valuation report is saved for the full review." if report_available else "The full review requires your complete insurer valuation report.")
         )
         for reason in result["stopReasons"]:
             if reason["code"] == "SUFFICIENT_STRONG_EVIDENCE":
                 reason["description"] = "Enough comparable observations were found for the approximate estimate."
         if status == "LIMITED" and customer_recovery:
-            result["recovery"] = search_recovery(search)
+            result["recovery"] = search_recovery(search, report_available=report_available, source_vehicle=source_vehicle)
             result["summary"] = (
                 "The available comparable evidence is limited. Some vehicle details or market records remain unverified. "
-                "The full review requires your complete insurer valuation report; payment is available only after its readiness checks pass."
+                + ("Your insurer valuation report is saved for the full review." if report_available else "The full review requires your complete insurer valuation report.")
             )
     validate_market_evidence_display(result, "marketSearchContext")
     return result

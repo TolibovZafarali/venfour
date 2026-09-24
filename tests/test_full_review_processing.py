@@ -1,6 +1,7 @@
 """Durable preparation and payment projection use saved evidence, never a live search."""
 
 import copy
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
@@ -45,6 +46,29 @@ class FullReviewProcessingTests(unittest.TestCase):
         self.processor.execute(self.gateway.work["id"])
         self.ingestion.ingest.assert_not_called()
         self.assertEqual(self.gateway.context["strict_review"]["calculation"]["newProviderRequests"], 0)
+
+    def test_reused_intake_extraction_recovers_labeled_specs_into_new_report_revision(self):
+        from tests.test_report_ingestion import write_pdf
+        from tests.test_report_vehicle_facts import DETAILS, VIN
+        row = self.gateway.context["report"]
+        cached = copy.deepcopy(row["extraction"])
+        vehicle = cached["normalizedReport"]["vehicle"]
+        vehicle.update(engine=None, vin=VIN)
+        vehicle.pop("engineDetails", None)
+        path = Path(self.temp.name) / row["id"]
+        write_pdf(path, DETAILS)
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        cached["documentSha256"] = digest
+        self.gateway.context["existing_report"] = {"extraction": cached}
+        before = copy.deepcopy(cached)
+        row.update(extraction=None, status="uploaded", readiness=None, byte_size=path.stat().st_size, document_sha256=digest)
+        self.processor.execute(self.gateway.work["id"])
+        current = self.gateway.context["report"]
+        self.assertGreater(current["revision"], 4)
+        details = current["extraction"]["normalizedReport"]["vehicle"]["engineDetails"]
+        self.assertEqual((details["displacementLiters"], details["cylinders"]), (2.4, 4))
+        self.assertEqual(cached, before)
+        self.ingestion.ingest.assert_not_called()
 
     def test_missing_invalid_held_and_stale_approval_never_unlock_payment(self):
         self.processor.execute(self.gateway.work["id"])

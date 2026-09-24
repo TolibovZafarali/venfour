@@ -43,10 +43,39 @@ function selectPdf() {
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(getFullReview).mockResolvedValue(initial); });
 
 describe("report upload modal", () => {
+  it("reuses an intake report without asking for another upload", async () => {
+    vi.mocked(getFullReview).mockResolvedValue({ ...initial, canReuseReport: true });
+    vi.mocked(extractFullReview).mockImplementation(async () => {
+      vi.mocked(getFullReview).mockResolvedValue(saved);
+      return saved;
+    });
+    const { user } = setup();
+    expect(screen.getByRole("button", { name: "Checking saved report…" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Upload insurer valuation report" })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Review saved report" }));
+    expect(await screen.findByRole("heading", { name: "Your valuation report is already saved." })).toBeVisible();
+    expect(screen.getByText(/You don’t need to upload it again/)).toBeVisible();
+    expect(screen.getByLabelText("Choose the complete valuation PDF")).not.toBeVisible();
+    expect(extractFullReview).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Use my saved valuation report" }));
+    expect(await screen.findByRole("heading", { name: "Reading your valuation report." })).toBeVisible();
+    expect(extractFullReview).toHaveBeenCalledExactlyOnceWith("saved-case", "owner-token");
+    expect(uploadFullReview).not.toHaveBeenCalled();
+  });
+
+  it("does not interpret a failed status lookup as a missing report", async () => {
+    vi.mocked(getFullReview).mockRejectedValue(new Error("Offline"));
+    const { user } = setup();
+    await user.click(await screen.findByRole("button", { name: "Open report review" }));
+    expect(await screen.findByRole("heading", { name: "We couldn’t open your report." })).toBeVisible();
+    expect(screen.queryByLabelText("Choose the complete valuation PDF")).not.toBeInTheDocument();
+    expect(uploadFullReview).not.toHaveBeenCalled();
+  });
+
   it("keeps the result mounted, preserves history, restores focus, and performs no writes on open", async () => {
     const { user, router } = setup();
     const result = screen.getByRole("heading", { name: "Saved free result" });
-    const trigger = screen.getByRole("button", { name: "Upload insurer valuation report" });
+    const trigger = await screen.findByRole("button", { name: "Upload insurer valuation report" });
     expect(getFullReview).toHaveBeenCalledOnce();
     await user.click(trigger);
     await screen.findByLabelText("Choose the complete valuation PDF");
@@ -127,13 +156,13 @@ describe("report upload modal", () => {
       return initial;
     });
     const { router, user } = setup();
-    await user.click(screen.getByRole("button", { name: "Upload insurer valuation report" }));
+    await user.click(await screen.findByRole("button", { name: "Upload insurer valuation report" }));
     await screen.findByLabelText("Choose the complete valuation PDF");
     selectPdf();
     await waitFor(() => expect(screen.getByRole("button", { name: "Close report review" })).toBeDisabled());
     await act(async () => { await router.navigate(-1); });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Upload insurer valuation report" }));
+    await user.click(await screen.findByRole("button", { name: "Upload insurer valuation report" }));
     await screen.findByLabelText("Choose the complete valuation PDF");
     expect(screen.getByRole("dialog")).toBeVisible();
     await act(async () => { finish(); });
@@ -216,11 +245,11 @@ describe("report upload modal", () => {
     const { user } = setup(`${base}/analysis?upload=report`);
     await user.click(await screen.findByRole("radio", { name: /In the report/ }));
     await user.click(screen.getByRole("button", { name: "Close report review" }));
-    await user.click(screen.getByRole("button", { name: "Upload insurer valuation report" }));
+    await user.click(await screen.findByRole("button", { name: "Review saved report" }));
     expect(await screen.findByRole("radio", { name: /In the report/ })).toBeChecked();
     await user.click(screen.getByRole("button", { name: "Close report review" }));
     vi.mocked(getFullReview).mockResolvedValue({ ...confirmation, report: { ...confirmation.report!, revision: 3 } });
-    await user.click(screen.getByRole("button", { name: "Upload insurer valuation report" }));
+    await user.click(await screen.findByRole("button", { name: "Review saved report" }));
     await waitFor(() => expect(screen.getByRole("radio", { name: /In the report/ })).not.toBeChecked());
     expect(screen.getByRole("button", { name: "Confirm and continue" })).toBeDisabled();
     expect(confirmFullReview).not.toHaveBeenCalled();

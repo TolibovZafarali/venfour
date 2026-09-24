@@ -99,6 +99,11 @@ Rules:
 - Put taxes, fees, prior-damage adjustments, and other adjustments only in their
   corresponding fields. Do not silently fold them into condition or mileage.
 - Extract only loss-vehicle equipment and packages into vehicle.equipment.
+- Capture separately labeled loss-vehicle Cylinders and Displacement in
+  vehicle.engineDetails even when Engine is blank, with exact labeled text,
+  section and one-based PDF page references. Convert explicitly printed cc to
+  liters by dividing by 1000. Never infer layout, aspiration or specifications
+  from a VIN, model, trim or comparable. Keep vehicle.engine as printed.
 - Do not invent confidence scores, explanations, or analysis conclusions.
 """
 
@@ -149,6 +154,7 @@ class ValidatedReportDocument:
     sha256: str
     page_count: int
     provider_text: str
+    page_texts: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -326,6 +332,11 @@ def validate_normalized_report(data: Any) -> None:
                 for error in errors
             )
         )
+    from venfour.report_vehicle_facts import validate_engine_details
+    try:
+        validate_engine_details(data["vehicle"])
+    except ValueError as exc:
+        raise NormalizedReportContractError((str(exc),)) from exc
     if isinstance(data, Mapping) and data.get("schemaVersion") == "2":
         from venfour.ccc_evidence import normalize_ccc_evidence_v2, validate_ccc_source_claims
         plain = _thaw_json(data)
@@ -367,6 +378,11 @@ def validate_effective_report(data: Any) -> None:
     errors = sorted(Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(data), key=lambda error: str(error.path))
     if errors:
         raise NormalizedReportContractError(tuple(f"{_json_path(error.path)}: {error.message}" for error in errors))
+    from venfour.report_vehicle_facts import validate_engine_details
+    try:
+        validate_engine_details(data["vehicle"])
+    except ValueError as exc:
+        raise NormalizedReportContractError((str(exc),)) from exc
     raw = _thaw_json(data)
     raw["comparables"] = raw["evidence"]["comparableAppearances"]
     raw["contributionRows"] = raw["evidence"]["contributionRows"]
@@ -431,9 +447,8 @@ def validate_canonical_pdf(path: Path | str) -> ValidatedReportDocument:
                 if remaining <= 0:
                     break
                 text = page.get_text("text")
-                if text:
-                    text_parts.append(text[:remaining])
-                    remaining -= len(text_parts[-1])
+                text_parts.append(text[:remaining])
+                remaining -= len(text_parts[-1])
         finally:
             document.close()
     except ReportDocumentInvalidError:
@@ -448,6 +463,7 @@ def validate_canonical_pdf(path: Path | str) -> ValidatedReportDocument:
         sha256=digest.hexdigest(),
         page_count=page_count,
         provider_text="\n".join(text_parts),
+        page_texts=tuple(text_parts),
     )
 
 
@@ -623,6 +639,8 @@ def normalize_ccc_report(data: Mapping[str, Any]) -> dict[str, Any]:
             "recalls": _string_items(supplemental.get("recalls")),
         },
     }
+    if "engineDetails" in vehicle:
+        normalized["vehicle"]["engineDetails"] = copy.deepcopy(vehicle["engineDetails"])
     if data.get("schemaVersion") == "2":
         from venfour.ccc_evidence import normalize_ccc_evidence_v2
         normalized = normalize_ccc_evidence_v2(data, normalized)
@@ -707,6 +725,8 @@ def normalized_report_to_legacy_report(
         "valuationNotes": list(normalized.get("valuationNotes") or []),
         "supplementalInformation": dict(normalized["supplementalInformation"]),
     }
+    if "engineDetails" in vehicle:
+        legacy["vehicle"]["engineDetails"] = copy.deepcopy(vehicle["engineDetails"])
     if normalized["schemaVersion"] == "2":
         legacy["schemaVersion"] = "2"
         legacy["report"]["insurer"] = report["insurer"]
@@ -845,6 +865,22 @@ class ReportIngestionService:
         if self._ccc_schema_version not in {"1", "2"}:
             raise ValueError("Unsupported CCC extraction schema version")
 
+    def recover_saved(self, ingestion: ReportIngestionResult, pdf_path: Path | str) -> ReportIngestionResult:
+        """Check a fenced cached extraction against its PDF without external calls."""
+        from venfour.report_vehicle_facts import recover_labeled_engine_details
+        document = validate_canonical_pdf(pdf_path)
+        if not ingestion.document_sha256 or ingestion.document_sha256 != document.sha256:
+            raise ReportExtractionError("The saved extraction does not match the uploaded report")
+        payload = ingestion.to_dict()
+        if ingestion.adapter == CCC_ADAPTER:
+            try:
+                vehicle = recover_labeled_engine_details(payload["normalizedReport"]["vehicle"], document.page_texts)
+            except ValueError as exc:
+                raise ReportExtractionError("The saved report contains conflicting engine specifications") from exc
+            vehicle.setdefault("engineDetails", None)
+            payload["normalizedReport"]["vehicle"] = vehicle
+        return ReportIngestionResult.from_dict(payload)
+
     def ingest(self, pdf_path: Path | str) -> ReportIngestionResult:
         document = validate_canonical_pdf(pdf_path)
         detected_id, detected_name = detect_report_provider(document.provider_text)
@@ -897,6 +933,15 @@ class ReportIngestionService:
             ValueError,
         ) as exc:
             raise ReportExtractionError("Valuation report extraction failed") from exc
+
+        from venfour.report_vehicle_facts import recover_labeled_engine_details, validate_engine_details
+        try:
+            if adapter == CCC_ADAPTER:
+                normalized["vehicle"] = recover_labeled_engine_details(normalized["vehicle"], document.page_texts)
+                normalized["vehicle"].setdefault("engineDetails", None)
+            validate_engine_details(normalized["vehicle"], page_count=document.page_count)
+        except ValueError as exc:
+            raise ReportExtractionError("The saved report contains conflicting engine specifications; review its labeled vehicle details") from exc
 
         report = _mapping(normalized.get("report"))
         extracted_provider = _nullable_text(report.get("provider"))

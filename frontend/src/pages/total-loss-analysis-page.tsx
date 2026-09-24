@@ -27,6 +27,11 @@ import { useAnalysisQuery } from "@/features/analyses/queries";
 import { ApiError } from "@/lib/api/client";
 import { totalLossIntakeCorrectionPath } from "@/features/total-loss/intake-correction";
 import { ReportUploadDialog } from "@/features/full-review/report-upload-dialog";
+import { useQueryClient } from "@tanstack/react-query";
+import { caseAnalysisQueryKeys, requestAutomaticSubmission } from "@/features/analyses/case-analysis-queries";
+import { useTotalLossDependencies } from "@/features/total-loss/dependencies";
+import { confirmVehicleDetail } from "@/features/total-loss/confirm-vehicle-detail";
+import { VEHICLE_FACT_LABELS, type VehicleFactField } from "@/features/total-loss/vehicle-facts";
 
 const canonicalUuid4Pattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -50,13 +55,17 @@ function CompletedTotalLossAnalysis({
   runId,
   userId,
   reportUploadAction,
+  analysisInputId,
 }: {
   readonly accessToken: string;
   readonly intakeCorrectionAllowed: boolean;
   readonly runId: string;
   readonly userId: string;
   readonly reportUploadAction: ReactNode;
+  readonly analysisInputId?: string | null;
 }) {
+  const dependencies = useTotalLossDependencies();
+  const queryClient = useQueryClient();
   const resultQuery = useAnalysisQuery({ accessToken, runId, userId });
   const { caseId } = useParams();
   const reviewIntakePath =
@@ -112,6 +121,12 @@ function CompletedTotalLossAnalysis({
       reportUploadAction={reportUploadAction}
       reviewIntakePath={reviewIntakePath}
       insurerReportPath={caseId ? `/total-loss/cases/${caseId}/review-report` : undefined}
+      onConfirmVehicleFact={intakeCorrectionAllowed && caseId && analysisInputId && dependencies?.totalLossDetailsService.confirmIntake ? async (field: VehicleFactField, value: string) => {
+        const updated = await confirmVehicleDetail({ service: dependencies.totalLossDetailsService, accessToken, userId, caseId, analysisInputId, field, value });
+        if (!updated.analysisInputId || !updated.analysisInputRevision) throw new Error("The updated review is unavailable.");
+        requestAutomaticSubmission(userId, caseId, { expectedAnalysisInputId: updated.analysisInputId, expectedAnalysisInputRevision: updated.analysisInputRevision });
+        await queryClient.invalidateQueries({ queryKey: caseAnalysisQueryKeys.detail(userId, caseId) });
+      } : undefined}
     />
   );
 }
@@ -239,8 +254,8 @@ function AuthenticatedTotalLossAnalysisPage({
   if (analysis.status === "not_submitted" && analysis.submissionAvailability?.available === false) {
     return <StateCard kind="error" eyebrow="Your information is saved"
       heading="The value check is temporarily unavailable."
-      description="Your vehicle details are safe. You can add your insurer’s valuation report or return to this case later.">
-      <Button asChild><Link to={`/total-loss/cases/${caseId}/review-report`}>Upload insurer valuation report</Link></Button>
+      description="Your vehicle details are safe. You can continue to the report review or return to this case later.">
+      {reportUploadAction}
       <Button variant="outline" onClick={() => void analysisQuery.refetch()}>Check availability</Button>
     </StateCard>;
   }
@@ -327,7 +342,7 @@ function AuthenticatedTotalLossAnalysisPage({
   if (analysis.status === "failed") {
     const recoveryRequired = analysis.error.code === "ANALYSIS_RECOVERY_REQUIRED";
     const processingInterrupted = analysis.error.code === "ANALYSIS_PROCESSING_INTERRUPTED";
-    const ordinaryFields: Record<string, string> = { postalCode: "ZIP code", mileage: "mileage", lossDate: "date of loss", year: "vehicle year", make: "make", model: "model", insurerOffer: "insurer offer" };
+    const ordinaryFields: Record<string, string> = { ...VEHICLE_FACT_LABELS, postalCode: "ZIP code", mileage: "mileage", lossDate: "date of loss", year: "vehicle year", make: "make", model: "model", insurerOffer: "insurer offer" };
     const issue = analysis.subjectReadiness?.issues.find(item => ordinaryFields[item.field]);
     const reportNeeded = Boolean(analysis.subjectReadiness && !issue) || analysis.error.code === "REPORT_NOT_ANALYZABLE";
     const correctionPath = issue ? (analysis.subjectReadiness?.correctionMode === "resume"
@@ -335,9 +350,9 @@ function AuthenticatedTotalLossAnalysisPage({
       : totalLossIntakeCorrectionPath(caseId, issue.correctionStep)) + `&vehicleFact=${encodeURIComponent(issue.field)}` : null;
     return <StateCard kind="error" eyebrow={reportNeeded ? "Your review is saved" : "Value check paused"}
       heading={recoveryRequired || processingInterrupted ? "Your value check was interrupted." : issue ? "Check your review details." : reportNeeded ? "Your insurer’s report can help." : "We couldn’t complete this value check."}
-      description={recoveryRequired ? "Your case information is saved. We need to recover the interrupted check before continuing. Please contact support for help." : processingInterrupted ? "A temporary processing problem interrupted the check. Your case information is saved. You can try to continue from the saved progress." : issue ? `Check the ${ordinaryFields[issue.field]} you entered so we can continue.` : reportNeeded ? "We need the information in your insurer’s valuation report to take this review further. Your saved details are still here." : "We couldn’t finish the check right now. Your information is saved."}>
+      description={recoveryRequired ? "Your case information is saved. We need to recover the interrupted check before continuing. Please contact support for help." : processingInterrupted ? "A temporary processing problem interrupted the check. Your case information is saved. You can try to continue from the saved progress." : issue ? `Confirm the ${ordinaryFields[issue.field].toLowerCase()} shown in your documents so we can continue.` : reportNeeded ? "Review the insurer report and its highlighted details to continue. Your saved information is still here." : "We couldn’t finish the check right now. Your information is saved."}>
       {correctionPath ? <Button asChild><Link to={correctionPath}>Review your details</Link></Button>
-        : reportNeeded ? <Button asChild><Link to={`/total-loss/cases/${caseId}/review-report`}>Upload insurer valuation PDF</Link></Button>
+        : reportNeeded ? reportUploadAction
         : recoveryRequired ? (supportEmail ? <Button asChild><a href={`mailto:${supportEmail}?subject=Interrupted%20value%20check`}>Email support</a></Button> : null)
         : analysis.retryable ? <Button disabled={submitMutation.isPending} onClick={submitCurrentInput}><RefreshCw className="size-4" aria-hidden />{processingInterrupted ? "Continue value check" : "Retry value check"}</Button>
         : <Button onClick={() => void analysisQuery.refetch()}>Try again</Button>}
@@ -366,6 +381,7 @@ function AuthenticatedTotalLossAnalysisPage({
       accessToken={accessToken}
       intakeCorrectionAllowed={analysis.intakeCorrectionAllowed === true}
       runId={analysis.runId}
+      analysisInputId={analysis.analysisInputId}
       userId={userId}
       reportUploadAction={reportUploadAction}
     />
@@ -378,7 +394,7 @@ function SavedReportBackground({ accessToken, caseId, userId, reportUploadAction
   const query = useCaseAnalysisQuery({ accessToken, caseId, userId });
   const analysis = query.data;
   return analysis?.status === "completed" && canonicalUuid4Pattern.test(analysis.runId)
-    ? <CompletedTotalLossAnalysis accessToken={accessToken} runId={analysis.runId} userId={userId} intakeCorrectionAllowed={analysis.intakeCorrectionAllowed === true} reportUploadAction={reportUploadAction} />
+    ? <CompletedTotalLossAnalysis accessToken={accessToken} runId={analysis.runId} analysisInputId={analysis.analysisInputId} userId={userId} intakeCorrectionAllowed={analysis.intakeCorrectionAllowed === true} reportUploadAction={reportUploadAction} />
     : <StateCard heading="Your valuation review" description="Review your insurer’s report in this workspace." />;
 }
 

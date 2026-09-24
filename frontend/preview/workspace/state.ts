@@ -20,6 +20,8 @@ export const scenarios = [
   ["free", "Free result", "A focused result with report upload in a modal."],
   ["listing", "Listing context", "Saved asking-price context."],
   ["insufficient", "Limited evidence", "The saved result without an estimate."],
+  ["saved-report", "Limited evidence · saved report", "An earlier result that reuses the report uploaded at intake."],
+  ["missing-detail", "Confirm drive type", "One missing fact with the insurer report already saved."],
   ["upload", "Report upload", "PDF upload in a modal over the saved result."],
   ["extracting", "Reading the report", "Saved report extraction in progress."],
   ["confirmation", "Confirm a fact", "Resolve one mileage difference."],
@@ -63,7 +65,7 @@ export function scenarioPath(phase: Scenario) {
   const base = `/total-loss/cases/${CASE_ID}`;
   if (isResponseScenario(phase)) return `${base}/claim/review/${phase === "acceptance" ? "resolution" : phase}`;
   if (isMessageScenario(phase)) return `${base}/claim/review/${phase === "waiting" ? "waiting" : "request"}`;
-  return phase === "zero" ? "/app" : phase === "intake" ? `/start?service=total-loss&caseId=${CASE_ID}` : phase === "upload" ? `${base}/analysis?upload=report` : ["free", "listing", "insufficient", "processing"].includes(phase) ? `${base}/analysis`
+  return phase === "zero" ? "/app" : phase === "intake" ? `/start?service=total-loss&caseId=${CASE_ID}` : phase === "upload" ? `${base}/analysis?upload=report` : ["free", "listing", "insufficient", "saved-report", "missing-detail", "processing"].includes(phase) ? `${base}/analysis`
     : phase === "payment-unverified" || phase === "payment" || phase === "confirming" ? `${base}/claim/checkout` : phase === "paid" ? `${base}/claim/processing`
     : phase === "completed" ? `${base}/claim/review/result` : `${base}/review-report`;
 }
@@ -81,12 +83,12 @@ function reportState(caseId: string): FullReviewState {
     else if (phase === "strict") { setPhase("ready"); phase = "ready"; }
   }
   if (caseId === OTHER_CASE_ID) phase = "ready";
-  const hasReport = !["free", "upload", "listing", "insufficient", "processing", "zero"].includes(phase);
+  const hasReport = !["free", "upload", "listing", "insufficient", "saved-report", "missing-detail", "processing", "zero"].includes(phase);
   const ready = ["strict", "ready", "payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase);
   return {
     caseId, stage: "full_review", analysisInputId: RUN_ID, analysisInputRevision: 3,
     status: ready ? "ready" : phase === "confirmation" ? "needs_confirmation" : phase === "extracting" || phase === "strict" ? "extracting" : "report_required",
-    ready, checkoutAvailable: phase === "ready", locked: ["payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase), canReuseReport: false,
+    ready, checkoutAvailable: phase === "ready", locked: ["payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase), canReuseReport: ["saved-report", "missing-detail"].includes(phase),
     report: hasReport ? { id: REPORT_ID, revision: 1, filename: snapshot().filename ?? "Insurer_valuation_report.pdf" } : null,
     message: phase === "confirmation" ? "Confirm this detail so we can finish your review." : "Your report is saved.",
     issues: phase === "confirmation" ? [{ field: "mileage", code: "REPORT_FACT_CONFLICT", message: "Which mileage should the full review use?", reportValue: 32000, savedValue: 30000 }] : [],
@@ -130,7 +132,13 @@ function claim(caseId: string) {
 function freeResult() {
   const phase = snapshot().phase;
   const result = structuredClone(materialUndervalueAnalysis);
-  return { ...result, runId: RUN_ID, presentationVersion: "8", vehicle: { ...result.vehicle, year: 2026, make: "Hyundai", model: "Kona", trim: "SE" }, preliminaryResult: {
+  result.vehicle = { ...result.vehicle, year: 2026, make: "Hyundai", model: "Kona", trim: "SE" };
+  if (["saved-report", "missing-detail"].includes(phase)) return {
+    ...result, runId: RUN_ID, primaryExternalEvidence: null,
+    assessment: { ...result.assessment, classification: "INSUFFICIENT_EVIDENCE" },
+    marketSearchContext: { baselineStatus: "LIMITED", summary: "Limited evidence", stopReasons: [], recovery: phase === "missing-detail" ? { kind: "UNRESOLVED_CONFIGURATION", field: "drivetrain", correctionStep: "vehicle", message: "Confirm your vehicle’s drive type so we can check the right configuration. Your valuation report and other details are saved." } : { kind: "UNRESOLVED_CONFIGURATION", field: "engine", correctionStep: null, message: "Your valuation report is saved. We need to recheck its vehicle specifications before asking you for more details. You do not need to upload it again." } },
+  };
+  return { ...result, analysisScope: { ...result.analysisScope, reportAvailable: !["free", "listing", "insufficient", "upload"].includes(phase) }, runId: RUN_ID, presentationVersion: "8", vehicle: { ...result.vehicle, year: 2026, make: "Hyundai", model: "Kona", trim: "SE" }, preliminaryResult: {
     version: "1", outcome: phase === "insufficient" ? "INSUFFICIENT" : phase === "listing" ? "LISTING_CONTEXT" : "ESTIMATE", evidenceBasis: "CURRENT_MARKET", evidenceDate: "2026-09-15", sampleSize: phase === "insufficient" ? 0 : 6,
     estimatedRange: phase === "listing" || phase === "insufficient" ? null : { lowCents: 2300000, highCents: 2540000 },
     listingPriceSpan: phase === "listing" ? { lowCents: 2300000, highCents: 2540000 } : null,
@@ -168,6 +176,8 @@ export function installPreviewFetch() {
       setPhase("extracting", true, file.name);
       return Response.json(reportState(caseId));
     }
+    if (url.pathname.endsWith("/intake-correction") && method === "POST") return Response.json({ caseId, analysisInputId: RUN_ID });
+    if (url.pathname.endsWith("/full-review/extract") && method === "POST") { setPhase("extracting", true, "Saved_insurer_valuation.pdf"); return Response.json(reportState(caseId)); }
     if (url.pathname.endsWith("/full-review/confirmation") && method === "PATCH") { setPhase("strict", true); return Response.json(reportState(caseId)); }
     if (url.pathname.endsWith("/full-review") && method === "GET") return Response.json(reportState(caseId));
     if (url.pathname.endsWith("/post-continue") && method === "POST") { setPhase("payment"); return Response.json(claim(caseId)); }
@@ -224,7 +234,7 @@ export const previewAuth: AuthService = {
 export function previewCases(): AppraisalCase[] {
   const phase = snapshot().phase;
   if (phase === "zero") return [];
-  const base: AppraisalCase = { id: CASE_ID, userId: phase === "payment-unverified" ? GUEST_USER_ID : USER_ID, serviceType: "total_loss", status: "check_complete", createdAt: NOW, updatedAt: NOW, lastActivityAt: NOW, caseStage: "analysis_complete", analysisStatus: "completed", vehicleLabel: "2026 Hyundai Kona SE", hasFullReviewReport: !["free", "upload", "listing", "insufficient", "processing"].includes(phase), hasTotalLossClaimWorkflow: isResponseScenario(phase) || ["payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase), workspaceStatus: isResponseScenario(phase) && savedResponseClaim(phase).resolution ? "case_closed" : phase === "waiting" ? "awaiting_insurer_response" : phase === "completed" ? "report_ready" : undefined };
+  const base: AppraisalCase = { id: CASE_ID, userId: phase === "payment-unverified" ? GUEST_USER_ID : USER_ID, serviceType: "total_loss", status: "check_complete", createdAt: NOW, updatedAt: NOW, lastActivityAt: NOW, caseStage: "analysis_complete", analysisStatus: "completed", vehicleLabel: "2026 Hyundai Kona SE", hasFullReviewReport: !["free", "upload", "listing", "insufficient", "saved-report", "missing-detail", "processing"].includes(phase), hasTotalLossClaimWorkflow: isResponseScenario(phase) || ["payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase), workspaceStatus: isResponseScenario(phase) && savedResponseClaim(phase).resolution ? "case_closed" : phase === "waiting" ? "awaiting_insurer_response" : phase === "completed" ? "report_ready" : undefined };
   return [{ ...base, ...(phase === "intake" ? { status: "draft" as const, hasFullReviewReport: false, analysisStatus: null, caseStage: undefined } : {}) }, { ...base, id: OTHER_CASE_ID, vehicleLabel: "2024 Hyundai Elantra Limited", lastActivityAt: "2026-09-12T12:00:00Z", hasFullReviewReport: true, hasTotalLossClaimWorkflow: false, workspaceStatus: "review_prepared" }];
 }
 const previewDraft = (userId: string): AppraisalCase => ({ id: CASE_ID, userId, serviceType: "total_loss", status: "draft", createdAt: NOW, updatedAt: NOW, lastActivityAt: NOW });
@@ -245,7 +255,11 @@ const savedDetails: TotalLossCaseDetails = {
 };
 export const previewDetails = {
   appraisalCaseService: previewCaseService,
-  totalLossDetailsService: { getDetails: async () => snapshot().phase === "zero" ? null : snapshot().phase === "intake" ? savedDetails : { ...savedDetails, intakeMode: "report" } },
+  totalLossDetailsService: {
+    getDetails: async () => snapshot().phase === "zero" ? null : snapshot().phase === "intake" ? savedDetails : { ...savedDetails, intakeMode: "report", analysisInputId: RUN_ID, analysisInputRevision: 3 },
+    updateDetails: async () => ({ ...savedDetails, analysisInputId: RUN_ID, analysisInputRevision: 4 }),
+    confirmIntake: async () => { setPhase("processing"); return { ...savedDetails, analysisInputId: RUN_ID, analysisInputRevision: 4 }; },
+  },
   totalLossIdentityService: { getContact: async () => null },
   totalLossReportStorageService: {},
   vehicleLookupService: {

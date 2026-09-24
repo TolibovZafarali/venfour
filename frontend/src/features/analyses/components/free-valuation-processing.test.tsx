@@ -68,23 +68,23 @@ describe("free valuation processing environment", () => {
     expect(screen.getByRole("main")).toHaveFocus();
   });
 
-  it.each([false, true])("keeps the case shell, saved input, and account menu mounted during inline processing (reduced motion: %s)", (reduced) => {
+  it.each([false, true])("uses stars over the case workspace while preserving saved input and account access (reduced motion: %s)", (reduced) => {
     vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: reduced })));
     const openAccount = vi.fn();
-    const view = (processing: boolean) => <FreeValuationProcessingProvider inline>
+    const view = (processing: boolean) => <FreeValuationProcessingProvider inline accountControl={<button onClick={openAccount}>Open account</button>}>
       <header><button onClick={openAccount}>Appraisal account</button></header>
       <main><InlineValuationProcessingBoundary><input aria-label="Saved input" defaultValue="Authored detail" />{processing ? <FreeValuationProcessing phase="reviewing" reviewKey="saved-case" /> : <h1>Saved result</h1>}</InlineValuationProcessingBoundary></main>
       <footer>Terms and privacy</footer>
     </FreeValuationProcessingProvider>;
     const rendered = render(view(true));
-    const account = screen.getByRole("button", { name: "Appraisal account" });
-    const main = screen.getByRole("main");
+    const account = screen.getByText("Appraisal account");
+    const main = screen.getByLabelText("Saved input").closest("main");
     const savedInput = screen.getByLabelText("Saved input");
     expect(savedInput).not.toBeVisible();
-    expect(screen.getByRole("heading", { name: "Reviewing your vehicle." })).toBeVisible();
-    expect(document.querySelector("[data-free-valuation-processing]")).not.toBeInTheDocument();
-    expect(account.closest("[inert]")).toBeNull();
-    fireEvent.click(account);
+    expect(screen.getByTestId("valuation-signals")).toBeVisible();
+    expect(document.querySelector(".workspace-processing__line")).not.toBeInTheDocument();
+    expect(account.closest("[inert]")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Open account" }));
     expect(openAccount).toHaveBeenCalledOnce();
     rendered.rerender(view(false));
     expect(screen.getByRole("main")).toBe(main);

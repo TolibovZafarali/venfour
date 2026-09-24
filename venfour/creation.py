@@ -496,6 +496,23 @@ class AnalysisCreationService:
             report_extraction_available=True,
         )
 
+    def create_from_cached_report(self, pdf_path: Path | str, input_snapshot: Mapping[str, Any],
+                                  ingestion: ReportIngestionResult) -> AnalysisRunResult:
+        """Recover labeled facts into the new run while keeping its source immutable."""
+        if self._ingestion_service is None:
+            raise AnalysisCreationUnavailableError("Report ingestion is unavailable")
+        try:
+            recovered = self._ingestion_service.recover_saved(ingestion, pdf_path)
+        except ReportExtractionError as exc:
+            raise AnalysisExtractionError("Saved report fact recovery failed") from exc
+        if self._report_ingestion_recorder is not None:
+            self._report_ingestion_recorder(recovered)
+        return self.create_from_confirmed_input(
+            input_snapshot, normalized_report=recovered.to_dict()["normalizedReport"],
+            report_adapter=recovered.adapter, partial_extraction=recovered.partial,
+            report_extraction_available=True,
+        )
+
     def create_from_confirmed_input(
         self,
         input_snapshot: Mapping[str, Any],

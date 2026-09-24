@@ -58,7 +58,10 @@ class FullReviewWorkProcessor:
                         raise PackageProcessingContractError("Saved report integrity check failed")
                     cached = (context.get("existing_report") or {}).get("extraction")
                     if isinstance(cached, Mapping) and cached.get("documentSha256") == row["document_sha256"]:
-                        extraction = ReportIngestionResult.from_dict(cached).to_dict()
+                        saved = ReportIngestionResult.from_dict(cached)
+                        if saved.adapter == "CCC" and "engineDetails" not in saved.normalized_report["vehicle"]:
+                            saved = ReportIngestionService().recover_saved(saved, path)
+                        extraction = saved.to_dict()
                     else:
                         extraction = self.ingestion.ingest(path).to_dict()
                     if extraction["documentSha256"] != row["document_sha256"]:

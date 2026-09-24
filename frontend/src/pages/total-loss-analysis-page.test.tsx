@@ -18,7 +18,7 @@ vi.mock("@/features/analyses/components/valuation-signal-field", () => ({
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const CASE_ID = "22222222-2222-4222-8222-222222222222";
 const casePath = `/total-loss/cases/${CASE_ID}/analysis`;
-const progressHeading = "Reviewing your vehicle.";
+const progressHeading = "Preparing your valuation";
 const materialResultHeading =
   "Your insurer may be undervaluing your vehicle.";
 
@@ -95,7 +95,8 @@ describe("total-loss case analysis page", () => {
     await waitFor(() => expect(postCount).toBe(1));
     expect(authorization).toBe(`Bearer access-${USER_ID}`);
     expect(submittedInput).toEqual({ expectedAnalysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", expectedAnalysisInputRevision: 1 });
-    expect(screen.getByRole("banner")).toBeVisible();
+    expect(screen.getByTestId("valuation-signals")).toBeVisible();
+    expect(document.querySelector(".workspace-processing__line")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Legal" })).not.toBeInTheDocument();
     expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Account for/ })).toBeVisible();
@@ -113,7 +114,7 @@ describe("total-loss case analysis page", () => {
     );
     const view = renderTestApp([casePath], { authService: authService(sessionFor()), strictMode: true });
     expect(await screen.findByRole("heading", { name: "The value check is temporarily unavailable." })).toBeVisible();
-    expect(screen.getByRole("link", { name: "Upload insurer valuation report" })).toHaveAttribute("href", `/total-loss/cases/${CASE_ID}/review-report`);
+    expect(await screen.findByRole("button", { name: "Upload insurer valuation report" })).toBeVisible();
     expect(screen.queryByText(/no suitable vehicles/i)).not.toBeInTheDocument();
     view.unmount();
     renderTestApp([casePath], { authService: authService(sessionFor()) });
@@ -392,10 +393,12 @@ describe("total-loss case analysis page", () => {
       }),
     );
     renderTestApp([casePath], { authService: authService(sessionFor()), strictMode: true });
-    expect(await screen.findByRole("heading", { name: "Your insurer’s report can help." })).toBeVisible();
-    expect(screen.queryByText("Confirm drive type.")).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Check your review details." })).toBeVisible();
+    expect(screen.getByText(/Confirm the drive type/)).toBeVisible();
     expect(screen.queryByText("Confirm engine.")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Upload insurer valuation PDF" })).toHaveAttribute("href", `/total-loss/cases/${CASE_ID}/review-report`);
+    const correctionUrl = new URL(screen.getByRole("link", { name: "Review your details" }).getAttribute("href")!, "http://localhost");
+    expect(correctionUrl.searchParams.get("vehicleFact")).toBe("drivetrain");
+    expect(correctionUrl.searchParams.get("intent")).toBe(correctionMode === "correct" ? "correct-intake" : null);
     expect(screen.queryByRole("button", { name: "Retry value check" })).not.toBeInTheDocument();
     expect(postCount).toBe(0);
   });
@@ -421,7 +424,7 @@ describe("total-loss case analysis page", () => {
     expect(url.searchParams.get("vehicleFact")).toBe("postalCode");
     expect(url.searchParams.get("focus")).toBe("vehicle");
     expect(url.searchParams.get("intent")).toBe(correctionMode === "correct" ? "correct-intake" : null);
-    expect(screen.getByText(/Check the ZIP code you entered/)).toBeVisible();
+    expect(screen.getByText(/Confirm the zip code shown in your documents/)).toBeVisible();
     expect(screen.queryByText(/Confirm engine|normalization diagnostic/)).not.toBeInTheDocument();
     expect(submit).not.toHaveBeenCalled();
   });
@@ -451,11 +454,8 @@ describe("total-loss case analysis page", () => {
     });
 
     expect(
-      await screen.findByRole("link", { name: "Upload insurer valuation PDF" }),
-    ).toHaveAttribute(
-      "href",
-      `/total-loss/cases/${CASE_ID}/review-report`,
-    );
+      await screen.findByRole("button", { name: "Upload insurer valuation report" }),
+    ).toBeVisible();
     expect(
       screen.queryByRole("button", { name: "Retry value check" }),
     ).not.toBeInTheDocument();

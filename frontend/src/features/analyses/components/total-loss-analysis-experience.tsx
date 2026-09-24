@@ -3,12 +3,15 @@ import {
   CarFront,
   CheckCircle2,
   ChevronDown,
+  FileCheck2,
+  FileText,
 } from "lucide-react";
 import { useId } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
+import { VEHICLE_FACT_LABELS, type VehicleFactField } from "@/features/total-loss/vehicle-facts";
 import type {
   AnalysisPresentation,
   Assessment,
@@ -26,6 +29,8 @@ import { cn } from "@/lib/utils";
 import { ValuationStatus, ValuationSurface } from "@/components/valuation-status";
 import "./total-loss-analysis-result.css";
 import "./preliminary-analysis-result.css";
+import "./result-review-panel.css";
+import { VehicleDetailQuestion } from "./vehicle-detail-question";
 
 export interface TotalLossAnalysisProgressProps {
   readonly className?: string;
@@ -111,15 +116,20 @@ export interface TotalLossAnalysisResultProps {
   readonly reviewIntakePath?: string;
   readonly insurerReportPath?: string;
   readonly reportUploadAction?: ReactNode;
+  readonly onConfirmVehicleFact?: (field: VehicleFactField, value: string) => Promise<void>;
 }
 
 export function TotalLossAnalysisResult(props: TotalLossAnalysisResultProps) {
+  if (props.analysis.preliminaryResult?.outcome === "INSUFFICIENT" &&
+      ["MISSING_INFORMATION", "UNRESOLVED_CONFIGURATION"].includes(props.analysis.marketSearchContext?.recovery?.kind ?? "")) {
+    return <SavedAnalysisResult {...props} />;
+  }
   if (props.analysis.preliminaryResult) {
     return <PreliminaryAnalysisResult {...props} result={props.analysis.preliminaryResult} />;
   }
   if (props.analysis.presentationVersion === "8") {
     return <ValuationStatus kind="error" eyebrow="Your review is saved" heading="We couldn’t finish your estimate." description="We couldn’t complete the market check. Your details are saved, and you can continue with your insurer’s valuation report.">
-      {props.reportUploadAction ?? (props.insurerReportPath ? <Button asChild size="lg"><Link to={props.insurerReportPath}>Upload insurer valuation report<ArrowRight className="size-5" aria-hidden /></Link></Button> : null)}
+      {props.reportUploadAction ?? (props.insurerReportPath ? <Button asChild size="lg"><Link to={props.insurerReportPath}>{props.analysis.analysisScope.reportAvailable ? "Review saved report" : "Upload insurer valuation report"}<ArrowRight className="size-5" aria-hidden /></Link></Button> : null)}
     </ValuationStatus>;
   }
 
@@ -149,7 +159,6 @@ function PreliminaryAnalysisResult({
     : context
       ? "Useful price context, not an estimate of your vehicle’s value."
       : "Your details are saved. The available market evidence doesn’t yet support a reliable range.";
-  const vehicle = [analysis.vehicle.year, analysis.vehicle.make, analysis.vehicle.model, analysis.vehicle.trim].filter(Boolean).join(" ");
   const insurerLabel = analysis.insurerValuation.source === "CUSTOMER_ENTERED" ? "Insurer’s offer" : "Insurer’s valuation";
   const comparison = estimate && result.evidenceBasis === "LOSS_DATE_HISTORICAL" ? result.insurerComparison : null;
   const onePrice = range?.lowCents === range?.highCents;
@@ -166,10 +175,10 @@ function PreliminaryAnalysisResult({
   >
     <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">Analysis complete. {heading}</p>
     <div className="preliminary-result__content">
+      <ResultReviewHeader />
       <div className="preliminary-result__overview">
         <div className="preliminary-result__finding">
-          <p className="preliminary-result__vehicle"><span className="sr-only">Vehicle reviewed: </span>{vehicle}</p>
-          <p className="preliminary-result__eyebrow">Free valuation</p>
+          <p className="preliminary-result__eyebrow">Your result</p>
           <h1 id={headingId} className="preliminary-result__heading">{heading}</h1>
           {range ? <section className="preliminary-result__range" aria-labelledby={`${headingId}-range`}>
             <h2 id={`${headingId}-range`} className="sr-only">{estimate ? "Preliminary estimated range" : onePrice ? "Observed asking price" : "Observed asking-price span"}</h2>
@@ -211,31 +220,62 @@ function PreliminaryAnalysisResult({
               {result.limitations.length > 0 ? <ul className="preliminary-result__limitations" aria-label="What limits this result">{result.limitations.map(limitation => <li key={limitation}>{limitation}</li>)}</ul> : null}
             </div>
           </details>
-        </div>
-
-        <section className="preliminary-result__next" aria-labelledby={`${headingId}-next`}>
-          <h2 id={`${headingId}-next`}>Check your insurer’s valuation.</h2>
-          <p className="preliminary-result__next-description">Upload your report to see how your insurer reached its number.</p>
+        <section className="preliminary-result__next result-review-panel" aria-labelledby={`${headingId}-next`}>
+          <h2 id={`${headingId}-next`}>Understand your insurer’s number.</h2>
+          {!reportUploadAction ? <p className="preliminary-result__next-description">{analysis.analysisScope.reportAvailable ? "Continue with your saved report to review the vehicle details, comparable vehicles, and adjustments." : "Upload your report to see how your insurer reached its number."}</p> : null}
           {reportUploadAction || insurerReportPath ? <div className="preliminary-result__action">
-            {reportUploadAction ?? <Button asChild size="lg" className="valuation-result__upload-action"><Link to={insurerReportPath!}>Upload insurer valuation report<ArrowRight aria-hidden /></Link></Button>}
+            {reportUploadAction ?? <Button asChild size="lg" className="valuation-result__upload-action"><Link to={insurerReportPath!}>{analysis.analysisScope.reportAvailable ? "Review saved report" : "Upload insurer valuation report"}<ArrowRight aria-hidden /></Link></Button>}
           </div> : null}
-          <p className="preliminary-result__sequence"><span>Free upload and confirmation.</span> <span>Optional full review: $199.</span></p>
           <details className="preliminary-result__details preliminary-result__review-details">
             <summary>What does the full review include?<ChevronDown aria-hidden /></summary>
             <div className="preliminary-result__details-content">
-              <dl className="preliminary-result__checks">
-                <div><dt>Vehicle details</dt><dd>The trim, mileage and equipment recorded for your vehicle.</dd></div>
-                <div><dt>Comparable vehicles</dt><dd>How closely the insurer’s selected vehicles match yours.</dd></div>
-                <div><dt>Valuation adjustments</dt><dd>How mileage, condition and equipment affected the valuation.</dd></div>
-              </dl>
+              <InsurerReviewScope />
               <p className="preliminary-result__deliverables">You receive clear findings, a valuation evidence report, and guidance for raising supported concerns with your adjuster.</p>
+              <p>Optional full review: $199. Upload and confirmation are free.</p>
               <p className="preliminary-result__purchase-note">We check your report and evidence before payment is available. You choose whether to continue.</p>
             </div>
           </details>
         </section>
+        </div>
+        <SavedReviewContext analysis={analysis} />
       </div>
     </div>
   </ValuationSurface>;
+}
+
+function InsurerReviewScope() {
+  return <dl className="result-review-panel__scope" aria-label="What we examine">
+    <div><dt><span aria-hidden>01</span>Vehicle details</dt><dd>Trim, mileage, and equipment.</dd></div>
+    <div><dt><span aria-hidden>02</span>Comparable vehicles</dt><dd>How closely the insurer’s choices match.</dd></div>
+    <div><dt><span aria-hidden>03</span>Valuation adjustments</dt><dd>What changed the insurer’s number.</dd></div>
+  </dl>;
+}
+
+function ResultReviewHeader() {
+  return <div className="result-review-header">
+    <p>Your valuation review <span>Free valuation</span></p>
+    <span className="result-review-header__saved"><CheckCircle2 aria-hidden />Progress saved</span>
+  </div>;
+}
+
+function SavedReviewContext({ analysis, insurerValue }: { analysis: AnalysisPresentation; insurerValue?: string | null }) {
+  const vehicle = [analysis.vehicle.year, analysis.vehicle.make, analysis.vehicle.model].filter(Boolean).join(" ");
+  const savedReport = analysis.analysisScope.reportAvailable;
+  const ReportIcon = savedReport ? FileCheck2 : FileText;
+  return <aside className="saved-review-context" aria-label="Saved case information">
+    <p className="saved-review-context__eyebrow">Case overview</p>
+    <div className="saved-review-context__vehicle">
+      <CarFront aria-hidden />
+      <p><span className="sr-only">Vehicle reviewed: </span>{vehicle}<span>{analysis.vehicle.trim}</span></p>
+    </div>
+    {insurerValue ? <dl className="saved-review-context__value"><dt>{analysis.insurerValuation.source === "CUSTOMER_ENTERED" ? "Insurer’s offer" : "Insurer’s valuation"}</dt><dd>{insurerValue}</dd></dl> : null}
+    <div className="saved-review-context__document">
+      <ReportIcon aria-hidden />
+      <div><p>Valuation report</p><span>{savedReport ? "Saved to your case" : "Not added yet"}</span></div>
+      {savedReport ? <CheckCircle2 className="saved-review-context__check" aria-label="Saved" /> : null}
+    </div>
+    <p className="saved-review-context__note">{savedReport ? "You can return to this review at any time." : "Add your insurer’s report to keep the valuation and supporting details in one place."}</p>
+  </aside>;
 }
 
 function SavedAnalysisResult({
@@ -246,9 +286,10 @@ function SavedAnalysisResult({
   reviewIntakePath,
   insurerReportPath,
   reportUploadAction,
+  onConfirmVehicleFact,
 }: TotalLossAnalysisResultProps) {
   const headingId = useId();
-  const primaryEvidence = analysis.primaryExternalEvidence;
+  const primaryEvidence = analysis.preliminaryResult?.outcome === "INSUFFICIENT" ? null : analysis.primaryExternalEvidence;
   const priceSummary = primaryEvidence?.prices;
   const minimum = displayMoney(priceSummary?.minimumPrice);
   const maximum = displayMoney(priceSummary?.maximumPrice);
@@ -277,11 +318,12 @@ function SavedAnalysisResult({
         code === "INSUFFICIENT_RESOLVED_EXTERNAL_EVIDENCE" ||
         code === "EXTERNAL_MEDIAN_ZERO",
     );
-  const inconclusive = analysis.assessment.classification === "INSUFFICIENT_EVIDENCE" || analysis.assessment.classification === "CONFLICTING_EVIDENCE";
+  const inconclusive = analysis.preliminaryResult?.outcome === "INSUFFICIENT" || analysis.assessment.classification === "INSUFFICIENT_EVIDENCE" || analysis.assessment.classification === "CONFLICTING_EVIDENCE";
   const recovery = inconclusive && !missingOfferBlocksComparison ? analysis.marketSearchContext?.recovery : undefined;
-  const targetedCorrectionPath = recovery?.kind === "MISSING_INFORMATION" && recovery.field && ["postalCode", "lossDate", "mileage", "year", "make", "model", "insurerOffer"].includes(recovery.field) && recovery.correctionStep && reviewIntakePath
+  const correctionFieldLabel = recovery?.field ? VEHICLE_FACT_LABELS[recovery.field as VehicleFactField] : undefined;
+  const targetedCorrectionPath = recovery && ["MISSING_INFORMATION", "UNRESOLVED_CONFIGURATION"].includes(recovery.kind) && recovery.field && recovery.correctionStep && reviewIntakePath
     ? `${reviewIntakePath}&focus=${encodeURIComponent(recovery.correctionStep)}&vehicleFact=${encodeURIComponent(recovery.field)}` : undefined;
-  const correctionLabel = "Review your details";
+  const correctionLabel = correctionFieldLabel ? `Confirm ${correctionFieldLabel.toLowerCase()}` : "Review your details";
   const insurerLabel =
     analysis.insurerValuation.source === "CUSTOMER_ENTERED"
       ? "Insurer’s offer"
@@ -303,29 +345,22 @@ function SavedAnalysisResult({
           : "We can’t yet tell whether there’s a difference worth pursuing.",
         showContinue: false,
       };
-  const vehicle = [
-    analysis.vehicle.year,
-    analysis.vehicle.make,
-    analysis.vehicle.model,
-    analysis.vehicle.trim,
-  ]
-    .filter(Boolean)
-    .join(" ");
-
   const presentation: ResultPresentation = recovery ? {
     ...basePresentation,
-    heading: recovery.kind === "MISSING_INFORMATION" ? "A few details are missing."
-      : recovery.kind === "SEARCH_INTERRUPTED" ? "We couldn’t finish your estimate." : "We need more evidence to be sure.",
-    summary: recovery.kind === "MISSING_INFORMATION" ? "Check the details you entered so we can continue your review."
-      : recovery.kind === "SEARCH_INTERRUPTED" ? "We couldn’t complete the check right now. Your information is saved."
-      : "We couldn’t establish a reliable preliminary range from the available evidence. Your insurer’s report can help us take a closer look.",
+    showContinue: false,
+    heading: targetedCorrectionPath && correctionFieldLabel ? `Let’s confirm your ${correctionFieldLabel.toLowerCase()}.`
+      : recovery.kind === "MISSING_INFORMATION" ? "A few details are missing."
+      : recovery.kind === "SEARCH_INTERRUPTED" ? "We couldn’t finish your estimate."
+      : recovery.kind === "UNRESOLVED_CONFIGURATION" && analysis.analysisScope.reportAvailable ? "Let’s check your saved report."
+      : "We couldn’t establish a reliable range yet.",
+    summary: recovery.message,
     worthwhileHeading: "Your case is saved.",
-    worthwhileSummary: "You can add your insurer’s valuation report for a closer review.",
+    worthwhileSummary: "Your information is saved for a closer review.",
   } : basePresentation;
 
   return (
     <ValuationSurface
-      className={cn("valuation-result", className)}
+      className={cn("valuation-result saved-result", className)}
       aria-labelledby={headingId}
       data-analysis-classification={analysis.assessment.classification}
       data-total-loss-analysis-result
@@ -336,15 +371,10 @@ function SavedAnalysisResult({
       </p>
 
       <div className="valuation-result__content">
-        <div className="valuation-result__vehicle">
-          <CarFront aria-hidden />
-          <p>
-            <span className="sr-only">Vehicle reviewed: </span>
-            {vehicle}
-          </p>
-        </div>
-
-        <p className="valuation-result__eyebrow workspace-stage__eyebrow">Free valuation</p>
+        <ResultReviewHeader />
+        <div className="saved-result__layout">
+        <div className="saved-result__finding">
+        <p className="valuation-result__eyebrow workspace-stage__eyebrow">{targetedCorrectionPath ? "One detail to confirm" : recovery ? "Your next step" : "Your result"}</p>
         <h1
           id={headingId}
           className="valuation-result__heading"
@@ -355,7 +385,7 @@ function SavedAnalysisResult({
           {presentation.summary}
         </p>
 
-        <section
+        {rangeAvailable ? <section
           className="valuation-result__range"
           aria-labelledby={`${headingId}-range`}
         >
@@ -365,23 +395,15 @@ function SavedAnalysisResult({
           >
             Estimated market range
           </h2>
-          {rangeAvailable ? (
-            <p className="valuation-result__amounts">
-              <span>{minimum}</span>
-              <span className="valuation-result__range-separator">–</span>
-              <span>{maximum}</span>
-            </p>
-          ) : (
-            <p className="valuation-result__unavailable">
-              Not enough information yet
-            </p>
-          )}
+          <p className="valuation-result__amounts">
+            <span>{minimum}</span>
+            <span className="valuation-result__range-separator">–</span>
+            <span>{maximum}</span>
+          </p>
           <p className="valuation-result__basis">
-            {rangeAvailable
-              ? primaryEvidence?.evidenceBasis === "LOSS_DATE_HISTORICAL"
-                ? "Based on advertised prices around your date of loss."
-                : "Based on current advertised prices."
-              : "We can’t show a reliable range from the information available."}
+            {primaryEvidence?.evidenceBasis === "LOSS_DATE_HISTORICAL"
+              ? "Based on advertised prices around your date of loss."
+              : "Based on current advertised prices."}
           </p>
 
           {rangeAvailable && insurerValueAvailable && priceSummary ? (
@@ -400,9 +422,9 @@ function SavedAnalysisResult({
               </strong>
             </p>
           ) : null}
-        </section>
+        </section> : null}
 
-        <section
+        {!recovery ? <section
           className="valuation-result__conclusion"
           aria-labelledby={`${headingId}-worthwhile`}
         >
@@ -420,9 +442,10 @@ function SavedAnalysisResult({
           <p className="valuation-result__next-description">
             {presentation.worthwhileSummary}
           </p>
-        </section>
+        </section> : null}
 
-        <div className="valuation-result__actions">
+        {insurerReportPath || reportUploadAction || presentation.showContinue || targetedCorrectionPath || addInsurerOfferPath ? <section className={cn("valuation-result__actions result-review-panel", targetedCorrectionPath && "result-review-panel--question")} aria-labelledby={`${headingId}-next`}>
+          <h2 id={`${headingId}-next`} className={recovery || targetedCorrectionPath ? "sr-only" : undefined}>{targetedCorrectionPath || missingOfferBlocksComparison ? "Complete your vehicle details" : "Continue your review"}</h2>
           {presentation.showContinue ? continueAction ?? (
             <Button
               type="button"
@@ -448,9 +471,10 @@ function SavedAnalysisResult({
             </Button>
           ) : null}
 
-          {targetedCorrectionPath ? <Button asChild size="lg" className="mt-6"><Link to={targetedCorrectionPath}>{correctionLabel}<ArrowRight className="size-5" aria-hidden /></Link></Button> : null}
+          {targetedCorrectionPath && correctionFieldLabel && onConfirmVehicleFact ? <VehicleDetailQuestion key={recovery!.field} field={recovery!.field as VehicleFactField} onConfirm={onConfirmVehicleFact} />
+            : targetedCorrectionPath ? <Button asChild size="lg" className="mt-6"><Link to={targetedCorrectionPath}>{correctionLabel}<ArrowRight className="size-5" aria-hidden /></Link></Button> : null}
 
-          {insurerReportPath && !presentation.showContinue ? <div className="mt-6">{reportUploadAction ?? <Button asChild size="lg" variant={targetedCorrectionPath ? "outline" : "default"}><Link to={insurerReportPath}>Upload insurer valuation PDF<ArrowRight className="size-5" aria-hidden /></Link></Button>}<p className="mt-3 text-sm text-copy">We’ll check the report and vehicle details before payment is available.</p></div> : null}
+          {insurerReportPath && !presentation.showContinue ? <div className="saved-result__report-action">{reportUploadAction ?? <Button asChild size="lg" variant={targetedCorrectionPath ? "outline" : "default"}><Link to={insurerReportPath}>{analysis.analysisScope.reportAvailable ? "Review saved report" : "Upload insurer valuation PDF"}<ArrowRight className="size-5" aria-hidden /></Link></Button>}</div> : null}
 
           {reviewIntakePath && !targetedCorrectionPath && (!recovery || recovery.kind === "MISSING_INFORMATION") ? (
             <div className="valuation-result__intake-action">
@@ -463,6 +487,10 @@ function SavedAnalysisResult({
               </Button>
             </div>
           ) : null}
+          {!targetedCorrectionPath && (insurerReportPath || reportUploadAction) ? <details className="preliminary-result__details result-review-panel__scope-details"><summary>What we look for in your report<ChevronDown aria-hidden /></summary><InsurerReviewScope /></details> : null}
+        </section> : null}
+        </div>
+        <SavedReviewContext analysis={analysis} insurerValue={!rangeAvailable && insurerValueAvailable ? displayMoney(insurerValue) : null} />
         </div>
 
         <p className="valuation-result__disclaimer">

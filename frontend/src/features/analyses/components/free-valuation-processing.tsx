@@ -57,7 +57,7 @@ export function FreeValuationProcessingProvider({ children, accountControl, inli
   }, [clearTimers]);
   useEffect(() => clearTimers, [clearTimers]);
   const context = useMemo(() => ({ show, hide, inline }), [show, hide, inline]);
-  const displayInline = inline && !presentation?.options.fullScreen;
+  const displayInline = inline && Boolean(presentation?.options.error) && !presentation?.options.fullScreen;
 
   return (
     <FreeValuationProcessingContext.Provider value={context}>
@@ -97,12 +97,12 @@ export function InlineValuationProcessingBoundary({ children }: { children: Reac
 }
 
 function WorkspaceProcessing({ options }: { options: FreeValuationProcessingOptions }) {
-  const { heading, description, phase, error, onRetry, retryDisabled, notice } = options;
-  return <section className="workspace-stage workspace-processing" aria-busy={!error || undefined}>
-    <p className="workspace-stage__eyebrow">{error ? "Your appraisal is saved" : "Your valuation review"}</p>
-    <h1 className="workspace-stage__heading">{error ? "Let’s try again" : heading ?? (phase === "reviewing" ? "Reviewing your vehicle." : phase === "preparing" ? "Preparing your details." : "Opening your saved review.")}</h1>
-    <p className="workspace-stage__description" role={error ? "alert" : "status"}>{error || description || "Your progress is saved. You can safely leave and pick up here later."}</p>
-    {!error ? <div className="workspace-processing__line" aria-hidden /> : onRetry ? <button className="free-valuation-processing__retry" type="button" onClick={onRetry} disabled={retryDisabled}>Try again</button> : null}
+  const { error, onRetry, retryDisabled, notice } = options;
+  return <section className="workspace-stage workspace-processing">
+    <p className="workspace-stage__eyebrow">Your appraisal is saved</p>
+    <h1 className="workspace-stage__heading">Let’s try again</h1>
+    <p className="workspace-stage__description" role="alert">{error}</p>
+    {onRetry ? <button className="free-valuation-processing__retry" type="button" onClick={onRetry} disabled={retryDisabled}>Try again</button> : null}
     {notice ? <p className="workspace-report-status" role="status">{notice}</p> : null}
   </section>;
 }

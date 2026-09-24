@@ -46,6 +46,8 @@ def full_review_readiness(snapshot: Mapping[str, Any], extraction: Mapping[str, 
     ingestion = ReportIngestionResult.from_dict(extraction)
     normalized = ingestion.to_dict()["normalizedReport"]
     vehicle, report, valuation = (normalized[key] for key in ("vehicle", "report", "valuation"))
+    from venfour.report_vehicle_facts import engine_matching_facts
+    printed_facts = {**vehicle, **engine_matching_facts(vehicle), "bodyType": vehicle.get("bodyStyle")}
     if ingestion.confidence == "LOW":
         return report_failure("REPORT_UNREADABLE")
     if (not report.get("provider") or not report.get("insurer") or not report.get("lossDate")
@@ -69,9 +71,9 @@ def full_review_readiness(snapshot: Mapping[str, Any], extraction: Mapping[str, 
             return saved
         from venfour.vehicle_specs import comparison
         same = _same(saved, printed)
-        if field in VEHICLE_FACT_FIELDS:
+        if field in VEHICLE_FACT_FIELDS and not same:
             same = comparison(field, saved, printed, subject=facts, candidate={
-                **vehicle, "bodyType": vehicle.get("bodyStyle"),
+                **printed_facts,
             })["status"] == "MATCH"
         if known(saved) and not same:
             applicable.add(field)
@@ -90,7 +92,7 @@ def full_review_readiness(snapshot: Mapping[str, Any], extraction: Mapping[str, 
     ):
         effective[saved_key] = reconcile(field, snapshot.get(saved_key), printed)
     for field in VEHICLE_FACT_FIELDS:
-        printed = vehicle.get("bodyStyle" if field == "bodyType" else field)
+        printed = printed_facts.get(field)
         if field == "fuelType" and isinstance(printed, str):
             printed = {"gasoline": "Unleaded", "petrol": "Unleaded", "gas": "Unleaded"}.get(printed.strip().casefold(), printed)
         value = reconcile(field, facts.get(field), printed)

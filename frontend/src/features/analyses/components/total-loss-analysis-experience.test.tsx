@@ -182,14 +182,11 @@ describe("total-loss analysis experience", () => {
 
     render(<TotalLossAnalysisResult analysis={analysis} />);
 
-    expect(screen.getByText("Not enough information yet")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "We need more information to be sure." })).toBeVisible();
     expect(screen.queryByRole("figure")).not.toBeInTheDocument();
     expect(screen.getByText("$20,000")).toBeVisible();
-    expect(
-      screen.getByText(
-        "We can’t show a reliable range from the information available.",
-      ),
-    ).toBeVisible();
+    expect(screen.getByText("We couldn’t find enough reliable market evidence to assess your insurer’s valuation.")).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Estimated market range" })).not.toBeInTheDocument();
   });
 
   it.each([true, false])(
@@ -377,29 +374,55 @@ describe("total-loss analysis experience", () => {
 });
 
 describe("inconclusive free-result recovery", () => {
-  it("keeps technical ambiguity in the report stage without customer engine homework", () => {
+  it("asks one question inline and saves only the confirmed fact", async () => {
+    const user = userEvent.setup();
+    const confirm = vi.fn().mockResolvedValue(undefined);
+    const analysis = { ...analysisFor("INSUFFICIENT_EVIDENCE"), marketSearchContext: {
+      baselineStatus: "LIMITED", summary: "Limited evidence", stopReasons: [],
+      recovery: { kind: "UNRESOLVED_CONFIGURATION", field: "drivetrain", correctionStep: "vehicle", message: "Confirm your vehicle’s drive type. Your report is saved." },
+    } } as AnalysisPresentation;
+    render(<MemoryRouter><TotalLossAnalysisResult analysis={analysis} reviewIntakePath="/start?caseId=saved" insurerReportPath="/report" onConfirmVehicleFact={confirm} /></MemoryRouter>);
+    expect(screen.getAllByRole("radio")).toHaveLength(4);
+    await user.click(screen.getByRole("radio", { name: "Front-wheel drive (FWD)" }));
+    expect(screen.getByRole("radio", { name: "Front-wheel drive (FWD)" })).toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Save and check again" }));
+    expect(confirm).toHaveBeenCalledExactlyOnceWith("drivetrain", "FWD");
+    expect(screen.queryByText(/Upload insurer/)).not.toBeInTheDocument();
+  });
+  it("rechecks a saved extraction before requesting vehicle facts again", () => {
+    const analysis = { ...analysisFor("INSUFFICIENT_EVIDENCE"), marketSearchContext: {
+      baselineStatus: "LIMITED", summary: "Limited evidence", stopReasons: [],
+      recovery: { kind: "UNRESOLVED_CONFIGURATION", field: "engine", correctionStep: null, message: "Your report is saved. We need to recheck its specifications." },
+    } } as AnalysisPresentation;
+    render(<MemoryRouter><TotalLossAnalysisResult analysis={analysis} reviewIntakePath="/start?caseId=saved" insurerReportPath="/report" /></MemoryRouter>);
+    expect(screen.getByRole("heading", { name: "Let’s check your saved report." })).toBeVisible();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Confirm engine" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Review saved report" })).toBeVisible();
+  });
+  it("asks for the specific detail identified by the backend", () => {
     const analysis = { ...analysisFor("INSUFFICIENT_EVIDENCE"), marketSearchContext: {
       baselineStatus: "LIMITED", summary: "Limited evidence", stopReasons: [],
       recovery: { kind: "UNRESOLVED_CONFIGURATION", field: "engine", correctionStep: "vehicle", message: "Confirm the engine shown in your vehicle documents." },
     } } as AnalysisPresentation;
     render(<MemoryRouter><TotalLossAnalysisResult analysis={analysis} reviewIntakePath="/start?caseId=saved&intent=correct-intake" insurerReportPath="/total-loss/cases/saved/review-report" /></MemoryRouter>);
     expect(screen.queryByRole("link", { name: "Confirm vehicle detail" })).not.toBeInTheDocument();
-    expect(screen.queryByText(/Confirm the engine/)).not.toBeInTheDocument();
-    expect(screen.getByText(/reliable preliminary range/)).toBeVisible();
-    expect(screen.getByRole("link", { name: "Upload insurer valuation PDF" })).toHaveAttribute("href", "/total-loss/cases/saved/review-report");
+    expect(screen.getByText(/Confirm the engine/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Confirm engine" })).toHaveAttribute("href", "/start?caseId=saved&intent=correct-intake&focus=vehicle&vehicleFact=engine");
+    expect(screen.getByRole("link", { name: "Review saved report" })).toHaveAttribute("href", "/total-loss/cases/saved/review-report");
     expect(screen.queryByRole("link", { name: "Review your details" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /checkout|pay now/i })).not.toBeInTheDocument();
   });
   it.each(["SPARSE_EVIDENCE", "SEARCH_INTERRUPTED"] as const)("explains %s without asking for irrelevant intake edits", kind => {
     const analysis = { ...analysisFor("INSUFFICIENT_EVIDENCE"), marketSearchContext: { baselineStatus: "LIMITED", summary: "Limited evidence", stopReasons: [], recovery: { kind, field: null, correctionStep: null, message: "A reliable estimate could not be established. This does not tell us whether the offer is fair." } } } as AnalysisPresentation;
     render(<MemoryRouter><TotalLossAnalysisResult analysis={analysis} reviewIntakePath="/start?caseId=saved" insurerReportPath="/total-loss/cases/saved/review-report" /></MemoryRouter>);
-    expect(screen.getByText(kind === "SEARCH_INTERRUPTED" ? /couldn’t complete the check right now/ : /reliable preliminary range/)).toBeVisible();
-    expect(screen.getByRole("link", { name: "Upload insurer valuation PDF" })).toBeVisible();
+    expect(screen.getByText(/A reliable estimate could not be established/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Review saved report" })).toBeVisible();
     expect(screen.queryByRole("link", { name: "Review your details" })).not.toBeInTheDocument();
   });
   it("allows the insurer-report next step on a saved result without recovery metadata", () => {
     render(<MemoryRouter><TotalLossAnalysisResult analysis={analysisFor("INSUFFICIENT_EVIDENCE")} insurerReportPath="/total-loss/cases/saved/review-report" /></MemoryRouter>);
-    expect(screen.getByRole("link", { name: "Upload insurer valuation PDF" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Review saved report" })).toBeVisible();
   });
 });
 
@@ -500,11 +523,14 @@ describe("versioned preliminary results", () => {
     expect(screen.queryByText(/technical|engine|transmission|drivetrain|certification/)).not.toBeInTheDocument();
   });
 
-  it.each(["ESTIMATE", "LISTING_CONTEXT", "INSUFFICIENT"] as const)("keeps PDF continuation available for %s without bypassing payment readiness", outcome => {
-    show(preliminaryAnalysis({ outcome }));
-    expect(screen.getByRole("link", { name: "Upload insurer valuation report" })).toHaveAttribute("href", reportPath);
-    expect(screen.getByText("Free upload and confirmation.")).toBeVisible();
-    expect(screen.getByText("Optional full review: $199.")).toBeVisible();
+  it.each((["ESTIMATE", "LISTING_CONTEXT", "INSUFFICIENT"] as const).flatMap(outcome => [true, false].map(reportAvailable => ({ outcome, reportAvailable }))))("keeps report continuation available for $outcome (saved: $reportAvailable) without bypassing payment readiness", async ({ outcome, reportAvailable }) => {
+    const analysis = structuredClone(preliminaryAnalysis({ outcome }));
+    analysis.analysisScope.reportAvailable = reportAvailable;
+    show(analysis);
+    expect(screen.getByRole("link", { name: reportAvailable ? "Review saved report" : "Upload insurer valuation report" })).toHaveAttribute("href", reportPath);
+    expect(screen.getByText("Optional full review: $199. Upload and confirmation are free.")).not.toBeVisible();
+    await userEvent.setup().click(screen.getByText("What does the full review include?"));
+    expect(screen.getByText("Optional full review: $199. Upload and confirmation are free.")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Pay for review" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Continue my review" })).not.toBeInTheDocument();
   });
@@ -519,6 +545,16 @@ describe("versioned preliminary results", () => {
     expect(screen.queryByRole("button", { name: "Pay for review" })).not.toBeInTheDocument();
   });
 
+  it("uses specific recovery for a versioned insufficient result without displaying an old range", () => {
+    const analysis = preliminaryAnalysis({ outcome: "INSUFFICIENT", sampleSize: 0, estimatedRange: null, listingPriceSpan: null });
+    analysis.marketSearchContext = { baselineStatus: "LIMITED", summary: "Limited", stopReasons: [], recovery: {
+      kind: "UNRESOLVED_CONFIGURATION", field: "drivetrain", correctionStep: "vehicle", message: "Confirm your drive type.",
+    } };
+    render(<MemoryRouter><TotalLossAnalysisResult analysis={analysis} reviewIntakePath="/start?caseId=saved" insurerReportPath={reportPath} /></MemoryRouter>);
+    expect(screen.getByRole("link", { name: "Confirm drive type" })).toBeVisible();
+    expect(screen.queryByText(/\$21,800|\$22,600|appears fair/)).not.toBeInTheDocument();
+  });
+
   it("keeps a provider interruption distinct from insufficient evidence", () => {
     const analysis = { ...analysisFor("NO_MATERIAL_DISCREPANCY"), presentationVersion: "8", preliminaryResult: null, marketSearchContext: { baselineStatus: "LIMITED", summary: "Interrupted", stopReasons: [], recovery: { kind: "SEARCH_INTERRUPTED", field: null, correctionStep: null, message: "Search interrupted" } } } as AnalysisPresentation;
     show(analysis);
@@ -526,7 +562,7 @@ describe("versioned preliminary results", () => {
     expect(screen.queryByRole("heading", { name: "We need more market evidence." })).not.toBeInTheDocument();
     expect(screen.queryByText(/no suitable vehicles/)).not.toBeInTheDocument();
     expect(screen.queryByText(/\$21,800|\$22,600|\$20,000|appears fair|Estimated market range/)).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Upload insurer valuation report" })).toHaveAttribute("href", reportPath);
+    expect(screen.getByRole("link", { name: "Review saved report" })).toHaveAttribute("href", reportPath);
     expect(screen.queryByRole("link", { name: "Review your details" })).not.toBeInTheDocument();
   });
 });

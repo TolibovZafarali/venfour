@@ -832,6 +832,36 @@ class CaseAnalysisServiceTests(unittest.TestCase):
             "Acme Valuations",
         )
 
+    def test_older_ccc_cache_is_checked_against_fenced_pdf_before_new_analysis(self) -> None:
+        gateway = FakeCaseGateway()
+        snapshot = confirmed_snapshot("report")
+        gateway.claim_row.update({
+            "intake_mode": "report", "source_report_upload_id": REPORT_UPLOAD_ID,
+            "analysis_input_id": snapshot["analysis_input_id"], "analysis_input_revision": 2,
+            "input_snapshot": snapshot, "storage_bucket": "case-files", "storage_owner_id": USER_ID,
+            "storage_object_path": f"{USER_ID}/{CASE_ID}/valuation-report.pdf", "report_extraction_available": True,
+        })
+        payload = ingestion_result().to_dict()
+        payload["adapter"] = "CCC"
+        extraction = ReportIngestionResult.from_dict(payload)
+        gateway.extraction_rows[(CASE_ID, REPORT_UPLOAD_ID, 2)] = {
+            "case_id": CASE_ID, "report_upload_id": REPORT_UPLOAD_ID, "analysis_input_revision": 2,
+            "extraction_status": "confirmed", "normalized_report": extraction.to_dict(),
+        }
+        factory = ConfirmedCreationFactory()
+        recovered = []
+        def recovering_factory(repository, run_id):
+            creator = factory(repository, run_id)
+            def create_from_cached_report(path, confirmed, cached):
+                recovered.append((Path(path).is_file(), copy.deepcopy(confirmed), cached.to_dict()))
+                return creator.create_from_confirmed_input(confirmed)
+            creator.create_from_cached_report = create_from_cached_report
+            return creator
+        status = self.make_service(gateway, recovering_factory).submit(CASE_ID, USER_ID)
+        self.assertEqual(status.status, "completed")
+        self.assertEqual(len(gateway.report_requests), 1)
+        self.assertEqual(recovered, [(True, snapshot, extraction.to_dict())])
+
     def test_confirmed_report_claim_processes_fenced_report_when_cache_is_unavailable(self) -> None:
         gateway = FakeCaseGateway()
         snapshot = confirmed_snapshot("report")

@@ -94,6 +94,12 @@ Rules:
   heading or an adjacent row.
 - Do not append cylinders, displacement, fuel, carburation, body, or transmission
   text from a composite vehicle heading to a trim.
+- Preserve separately labeled loss-vehicle Cylinders and Displacement values in
+  vehicle.engineDetails, including their page, section, label, and exact source
+  text. Convert explicitly printed cc to liters by dividing by 1000. A blank or
+  dash Engine row does not make these separate facts unavailable. Keep vehicle.engine
+  as printed; never infer engine layout, aspiration, drivetrain, or specifications
+  from the VIN, model, trim, or a comparable vehicle. Use null for absent facts.
 - For vehicle.equipment, include the loss-vehicle package and each named row marked
   present by a Standard checkmark or Additional Equipment icon, once. Exclude section
   headings, odometer, absent/X rows, and equipment shown only for comparable columns.
@@ -483,7 +489,16 @@ def validate_extraction(data: Any, canonical_schema: dict[str, Any]) -> None:
     """Apply the complete local validation contract for extracted report data."""
 
     validate_output(data, canonical_schema)
-    validate_output(data, make_openai_schema(canonical_schema))
+    validation_data = copy.deepcopy(data)
+    if isinstance(validation_data, dict) and isinstance(validation_data.get("vehicle"), dict):
+        # Older immutable extractions predate separately labeled engine facts.
+        validation_data["vehicle"].setdefault("engineDetails", None)
+    validate_output(validation_data, make_openai_schema(canonical_schema))
+    from venfour.report_vehicle_facts import validate_engine_details
+    try:
+        validate_engine_details(data["vehicle"])
+    except ValueError as exc:
+        raise OutputValidationError([str(exc)]) from exc
     if canonical_schema.get("properties", {}).get("schemaVersion", {}).get("const") != "2":
         validate_comparable_numbers(data)
     else:

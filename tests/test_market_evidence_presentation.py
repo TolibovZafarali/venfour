@@ -133,6 +133,26 @@ if __name__ == "__main__":
 
 
 class InconclusiveRecoveryTests(unittest.TestCase):
+    def test_saved_report_is_rechecked_before_asking_for_dropped_engine_facts(self):
+        from venfour.market_evidence_presentation import search_recovery
+        search = {"input": {"subjectFacts": {"engine": None}}, "observations": [
+            {"assessment": {"reasonCodes": ["ENGINE_ESTIMATE_UNRESOLVED", "DRIVETRAIN_ESTIMATE_UNRESOLVED"]}}
+        ], "stopReasons": {"current": "GEOGRAPHIC_SCOPE_LIMITED"}}
+        recovery = search_recovery(search, report_available=True)
+        self.assertIsNone(recovery["correctionStep"])
+        self.assertIn("saved report", recovery["message"])
+        recovered = search_recovery(search, report_available=True, source_vehicle={"engineDetails": {"cylinders": 4}})
+        self.assertEqual((recovered["field"], recovered["correctionStep"]), ("drivetrain", "vehicle"))
+
+    def test_saved_report_sparse_evidence_does_not_request_another_upload(self):
+        search = {"input": {"readinessStage": "free_estimate"}, "observations": [],
+                  "baselineStatus": "LIMITED", "stopReasons": {"current": "GEOGRAPHIC_SCOPE_LIMITED"}}
+        context = project_market_search_context(search, report_available=True)
+        self.assertEqual(context["recovery"]["kind"], "SPARSE_EVIDENCE")
+        self.assertIn("comparable vehicles", context["recovery"]["message"])
+        self.assertIn("report is saved", context["summary"])
+        self.assertNotIn("requires your", context["summary"])
+
     def test_saved_family_label_explains_targeted_engine_correction_without_mutation(self):
         from pathlib import Path
         import json

@@ -2412,19 +2412,24 @@ class AnalysisPresentationProjector:
             if artifact_data["analysisRunSchemaVersion"] == "12":
                 presentation_data["preliminaryResult"] = copy.deepcopy(artifact_data["result"]["preliminaryResult"])
             search = artifact_data["result"].get("marketSearch")
-            search_context = project_market_search_context(search)
+            report_available = presentation_data["analysisScope"]["reportAvailable"]
+            search_context = project_market_search_context(
+                search, report_available=report_available,
+                source_vehicle=(artifact_data["request"].get("qualificationSourceReport") or {}).get("vehicle"),
+            )
             supporting_listings = project_supporting_evidence(search)
             if search_context is not None:
                 if artifact_data["analysisRunSchemaVersion"] == "12":
                     if presentation_data["preliminaryResult"] is None:
                         search_context["recovery"] = {
                             "kind": "SEARCH_INTERRUPTED", "field": None, "correctionStep": None,
-                            "message": "The market search could not finish. Your vehicle details are saved. Upload the insurer valuation report to continue the review.",
+                            "message": "The market search could not finish. Your vehicle details are saved. "
+                                       + ("Continue with your saved valuation report." if report_available else "Add your insurer valuation report to continue the review."),
                         }
                         search_context["summary"] = "The market search could not finish; this is not a finding about available vehicle evidence."
-                    else:
-                        # The frozen free-result contract explains uncertainty
-                        # without turning incomplete technical facts into tasks.
+                    elif presentation_data["preliminaryResult"]["outcome"] != "INSUFFICIENT":
+                        # A usable range or listing context does not require
+                        # another customer task for unresolved technical facts.
                         search_context.pop("recovery", None)
                 presentation_data["marketSearchContext"] = search_context
                 if search_context["baselineStatus"] == "LIMITED" and result["classification"] == "NO_MATERIAL_DISCREPANCY":

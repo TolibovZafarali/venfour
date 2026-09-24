@@ -34,6 +34,21 @@ def snapshot():
 
 
 class ReadinessTests(unittest.TestCase):
+    def test_labeled_engine_rows_are_used_without_asking_customer_to_reenter_them(self):
+        extracted = report_result().to_dict()
+        vehicle = extracted['normalizedReport']['vehicle']
+        vehicle['engine'] = None
+        vehicle['engineDetails'] = {'cylinders': 4, 'displacementLiters': 2.4, 'sourceReferences': [
+            {'page': 3, 'section': 'Vehicle details', 'label': 'Cylinders', 'text': 'Cylinders: 4'},
+            {'page': 3, 'section': 'Vehicle details', 'label': 'Displacement', 'text': 'Displacement: 2.4L'},
+        ]}
+        before = copy.deepcopy(extracted)
+        result = full_review_readiness(snapshot(), extracted)
+        self.assertTrue(result['ready'], result)
+        self.assertEqual(result['effectiveInput']['vehicle_facts']['engine'], '2.4L 4 cylinder')
+        self.assertEqual(result['effectiveInput']['vehicle_facts']['cylinders'], '4')
+        self.assertEqual(extracted, before)
+
     def test_agreement_uses_report_facts_without_changing_free_input(self):
         saved = snapshot(); original = copy.deepcopy(saved); extracted = report_result().to_dict()
         result = full_review_readiness(saved, extracted)
