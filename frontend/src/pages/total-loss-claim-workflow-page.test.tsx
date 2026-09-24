@@ -713,10 +713,10 @@ describe("total-loss customer workflow", () => {
     expect(summary.getByText("USD · One-time payment · No subscription")).toBeVisible();
     expect(screen.queryByText(/149\.00|199\.00/u)).not.toBeInTheDocument();
     expect(screen.queryByText("Tax", { exact: true })).not.toBeInTheDocument();
-    expect(screen.getByText(/your purchase is refunded automatically/u)).toBeVisible();
-    expect(screen.getByText(/final verified vehicle valuation increases by less than \$1,000/u)).toBeVisible();
-    expect(screen.getByRole("link", { name: /See Fair-Result Refund Policy/u })).toHaveAttribute("href", "/refund-policy");
-    expect(screen.getByRole("link", { name: /See Fair-Result Refund Policy/u })).toHaveAttribute("target", "_blank");
+    expect(screen.getByText(/your review fee is refunded automatically/u)).toBeVisible();
+    expect(screen.getByText(/final verified vehicle valuation increases by less than/u)).toBeVisible();
+    expect(screen.getByRole("link", { name: /See eligibility and refund terms/u })).toHaveAttribute("href", "/refund-policy");
+    expect(screen.getByRole("link", { name: /See eligibility and refund terms/u })).toHaveAttribute("target", "_blank");
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);
     await waitFor(() =>
       expect(

@@ -132,7 +132,7 @@ export function TotalLossAnalysisResult(props: TotalLossAnalysisResultProps) {
   }
   if (props.analysis.presentationVersion === "8") {
     return <ValuationStatus kind="error" eyebrow="Your review is saved" heading="We couldn’t finish your estimate." description="We couldn’t complete the market check. Your details are saved, and you can continue with your insurer’s valuation report.">
-      {props.reportUploadAction ?? (props.insurerReportPath ? <Button asChild size="lg"><Link to={props.insurerReportPath}>{props.analysis.analysisScope.reportAvailable ? "Review saved report" : "Upload insurer valuation report"}<ArrowRight className="size-5" aria-hidden /></Link></Button> : null)}
+      {props.reportUploadAction ?? (props.insurerReportPath ? <Button asChild size="lg"><Link to={props.insurerReportPath}>{props.analysis.analysisScope.reportAvailable ? "Review saved report" : "Upload valuation report"}<ArrowRight className="size-5" aria-hidden /></Link></Button> : null)}
     </ValuationStatus>;
   }
 
@@ -224,17 +224,17 @@ function PreliminaryAnalysisResult({
             </div>
           </details>
         <section className="preliminary-result__next result-review-panel" aria-labelledby={`${headingId}-next`}>
-          <h2 id={`${headingId}-next`}>Review your insurer’s valuation.</h2>
+          <h2 id={`${headingId}-next`}>Know where your insurer’s valuation stands.</h2>
           {!reportUploadAction ? <p className="preliminary-result__next-description">{analysis.analysisScope.reportAvailable ? "Use your saved report to check the vehicle details, comparable vehicles, and adjustments." : "Upload your report to see how your insurer calculated the value."}</p> : null}
           {reportUploadAction || insurerReportPath ? <div className="preliminary-result__action">
-            {reportUploadAction ?? <Button asChild size="lg" className="valuation-result__upload-action"><Link to={insurerReportPath!}>{analysis.analysisScope.reportAvailable ? "Review saved report" : "Upload insurer valuation report"}<ArrowRight aria-hidden /></Link></Button>}
+            {reportUploadAction ?? <Button asChild size="lg" className="valuation-result__upload-action"><Link to={insurerReportPath!}>{analysis.analysisScope.reportAvailable ? "Review saved report" : "Upload valuation report"}<ArrowRight aria-hidden /></Link></Button>}
           </div> : null}
           <details className="preliminary-result__details preliminary-result__review-details">
             <summary>What does the full review include?<ChevronDown aria-hidden /></summary>
             <div className="preliminary-result__details-content">
               <InsurerReviewScope />
               <p className="preliminary-result__deliverables">Get a valuation report with our findings and guidance on discussing supported concerns with your adjuster.</p>
-              <p>Optional full review: $199. Upload and confirmation are free.</p>
+              <p>Get a detailed review of your vehicle details, comparable vehicles, and adjustments.</p>
               <p className="preliminary-result__purchase-note">We check your report and evidence first. You decide whether to pay for the full review.</p>
             </div>
           </details>
@@ -498,7 +498,7 @@ function SavedAnalysisResult({
           {targetedCorrectionPath && correctionFieldLabel && onConfirmVehicleFact ? <VehicleDetailQuestion key={recovery!.field} field={recovery!.field as VehicleFactField} onConfirm={onConfirmVehicleFact} />
             : targetedCorrectionPath ? <Button asChild size="lg" className="mt-6"><Link to={targetedCorrectionPath}>{correctionLabel}<ArrowRight className="size-5" aria-hidden /></Link></Button> : null}
 
-          {insurerReportPath && !presentation.showContinue ? <div className="saved-result__report-action">{reportUploadAction ?? <Button asChild size="lg" variant={targetedCorrectionPath ? "outline" : "default"}><Link to={insurerReportPath}>{analysis.analysisScope.reportAvailable ? "Review saved report" : "Upload insurer valuation PDF"}<ArrowRight className="size-5" aria-hidden /></Link></Button>}</div> : null}
+          {insurerReportPath && !presentation.showContinue ? <div className="saved-result__report-action">{reportUploadAction ?? <Button asChild size="lg" variant={targetedCorrectionPath ? "outline" : "default"}><Link to={insurerReportPath}>{analysis.analysisScope.reportAvailable ? "Review saved report" : "Upload valuation report"}<ArrowRight className="size-5" aria-hidden /></Link></Button>}</div> : null}
 
           {reviewIntakePath && !targetedCorrectionPath && (!recovery || recovery.kind === "MISSING_INFORMATION") ? (
             <div className="valuation-result__intake-action">

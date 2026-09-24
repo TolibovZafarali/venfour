@@ -82,6 +82,7 @@ export interface AppraisalStartLayoutProps {
   eyebrow: ReactNode;
   title: ReactNode;
   description: ReactNode;
+  priceNote?: ReactNode;
   children: ReactNode;
   className?: string;
 }
@@ -98,6 +99,7 @@ export function AppraisalStartLayout({
   eyebrow,
   title,
   description,
+  priceNote,
   children,
   className,
 }: AppraisalStartLayoutProps) {
@@ -147,6 +149,7 @@ export function AppraisalStartLayout({
             <p className="mt-3 text-base leading-7 text-copy">
               {description}
             </p>
+            {priceNote ? <p className="mt-3 text-sm leading-6 text-copy" data-review-price-note>{priceNote}</p> : null}
             <ExampleAnalysisPreview service={service} />
             {mobileView === "overview" ? (
               <button

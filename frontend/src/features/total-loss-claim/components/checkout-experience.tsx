@@ -2,7 +2,7 @@ import { FileSearch, FileText, LoaderCircle, MessageSquareReply, Send } from "lu
 import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 
-import { publicHref } from "@/app/site-boundary";
+import { RefundProtectionDetails } from "@/features/full-review/refund-protection";
 import { Button } from "@/components/ui/button";
 import { useTotalLossDependencies } from "@/features/total-loss/dependencies";
 import { useTotalLossDetailsQuery } from "@/features/total-loss/queries";
@@ -112,7 +112,7 @@ export function CheckoutScreen({
           </section>
         </div>
         <aside aria-labelledby="checkout-included-heading" className="checkout-package-details">
-          <h2 id="checkout-included-heading" className="checkout-summary-eyebrow">Included with your review</h2>
+          <h2 id="checkout-included-heading" className="checkout-summary-eyebrow">Know what you’re paying for.</h2>
           <dl className="checkout-inclusions">
             <div>
               <dt><FileSearch aria-hidden="true" className="checkout-inclusion-icon" size={20} strokeWidth={1.75} /><span>Your insurer’s valuation, reviewed</span></dt>
@@ -132,10 +132,8 @@ export function CheckoutScreen({
             </div>
           </dl>
           <section aria-labelledby="checkout-refund-heading" className="checkout-policy">
-            <h2 id="checkout-refund-heading">Fair-Result Refund Protection</h2>
-            <p>If our completed review does not support a valuation dispute, your purchase is refunded automatically.</p>
-            <p>If our review supports a dispute but your insurer’s final verified vehicle valuation increases by less than $1,000 after you follow the recommended process, you may request a full refund.</p>
-            <a href={publicHref("/refund-policy")} target="_blank" rel="noopener noreferrer">See Fair-Result Refund Policy<span className="sr-only"> (opens in a new tab)</span></a>
+            <h2 id="checkout-refund-heading">Your review fee, protected.</h2>
+            <RefundProtectionDetails />
           </section>
           <p className="checkout-disclaimer">Payment does not guarantee a higher insurer valuation or settlement.</p>
         </aside>

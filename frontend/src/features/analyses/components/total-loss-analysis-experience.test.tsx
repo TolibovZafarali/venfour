@@ -539,10 +539,10 @@ describe("versioned preliminary results", () => {
     const analysis = structuredClone(preliminaryAnalysis({ outcome }));
     analysis.analysisScope.reportAvailable = reportAvailable;
     show(analysis);
-    expect(screen.getByRole("link", { name: reportAvailable ? "Review saved report" : "Upload insurer valuation report" })).toHaveAttribute("href", reportPath);
-    expect(screen.getByText("Optional full review: $199. Upload and confirmation are free.")).not.toBeVisible();
+    expect(screen.getByRole("link", { name: reportAvailable ? "Review saved report" : "Upload valuation report" })).toHaveAttribute("href", reportPath);
+    expect(screen.getByText("Get a detailed review of your vehicle details, comparable vehicles, and adjustments.")).not.toBeVisible();
     await userEvent.setup().click(screen.getByText("What does the full review include?"));
-    expect(screen.getByText("Optional full review: $199. Upload and confirmation are free.")).toBeVisible();
+    expect(screen.getByText("Get a detailed review of your vehicle details, comparable vehicles, and adjustments.")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Pay for review" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Continue my review" })).not.toBeInTheDocument();
   });
@@ -550,9 +550,9 @@ describe("versioned preliminary results", () => {
   it("uses the dedicated report action while ignoring a payment continuation on a preliminary result", async () => {
     const upload = vi.fn();
     render(<MemoryRouter><TotalLossAnalysisResult analysis={preliminaryAnalysis()}
-      reportUploadAction={<button onClick={upload}>Upload insurer valuation report</button>}
+      reportUploadAction={<button onClick={upload}>Upload valuation report</button>}
       continueAction={<button>Pay for review</button>} /></MemoryRouter>);
-    await userEvent.setup().click(screen.getByRole("button", { name: "Upload insurer valuation report" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Upload valuation report" }));
     expect(upload).toHaveBeenCalledOnce();
     expect(screen.queryByRole("button", { name: "Pay for review" })).not.toBeInTheDocument();
   });

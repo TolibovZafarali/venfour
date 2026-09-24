@@ -133,7 +133,7 @@ export function FullReviewReport({ caseId, userId, accessToken, headingLevel = "
         </fieldset>
       </form> : null}
       {state.ready ? continuationInput
-        ? <ContinueReviewAction accessToken={accessToken} caseId={caseId} userId={userId} label="Continue to payment"
+        ? <ContinueReviewAction accessToken={accessToken} caseId={caseId} userId={userId} label="Get my full review"
             input={continuationInput} />
         : state.paymentReadiness.status === "insufficient"
           ? <p className="workspace-report-status" role="status">We need more reliable market evidence before we can offer the full review. Your report and free result are saved.</p>

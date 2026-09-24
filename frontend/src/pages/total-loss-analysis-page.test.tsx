@@ -114,7 +114,7 @@ describe("total-loss case analysis page", () => {
     );
     const view = renderTestApp([casePath], { authService: authService(sessionFor()), strictMode: true });
     expect(await screen.findByRole("heading", { name: "The value check is unavailable right now." })).toBeVisible();
-    expect(await screen.findByRole("button", { name: "Upload insurer valuation report" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Upload valuation report" })).toBeVisible();
     expect(screen.queryByText(/no suitable vehicles/i)).not.toBeInTheDocument();
     view.unmount();
     renderTestApp([casePath], { authService: authService(sessionFor()) });
@@ -228,7 +228,7 @@ describe("total-loss case analysis page", () => {
       await screen.findByRole("heading", { name: materialResultHeading }),
     ).toBeVisible();
     expect(
-      screen.getByRole("button", { name: "Upload insurer valuation report" }),
+      screen.getByRole("button", { name: "Upload valuation report" }),
     ).toBeVisible();
     expect(
       screen.queryByRole("link", { name: "Review your details" }),
@@ -454,7 +454,7 @@ describe("total-loss case analysis page", () => {
     });
 
     expect(
-      await screen.findByRole("button", { name: "Upload insurer valuation report" }),
+      await screen.findByRole("button", { name: "Upload valuation report" }),
     ).toBeVisible();
     expect(
       screen.queryByRole("button", { name: "Retry value check" }),

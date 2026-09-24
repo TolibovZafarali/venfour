@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
+import { fullReviewPriceLabel } from "@/config/review-price";
 import { diminishedValueIntakeAvailable } from "@/config/product-availability";
 import {
   DiminishedValuePausedState,
@@ -158,16 +159,17 @@ export function AppraisalStartPage() {
       }
       title={
         totalLossSelected
-          ? correctingTotalLossIntake ? "Review your saved Total Loss intake" : "Start your Total Loss review"
+          ? correctingTotalLossIntake ? "Review your saved Total Loss intake" : "Start with a free valuation."
           : diminishedValueIntakeAvailable
             ? "Submit a diminished-value review request"
             : "Diminished Value intake is currently paused"
       }
+      priceNote={totalLossSelected && !correctingTotalLossIntake ? <>Free valuation · Full review and report: <strong className="font-medium text-ink">{fullReviewPriceLabel}</strong> one-time</> : undefined}
       description={
         totalLossSelected
           ? correctingTotalLossIntake
             ? "Review and correct the saved information for this same case, then resubmit when you’re ready."
-            : "Upload your insurer’s valuation report from any provider, or continue without one. Venfour will gather the facts needed for independent market research and a truthful evidence review."
+            : "See how your vehicle compares with the market. Upload your insurer’s valuation report, or start with your vehicle details."
           : diminishedValueIntakeAvailable
             ? "We’ll securely gather accident, repair, vehicle, and contact details for a future manual review. Submission does not create an automated appraisal or schedule an appointment."
             : "Diminished Value remains part of Venfour, but customer intake is not open. Venfour is completing the Total Loss experience first."

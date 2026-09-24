@@ -37,7 +37,7 @@ describe("persistent customer workspace", () => {
     const { service, write } = fixtures();
     const { container, router } = renderTestApp([`${base}/analysis`], { authService, appraisalCaseService: service });
     const user = userEvent.setup();
-    await screen.findByRole("heading", { name: "Your insurer may be undervaluing your vehicle." });
+    await screen.findByRole("heading", { name: "Your insurer’s valuation may be too low." });
     await waitFor(() => expect(container.querySelector(".customer-workspace__identity")).toHaveTextContent("2026 Hyundai Kona SE"));
     const shell = container.querySelector("[data-customer-workspace]");
     const frame = container.querySelector(".customer-workspace");
@@ -45,7 +45,7 @@ describe("persistent customer workspace", () => {
     const identity = container.querySelector(".customer-workspace__context");
     expect(header?.contains(identity)).toBe(true);
     expect(frame?.querySelector(".customer-workspace__context")).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Upload insurer valuation report" }));
+    await user.click(screen.getByRole("button", { name: "Upload valuation report" }));
     await screen.findByRole("heading", { name: "Add your insurer’s valuation report" });
     expect(container.querySelector("[data-customer-workspace]")).toBe(shell);
     expect(container.querySelector(".customer-workspace")).toBe(frame);
@@ -54,9 +54,9 @@ describe("persistent customer workspace", () => {
     expect(container.querySelector(".claim-workflow-card")).toBeNull();
     expect(screen.queryByRole("link", { name: /Back to/ })).not.toBeInTheDocument();
     await act(async () => router.navigate(-1));
-    await screen.findByRole("heading", { name: "Your insurer may be undervaluing your vehicle." });
+    await screen.findByRole("heading", { name: "Your insurer’s valuation may be too low." });
     await act(async () => router.navigate(1));
-    await screen.findByLabelText("Choose the complete valuation PDF");
+    await screen.findByLabelText("Choose your valuation report");
     expect(container.querySelector("header")).toBe(header);
     expect(write).not.toHaveBeenCalled();
     expect(service.listAppraisalCases).toHaveBeenCalledOnce();
@@ -65,7 +65,7 @@ describe("persistent customer workspace", () => {
   it("does not display another owner's vehicle in workspace context", async () => {
     const { service } = fixtures("different-owner");
     const { container } = renderTestApp([`${base}/review-report`], { authService, appraisalCaseService: service });
-    await screen.findByLabelText("Choose the complete valuation PDF");
+    await screen.findByLabelText("Choose your valuation report");
     expect(container.querySelector(".customer-workspace__identity")).toHaveTextContent("Your appraisal");
     expect(container.querySelector(".customer-workspace__identity")).not.toHaveTextContent("Hyundai");
   });
@@ -76,7 +76,7 @@ describe("persistent customer workspace", () => {
     requestAutomaticSubmission(userId, caseId, input);
     server.use(http.get("*/api/v1/appraisal-cases/:id/analysis", () => HttpResponse.json({ status: "not_submitted", analysisInputId: input.expectedAnalysisInputId, analysisInputRevision: 1 })));
     const { router } = renderTestApp([`${base}/review-report`], { authService, appraisalCaseService: service });
-    await screen.findByLabelText("Choose the complete valuation PDF");
+    await screen.findByLabelText("Choose your valuation report");
     expect(screen.getByRole("dialog", { name: "Insurer valuation review" })).toBeVisible();
     expect(router.state.location.pathname).toBe(`${base}/review-report`);
     expect(write).not.toHaveBeenCalled();
@@ -92,7 +92,7 @@ describe("persistent customer workspace", () => {
     renderTestApp([`${base}/review-report`], { authService, appraisalCaseService: service });
     await user.click(await screen.findByRole("radio", { name: /In the report/ }));
     await user.click(screen.getByRole("button", { name: "Close report review" }));
-    await user.click(await screen.findByRole("button", { name: "Upload insurer valuation report" }));
+    await user.click(await screen.findByRole("button", { name: "Review saved report" }));
     expect(await screen.findByRole("radio", { name: /In the report/ })).toBeChecked();
   });
 });

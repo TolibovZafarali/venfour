@@ -43,6 +43,23 @@ function selectPdf() {
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(getFullReview).mockResolvedValue(initial); });
 
 describe("report upload modal", () => {
+  it("explains the review price and both refund paths before payment without opening checkout", async () => {
+    const { user, router } = setup();
+    await screen.findByRole("button", { name: "Upload valuation report" });
+    expect(screen.getByText("$199")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Get my full review" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Your review fee, protected/ }));
+    const terms = screen.getByRole("dialog", { name: "Your review fee, protected." });
+    expect(within(terms).getByText(/refunded automatically/)).toBeVisible();
+    expect(within(terms).getByText(/follow our recommended process/)).toBeVisible();
+    expect(within(terms).getByText("$1,000")).toBeVisible();
+    expect(within(terms).getByText(/within 30 days/)).toBeVisible();
+    expect(within(terms).getByRole("link", { name: /See eligibility and refund terms/ })).toHaveAttribute("href", "/refund-policy");
+    await user.click(within(terms).getByRole("button", { name: "Close refund protection" }));
+    expect(router.state.location.pathname).toBe(`${base}/analysis`);
+    expect(initializeTotalLossClaim).not.toHaveBeenCalled();
+  });
+
   it("reuses an intake report without asking for another upload", async () => {
     vi.mocked(getFullReview).mockResolvedValue({ ...initial, canReuseReport: true });
     vi.mocked(extractFullReview).mockImplementation(async () => {
@@ -51,7 +68,7 @@ describe("report upload modal", () => {
     });
     const { user } = setup();
     expect(screen.getByRole("button", { name: "Checking saved report…" })).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "Upload insurer valuation report" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Upload valuation report" })).not.toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Review saved report" }));
     expect(await screen.findByRole("heading", { name: "Your valuation report is saved." })).toBeVisible();
     expect(within(screen.getByRole("dialog", { name: "Insurer valuation review" })).getByText(/Continue with the report you already uploaded/)).toBeVisible();
@@ -75,7 +92,7 @@ describe("report upload modal", () => {
   it("keeps the result mounted, preserves history, restores focus, and performs no writes on open", async () => {
     const { user, router } = setup();
     const result = screen.getByRole("heading", { name: "Saved free result" });
-    const trigger = await screen.findByRole("button", { name: "Upload insurer valuation report" });
+    const trigger = await screen.findByRole("button", { name: "Upload valuation report" });
     expect(getFullReview).toHaveBeenCalledOnce();
     await user.click(trigger);
     await screen.findByLabelText("Choose your valuation report");
@@ -156,13 +173,13 @@ describe("report upload modal", () => {
       return initial;
     });
     const { router, user } = setup();
-    await user.click(await screen.findByRole("button", { name: "Upload insurer valuation report" }));
+    await user.click(await screen.findByRole("button", { name: "Upload valuation report" }));
     await screen.findByLabelText("Choose your valuation report");
     selectPdf();
     await waitFor(() => expect(screen.getByRole("button", { name: "Close report review" })).toBeDisabled());
     await act(async () => { await router.navigate(-1); });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    await user.click(await screen.findByRole("button", { name: "Upload insurer valuation report" }));
+    await user.click(await screen.findByRole("button", { name: "Upload valuation report" }));
     await screen.findByLabelText("Choose your valuation report");
     expect(screen.getByRole("dialog")).toBeVisible();
     await act(async () => { finish(); });
@@ -218,13 +235,13 @@ describe("report upload modal", () => {
     await user.click(within(dialog).getByRole("button", { name: "Confirm and continue" }));
     await within(dialog).findByRole("heading", { name: "Reviewing your report and evidence." });
     expect(confirmFullReview).toHaveBeenCalledExactlyOnceWith("saved-case", "owner-token", saved.report, { mileage: "report" });
-    expect(within(dialog).queryByRole("button", { name: "Continue to payment" })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Get my full review" })).not.toBeInTheDocument();
     state = ready;
     await act(async () => { await client.invalidateQueries({ queryKey: fullReviewKey("owner", "saved-case") }); });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(router.state.location.pathname).toBe(`${base}/analysis`);
     expect(router.state.location.search).toBe("");
-    const payment = screen.getByRole("button", { name: "Continue to payment" });
+    const payment = screen.getByRole("button", { name: "Get my full review" });
     expect(payment).toBeVisible();
     await waitFor(() => expect(payment).toHaveFocus());
     expect(initializeTotalLossClaim).not.toHaveBeenCalled();
@@ -274,7 +291,7 @@ describe("report upload modal", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(screen.getByRole("heading", { name: "Saved free result" })).toBe(result);
     expect(router.state.location.search).toBe("?source=saved");
-    expect(screen.getByRole("button", { name: "Continue to payment" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Get my full review" })).toBeVisible();
     expect(initializeTotalLossClaim).not.toHaveBeenCalled();
   });
 
@@ -283,10 +300,12 @@ describe("report upload modal", () => {
     const { router } = setup(`${base}/review-report`);
     await waitFor(() => expect(router.state.location.pathname).toBe(`${base}/analysis`));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    if (status === "eligible") expect(screen.getByRole("button", { name: "Continue to payment" })).toBeVisible();
+    if (status === "eligible") expect(screen.getByRole("button", { name: "Get my full review" })).toBeVisible();
     else {
       expect(screen.getByText(/need more reliable evidence/)).toBeVisible();
-      expect(screen.queryByRole("button", { name: "Continue to payment" })).not.toBeInTheDocument();
+      expect(screen.queryByText("$199")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Your review fee, protected/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Get my full review" })).not.toBeInTheDocument();
     }
     expect(uploadFullReview).not.toHaveBeenCalled();
     expect(confirmFullReview).not.toHaveBeenCalled();
@@ -305,7 +324,7 @@ describe("report upload modal", () => {
   it("restores payment continuation on a refreshed free result without opening a modal", async () => {
     vi.mocked(getFullReview).mockResolvedValue(ready);
     setup();
-    expect(await screen.findByRole("button", { name: "Continue to payment" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Get my full review" })).toBeVisible();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(initializeTotalLossClaim).not.toHaveBeenCalled();
   });

@@ -27,10 +27,10 @@ describe("report before payment", () => {
   it.each(["insufficient", "processing", "failed", "not_evaluated", "awaiting_approval"] as const)("keeps facts-ready %s evidence out of checkout", async status => {
     show({ ...ready, checkoutAvailable: false, paymentReadiness: { ...initial.paymentReadiness, status } });
     expect(await screen.findByText("insurer.pdf")).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Continue to payment" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Get my full review" })).not.toBeInTheDocument();
     expect(screen.queryByText(/GOOD|WEAK|LOW|INSUFFICIENT_EVIDENCE/)).not.toBeInTheDocument();
     expect(screen.queryByText(/before payment|no payment has been taken|final Venfour check|final review/i)).not.toBeInTheDocument();
-    if (status === "insufficient") expect(screen.getByText(/don’t yet have enough reliable market evidence/)).toBeVisible();
+    if (status === "insufficient") expect(screen.getByText(/need more reliable market evidence/)).toBeVisible();
     expect(continuation).not.toHaveBeenCalled();
   });
   it("recovers a lost upload response from persisted state without a reload", async () => {
@@ -39,8 +39,8 @@ describe("report before payment", () => {
       vi.mocked(getFullReview).mockResolvedValue(ready);
       throw new Error("lost browser response after persistence");
     });
-    fireEvent.change(await screen.findByLabelText("Choose the complete valuation PDF"), { target: { files: [new File(["%PDF-simulated"], "insurer.pdf", { type: "application/pdf" })] } });
-    expect(await screen.findByRole("button", { name: "Continue to payment" })).toBeVisible();
+    fireEvent.change(await screen.findByLabelText("Choose your valuation report"), { target: { files: [new File(["%PDF-simulated"], "insurer.pdf", { type: "application/pdf" })] } });
+    expect(await screen.findByRole("button", { name: "Get my full review" })).toBeVisible();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(uploadFullReview).toHaveBeenCalledOnce();
   });
@@ -50,15 +50,15 @@ describe("report before payment", () => {
       vi.mocked(getFullReview).mockResolvedValue({ ...ready, report: { ...ready.report!, revision: 8 } });
       return { ...ready, report: { ...ready.report!, revision: 2 }, ready: false, status: "uploaded" };
     });
-    fireEvent.change(await screen.findByLabelText("Choose the complete valuation PDF"), { target: { files: [new File(["%PDF-simulated"], "insurer.pdf", { type: "application/pdf" })] } });
-    expect(await screen.findByRole("button", { name: "Continue to payment" })).toBeVisible();
+    fireEvent.change(await screen.findByLabelText("Choose your valuation report"), { target: { files: [new File(["%PDF-simulated"], "insurer.pdf", { type: "application/pdf" })] } });
+    expect(await screen.findByRole("button", { name: "Get my full review" })).toBeVisible();
     expect(continuation).toHaveBeenLastCalledWith(expect.objectContaining({ input: expect.objectContaining({ expectedReportRevision: 8 }) }));
   });
   it.each(["uploading", "uploaded"] as const)("reopens the saved %s state before work is queued and follows completion", async status => {
     show({ ...ready, checkoutAvailable: false, ready: false, status, paymentReadiness: initial.paymentReadiness });
     expect(await screen.findByText("insurer.pdf")).toBeVisible();
     vi.mocked(getFullReview).mockResolvedValue(ready);
-    expect(await screen.findByRole("button", { name: "Continue to payment" }, { timeout: 4500 })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Get my full review" }, { timeout: 4500 })).toBeVisible();
     expect(uploadFullReview).not.toHaveBeenCalled();
     expect(extractFullReview).not.toHaveBeenCalled();
   });
@@ -68,19 +68,19 @@ describe("report before payment", () => {
       vi.mocked(getFullReview).mockResolvedValue({ ...ready, checkoutAvailable: false, ready: false, status: "uploading", paymentReadiness: initial.paymentReadiness });
       throw new Error("Response lost while the accepted file is saving");
     });
-    fireEvent.change(await screen.findByLabelText("Choose the complete valuation PDF"), { target: { files: [new File(["%PDF-simulated"], "insurer.pdf", { type: "application/pdf" })] } });
+    fireEvent.change(await screen.findByLabelText("Choose your valuation report"), { target: { files: [new File(["%PDF-simulated"], "insurer.pdf", { type: "application/pdf" })] } });
     expect(await screen.findByText("insurer.pdf")).toBeVisible();
     vi.mocked(getFullReview).mockResolvedValue(ready);
-    expect(await screen.findByRole("button", { name: "Continue to payment" }, { timeout: 4500 })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Get my full review" }, { timeout: 4500 })).toBeVisible();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(uploadFullReview).toHaveBeenCalledOnce();
     expect(extractFullReview).not.toHaveBeenCalled();
   });
   it("reopens persisted extraction and polls through completion without another upload", async () => {
     show({ ...ready, checkoutAvailable: false, ready: false, status: "extracting", paymentReadiness: { ...initial.paymentReadiness, status: "processing" } });
-    expect(await screen.findByText(/Checking your report and saved evidence/)).toBeVisible();
+    expect(await screen.findByText(/We’re checking your report against the saved market evidence/)).toBeVisible();
     vi.mocked(getFullReview).mockResolvedValue(ready);
-    expect(await screen.findByRole("button", { name: "Continue to payment" }, { timeout: 4500 })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Get my full review" }, { timeout: 4500 })).toBeVisible();
     expect(uploadFullReview).not.toHaveBeenCalled();
     expect(extractFullReview).not.toHaveBeenCalled();
   });
@@ -88,12 +88,12 @@ describe("report before payment", () => {
     show({ ...ready, checkoutAvailable: false });
     expect(await screen.findByText(/The full review is not available right now/)).toBeVisible();
     expect(screen.getByText("insurer.pdf")).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Continue to payment" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Get my full review" })).not.toBeInTheDocument();
     expect(continuation).not.toHaveBeenCalled();
   });
   it("passes the current input and report versions to production continuation only when ready", async () => {
     show(ready);
-    expect(await screen.findByRole("button", { name: "Continue to payment" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Get my full review" })).toBeVisible();
     expect(continuation).toHaveBeenLastCalledWith(expect.objectContaining({
       accessToken: "mock-token", caseId: "case", userId: "owner",
       input: { expectedAnalysisInputId: initial.analysisInputId, expectedAnalysisInputRevision: 3,
@@ -109,41 +109,41 @@ describe("report before payment", () => {
   });
   it("preserves the free result and offers leave/resume without payment", async () => {
     show();
-    expect(await screen.findByLabelText("Choose the complete valuation PDF")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Choose your valuation report")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Back to/ })).not.toBeInTheDocument();
-    expect(screen.getByText("Don’t have it yet?")).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Continue to payment" })).not.toBeInTheDocument();
+    expect(screen.getByText("Need a copy of your report?")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Get my full review" })).not.toBeInTheDocument();
     expect(uploadFullReview).not.toHaveBeenCalled(); expect(extractFullReview).not.toHaveBeenCalled();
   });
   it("uploads once and opens payment only after authoritative readiness", async () => {
     show();vi.mocked(uploadFullReview).mockImplementation(persist(ready));
     const file = new File(["%PDF-simulated"], "insurer.pdf", { type: "application/pdf" });
-    fireEvent.change(await screen.findByLabelText("Choose the complete valuation PDF"), { target: { files: [file] } });
-    expect(await screen.findByRole("button", { name: "Continue to payment" })).toBeInTheDocument();
+    fireEvent.change(await screen.findByLabelText("Choose your valuation report"), { target: { files: [file] } });
+    expect(await screen.findByRole("button", { name: "Get my full review" })).toBeInTheDocument();
     expect(uploadFullReview).toHaveBeenCalledExactlyOnceWith("case", "mock-token", file);
   });
   it("does not unlock payment just because a report was uploaded", async () => {
     show();
     vi.mocked(uploadFullReview).mockImplementation(persist({ ...ready, checkoutAvailable: false, paymentReadiness: initial.paymentReadiness, status: "uploaded", ready: false, message: "Your report is saved and still needs to be checked." }));
     const file = new File(["%PDF-simulated"], "insurer.pdf", { type: "application/pdf" });
-    fireEvent.change(await screen.findByLabelText("Choose the complete valuation PDF"), { target: { files: [file] } });
-    expect(await screen.findByRole("button", { name: "Try reading the saved report again" })).toBeVisible();
+    fireEvent.change(await screen.findByLabelText("Choose your valuation report"), { target: { files: [file] } });
+    expect(await screen.findByRole("button", { name: "Read report again" })).toBeVisible();
     expect(screen.getByText("insurer.pdf")).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Continue to payment" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Get my full review" })).not.toBeInTheDocument();
     expect(extractFullReview).not.toHaveBeenCalled();
     expect(confirmFullReview).not.toHaveBeenCalled();
   });
   it("keeps an incomplete report with a clear replacement action", async () => {
     show({ ...ready, ready: false, status: "report_invalid", message: "Upload the complete report, including comparable vehicles." });
-    expect(await screen.findByLabelText("Upload a replacement PDF")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Replace report PDF")).toBeInTheDocument();
     expect(screen.getByText("insurer.pdf")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Continue to payment" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Get my full review" })).not.toBeInTheDocument();
   });
   it("resumes the saved report and extraction failure without starting another case", async () => {
     show({ ...ready, ready: false, status: "extraction_failed", message: "Your file is saved." });
     vi.mocked(extractFullReview).mockImplementation(persist(ready));
-    fireEvent.click(await screen.findByRole("button", { name: "Try reading the saved report again" }));
-    expect(await screen.findByRole("button", { name: "Continue to payment" })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Read report again" }));
+    expect(await screen.findByRole("button", { name: "Get my full review" })).toBeInTheDocument();
     expect(uploadFullReview).not.toHaveBeenCalled();
   });
   it("asks only the conflicting fact, preserves the answer on error, then confirms", async () => {
@@ -155,13 +155,13 @@ describe("report before payment", () => {
     expect(screen.getByRole("radio", { name: /In the report/ })).toBeChecked();
     await waitFor(() => expect(screen.getByRole("button", { name: "Confirm and continue" })).not.toBeDisabled());
     fireEvent.click(screen.getByRole("button", { name: "Confirm and continue" }));
-    expect(await screen.findByRole("button", { name: "Continue to payment" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Get my full review" })).toBeInTheDocument();
     expect(confirmFullReview).toHaveBeenLastCalledWith("case", "mock-token", ready.report, { mileage: "report" });
   });
   it("reuses an earlier uploaded report on explicit continue", async () => {
     show({ ...initial, canReuseReport: true });vi.mocked(extractFullReview).mockImplementation(persist(ready));
-    fireEvent.click(await screen.findByRole("button", { name: "Use my saved valuation report" }));
-    expect(await screen.findByRole("button", { name: "Continue to payment" })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Use saved report" }));
+    expect(await screen.findByRole("button", { name: "Get my full review" })).toBeInTheDocument();
     expect(uploadFullReview).not.toHaveBeenCalled();
   });
 });

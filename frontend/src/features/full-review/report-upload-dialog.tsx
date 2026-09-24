@@ -9,6 +9,7 @@ import { FullReviewReport, type ReportConfirmationDraft } from "./report-review"
 import { fullReviewKey, getFullReview } from "./api";
 import { fullReviewContinuationInput } from "./continuation";
 import { ContinueReviewAction } from "@/features/total-loss-claim/components/continue-review-action";
+import { ReviewPrice, ReviewRefundProtection } from "./refund-protection";
 import "./report-upload-dialog.css";
 
 export function ReportUploadDialog({ caseId, userId, accessToken, reportWorkspace = false, children }: {
@@ -31,12 +32,13 @@ export function ReportUploadDialog({ caseId, userId, accessToken, reportWorkspac
     refetchInterval: q => ["uploading", "uploaded", "extracting"].includes(q.state.data?.status ?? "") || q.state.data?.paymentReadiness.status === "processing" ? 3000 : false });
   const state = query.isError ? undefined : query.data;
   const continuationInput = fullReviewContinuationInput(state);
+  const showOffer = Boolean(state && !state.locked && !open && (state.status === "report_required" || continuationInput));
   const completed = state?.ready && ["eligible", "insufficient"].includes(state.paymentReadiness.status);
   const hasSavedReport = Boolean(state?.report || state?.canReuseReport);
   const triggerLabel = query.isPending ? "Checking saved report…"
     : !state ? "Open report review"
     : state.status === "report_invalid" ? "Replace incomplete report"
-    : hasSavedReport ? "Review saved report" : "Upload insurer valuation report";
+    : hasSavedReport ? "Review saved report" : "Upload valuation report";
   const finish = useCallback(() => {
     const params = new URLSearchParams(search);
     params.delete("upload");
@@ -65,15 +67,17 @@ export function ReportUploadDialog({ caseId, userId, accessToken, reportWorkspac
       <Button size="lg" className="valuation-result__upload-action" disabled={query.isPending}>{triggerLabel}{hasSavedReport ? <ArrowRight aria-hidden /> : <Upload aria-hidden />}</Button>
     </Dialog.Trigger>;
   const action = <div ref={actionRef} tabIndex={-1} data-report-review-complete={completed || undefined}>
-    {completed ? <p className="valuation-result__next-copy" role="status">{state.paymentReadiness.status === "insufficient" ? "Your report is saved. We need more reliable evidence before we can offer the full review." : "Your insurer’s report is saved. You’re ready to continue."}</p>
+    {completed ? <p className="valuation-result__next-copy" role="status">{state.paymentReadiness.status === "insufficient" ? "Your report is saved. We need more reliable evidence before we can offer the full review." : "Your report is saved and ready."}</p>
       : <p className="valuation-result__next-copy">{query.isPending ? "Checking for your saved report."
         : !state ? "We couldn’t check your saved report. Open the review to try again."
         : state.status === "report_invalid" ? "Please replace this file with the complete valuation report."
         : hasSavedReport ? "Continue with the report you already uploaded."
         : "Add your insurer’s valuation report to continue. Your free result stays saved."}</p>}
-    {continuationInput ? <ContinueReviewAction accessToken={accessToken} caseId={caseId} userId={userId} label="Continue to payment" input={continuationInput} /> : completed
+    {showOffer ? <div className="review-offer"><ReviewPrice /></div> : null}
+    {continuationInput ? <ContinueReviewAction accessToken={accessToken} caseId={caseId} userId={userId} label="Get my full review" input={continuationInput} /> : completed
       ? state.paymentReadiness.status === "eligible" ? <p className="valuation-result__payment-note">Payment is unavailable right now. Please try again later.</p> : null
-      : <>{trigger}<p className="valuation-result__payment-note">No payment at this step</p></>}
+      : <>{trigger}<p className="valuation-result__payment-note">{state && !hasSavedReport ? "Upload free. Review the price before paying." : "No payment at this step"}</p></>}
+    {showOffer ? <div className="review-offer"><ReviewRefundProtection /></div> : null}
   </div>;
   return <Dialog.Root open={open} onOpenChange={changeOpen}>
     {children ? children(action) : action}

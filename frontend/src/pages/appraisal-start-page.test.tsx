@@ -132,7 +132,7 @@ describe("/start appraisal intake", () => {
       expect(searchParams.get("campaign")).toBe("spring");
       expect(
         screen.getByRole("heading", {
-          name: "Start your Total Loss review",
+          name: "Start with a free valuation.",
         }),
       ).toBeVisible();
       expectSelectedService("Total Loss");
@@ -143,7 +143,7 @@ describe("/start appraisal intake", () => {
     [
       "total loss",
       "/start?service=total-loss",
-      "Start your Total Loss review",
+      "Start with a free valuation.",
       "Total Loss",
       "2024 Hyundai Elantra SEL",
       "12 comparable vehicles · within 87 miles",

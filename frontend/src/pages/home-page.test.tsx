@@ -174,7 +174,7 @@ describe("homepage structure", () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe("/start"));
     expect(router.state.location.search).toBe("?service=total-loss");
-    expect(screen.getByRole("heading", { name: "Start your Total Loss review" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Start with a free valuation." })).toBeVisible();
   });
 
   test("opens the paused Diminished Value update from its FAQ answer", async () => {
