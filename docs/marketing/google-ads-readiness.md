@@ -96,7 +96,7 @@ Campaign labels must contain campaign taxonomy, never customer information. UTM 
 
 No GA4 or GTM container or separate tag ID is required. The direct Ads ID is also the Google tag ID. Example defaults remain inert; the protected production/public build inputs now contain the values below.
 
-| Configuration | Where/how to set after account creation |
+| Configuration | Installed production value |
 | --- | --- |
 | `VITE_GOOGLE_ADS_CONVERSION_ID` | `AW-18473000475` in both production and public-site builds. |
 | `VITE_GOOGLE_ADS_PURCHASE_LABEL` | `SbutCPivmYQdEJu8zuhE` in both builds. |
@@ -184,7 +184,7 @@ No real charge, insurer upload, paid-provider request, production email, manufac
 
 The dedicated-page removal inventory in section 2 remains the historical cleanup record. The full release report contains all 181 pending paths and exact distinctions between production source, configuration, migration, documentation, tests, and obsolete generated artifacts.
 
-## 12. Deployed infrastructure and campaign activation
+## 12. Complete product deployment (prior baseline)
 
 **The complete intended product release is live.** Applied `20260924000000_search_measurement.sql` through the normal migration process; no local migration remains pending. Customer/partner Worker version: `b0467bdd-4f60-484e-9b1b-24782f001c1f`. Public Worker version: `15e50143-9c23-49a4-b345-d6ab286bb60d`. Both serve runtime source `e2ae5729bd018eebcf08177ae60c3be7e38e2520`; exact timestamps and the unchanged backend identity are in the release record.
 
@@ -241,7 +241,7 @@ The new draft was created without report upload, vehicle lookup, analysis, check
 
 Observed Google requests during consented homepage testing were the tag script, `www.google.com/ccm/collect`, `www.googleadservices.com/pagead/set_partitioned_cookie`, and `ad.doubleclick.net/ccm/s/collect`. Google-owned beacons included `en=page_view` despite the adapter's `send_page_view=false`; this is not a purchase conversion and no conversion label, order ID, value, or email was transmitted during the unpaid live tests.
 
-Observed fields include the Ads destination, fixed public URL/title, validated synthetic click ID, Google-generated cookie/browser identifier, consent flags, non-personalization flag, tag/version/experiment metadata, and timing/random values. Requests inherently expose the connecting IP and standard browser transport headers to Google. UTM fields remain first-party; `gbraid`/`wbraid` are available in the sanitized configured location, although the observed beacons selected `gclid`. No private route, case UUID, document, claim/vehicle/valuation/comparable data, generated content, authorization token, or profile identity was present in the captured payloads.
+Observed fields include the Ads destination, fixed public URL/title, validated synthetic click ID, Google-generated cookie/browser identifier, consent flags, non-personalization flag, tag/version/experiment metadata, and timing/random values. Requests inherently expose the connecting IP and standard browser transport headers to Google. UTM fields remain first-party; `gbraid`/`wbraid` are available in the sanitized configured location, although the observed beacons selected `gclid`. No private route, case UUID, document, claim/vehicle/valuation/comparable data, generated content, authorization token, or profile identity was present in the captured payloads. A further live test put a clearly synthetic sentinel in unrelated VIN, claim-number, email, and token query fields; none appeared in the observed Google request URLs. Browser resource timing masks cross-origin response status as zero, so this check is payload inspection, not proof of Google ingestion.
 
 The configured purchase payload remains `send_to`, actual ledger-derived amount, USD, stable order UUID, and fixed sanitized page metadata. A nonstandard **149.50 USD** unit fixture verifies that neither 1.0 nor 199 is hardcoded. Enhanced identity is only the authorized purchaser email, passed to Google's documented normalization/SHA-256 behavior and immediately cleared from tag settings. Account-side enhanced matching and actual purchase transmission remain unproven until the separately authorized transaction test.
 
@@ -254,7 +254,7 @@ The configured purchase payload remains `send_to`, actual ledger-derived amount,
 | Changed-test lint | Passed. |
 | Production and public builds | Both passed environment validation, generated-contract freshness, TypeScript, Vite, and Worker dry runs. |
 | Hosted financial/ownership boundary | **7 checks passed**: own receipt 200/empty; other-owner receipt 403; forged purchase/refund writes each 400; repeated progress writes each 204; unqualified draft checkout quote rejected with existing 404 boundary. |
-| Deployed bundle/assets/config | Both Worker bundles match; **20/20** assets match; real ID/label present in both builds; both deployed CSP switches verified true. |
+| Deployed bundle/assets/config | Both Worker bundles match; **20/20** assets match; real ID/label present in both builds; both deployed CSP switches verified true. Four live host/route CSP checks passed, including authentication and partner exclusions. |
 | Browser consent/attribution/privacy | Results above, using synthetic values and isolated browser sessions; no purchase conversion emitted. |
 | Source/diff | Scope limited to configuration, regression coverage, and this record; `git diff --check` passed. |
 
