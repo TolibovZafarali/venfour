@@ -1,4 +1,4 @@
-import { communicationsService, type CommunicationsOverview } from "@/features/admin/communications/service";
+import { communicationsService, type EmailHistory, type CommunicationsOverview } from "@/features/admin/communications/service";
 import type { PaymentApprovalCase, PaymentApprovalService } from "@/features/admin/payment-approvals/service";
 import { cases } from "./fixtures";
 
@@ -50,6 +50,12 @@ export function installStaffPreview(selectedMode: string) {
   mode = selectedMode;
   // All network services remain disconnected in this standalone fixture runtime.
   window.fetch = async () => { throw new Error("Network requests are disabled in the staff and business preview."); };
+  const history: EmailHistory = { items: [
+    { id: "preview-email-review", source: "customer", templateKey: "review_ready", recipient: "preview@example.test", subject: "Your valuation review is ready", status: "completed", attempts: 1, createdAt: "2026-09-23T12:00:00Z", acceptedAt: "2026-09-23T12:00:01Z", deliveryStatus: "delivered", caseId: cases[2].caseId },
+    { id: "preview-email-partner", source: "partner", templateKey: "partner_invitation", recipient: "business@example.test", subject: "Your business invitation", status: "completed", attempts: 1, createdAt: "2026-09-23T11:00:00Z", acceptedAt: "2026-09-23T11:00:01Z", deliveryStatus: "accepted", caseId: null },
+    { id: "preview-email-retry", source: "customer", templateKey: "review_ready", recipient: "retry@example.test", subject: "Your valuation review is ready", status: "failed", attempts: 2, createdAt: "2026-09-23T10:00:00Z", acceptedAt: null, deliveryStatus: "failed", caseId: cases[0].caseId },
+  ] };
+  communicationsService.history = () => result(mode === "empty" ? { items: [] } : history);
   communicationsService.overview = () => result(mode === "empty" ? { ...overview, templates: [] } : overview);
   communicationsService.operation = async <T>(_token: string, action: string, payload: Record<string, unknown>): Promise<T> => {
     if (mode === "save-error") throw new Error("Simulated save failure.");

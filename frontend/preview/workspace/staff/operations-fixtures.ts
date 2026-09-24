@@ -35,6 +35,13 @@ const reports=[
   ...caseRows.filter(item=>detail(item.id)!.reportUploadedAt).map((item,i)=>row({id:`upload:${id(200+i)}`,caseId:item.id,customerId:item.customerId,title:'Insurer valuation.pdf',subtitle:item.title,summary:'Uploaded valuation source',status:'uploaded',kind:'uploaded',createdAt:detail(item.id)!.reportUploadedAt!,updatedAt:'2026-09-06T15:00:00.000Z',facts:facts({'Source':'Customer upload','Provider':'Example valuation provider','Extraction status':'confirmed','Uploaded at':detail(item.id)!.reportUploadedAt,'Facts confirmed at':'2026-09-06T15:00:00.000Z'}),sections:[{title:'Technical details',facts:facts({'Storage owner ID':item.customerId,'Storage object':detail(item.id)!.reportStorageObjectPath})}]})),
   ...(['superseded','published','human_review_required'] as const).map((status,i)=>row({id:id(210+i),caseId:caseRows[i===2?4:2].id,customerId:caseRows[i===2?4:2].customerId,title:`Valuation report · version ${i===1?2:1}`,subtitle:caseRows[i===2?4:2].title,summary:'Generated customer report',status,kind:'generated',attentionReasons:i===2?['REPORT_REVIEW_HOLD']:[],createdAt:`2026-09-07T${i===0?'10':'14'}:00:00.000Z`,updatedAt:`2026-09-07T${i===0?'14':'15'}:00:00.000Z`,facts:facts({'Version':i===1?'2':'1','Generated at':`2026-09-07T${i===0?'10':'14'}:00:00.000Z`,'Published at':i===0?'2026-09-07T11:00:00.000Z':i===1?'2026-09-07T14:30:00.000Z':null,'Current version':String(i!==0),'Current published version':String(i===1),'Superseded':String(i===0),'Failure':null}),sections:[...(i===2?[{title:'Release review',facts:facts({'Status':'queued','Decision':null,'Due at':'2026-09-08T14:00:00.000Z'})}]:[]),{title:'Technical details',facts:facts({'Version ID':id(210+i),'Supersedes version ID':i===1?id(210):null})}]})),
 ];
+const incompleteIntakes = [row({
+  id: id(220), caseId: caseRows[3].id, customerId: caseRows[3].customerId,
+  title: 'Saved insurer valuation.pdf', subtitle: 'Contact details not submitted',
+  summary: 'Fictional upload awaiting intake completion', status: 'intake_in_progress',
+  kind: 'incomplete_intake', identity: 'guest', verified: false,
+  facts: facts({'Report uploaded': asOf, 'Contact details': 'Not submitted', 'Report status': 'Saved'}),
+})];
 const processing=[
   row({id:id(300),caseId:caseRows[0].id,customerId:caseRows[0].customerId,title:'Initial analysis',subtitle:caseRows[0].title,summary:'Valuation screening',kind:'initial_analysis',status:'failed',attentionReasons:['PROVIDER_TIMEOUT'],facts:facts({'Attempts':'2','Failure':'PROVIDER_TIMEOUT','Retryable':'true','Current':'true','Processing expires at':null,'Finished at':'2026-09-06T15:05:00.000Z'})}),
   row({id:id(301),caseId:caseRows[1].id,customerId:caseRows[1].customerId,title:'Initial analysis',subtitle:caseRows[1].title,summary:'Valuation screening',kind:'initial_analysis',status:'processing',facts:facts({'Attempts':'1','Failure':null,'Current':'true','Processing expires at':'2026-09-07T21:15:00.000Z'})}),
@@ -63,7 +70,7 @@ export function createSyntheticOperationsService(mode:string):AdminOperationsSer
     const count=expandedCases.filter(c=>c.customerId===item.customerId).length;
     return row({...item,caseCount:count,summary:`${count} total-loss cases`,facts:item.facts.map(fact=>fact.label==='Total-loss cases'?{...fact,value:String(count)}:fact)});
   });
-  const data:Record<AdminResource,AdminRow[]>={cases:expandedCases,customers:expandedCustomers,reports,processing,payments,activity};
+  const data:Record<AdminResource,AdminRow[]>={cases:expandedCases,customers:expandedCustomers,reports,incomplete_intakes:incompleteIntakes,processing,payments,activity};
   for(const resource of Object.keys(data) as AdminResource[])for(const item of data[resource])assertAdminResourceScope(item,resource);
   const result=async<T,>(value:T):Promise<T>=>{if(mode==='loading')return new Promise(()=>{});if(mode==='error')throw new Error('Synthetic connection failure');if(mode==='denied')throw Object.assign(new Error('Staff access unavailable'),{code:'42501'});return value;};
   const list=async(resource:AdminResource,options:AdminListOptions={})=>{

@@ -1,3 +1,4 @@
+import { AUTH_RETURN_LOCATION_STORAGE_KEY } from "@/features/auth/return-location";
 import type { Session } from "@supabase/supabase-js";
 import type { AuthService } from "@/features/auth";
 import type { AuthStateChangeListener } from "@/features/auth/auth-service";
@@ -25,7 +26,11 @@ export const scenarios = [
   ["upload", "Report upload", "PDF upload in a modal over the saved result."],
   ["extracting", "Reading the report", "Saved report extraction in progress."],
   ["confirmation", "Confirm a fact", "Resolve one mileage difference."],
-  ["strict", "Strict review", "Review of saved report and market evidence."],
+  ["strict", "Reviewing market evidence", "Review of saved report and market evidence."],
+  ["report-invalid", "Incomplete report", "Replace a report that is missing valuation pages."],
+  ["extraction-failed", "Report reading failed", "Retry reading the saved report without uploading it again."],
+  ["review-insufficient", "Report saved · limited evidence", "The report is saved, but reliable market evidence is still missing."],
+  ["review-failed", "Review interrupted", "Saved report with a market review that could not finish."],
   ["ready", "Ready for payment", "Review complete; explicit continuation."],
   ["payment-unverified", "Payment · unverified account", "Guest checkout before email verification, with no payment details entered."],
   ["payment", "Payment", import.meta.env.VITE_WORKSPACE_STRIPE_SANDBOX ? "Stripe test fields; payment submission disabled." : "Simulated fields and example price; no charge."],
@@ -34,9 +39,10 @@ export const scenarios = [
   ["message", "Prepare your message · Interactive", "Create, edit, and simulate sending a fictional message. Edits survive refresh."],
   ["message-details", "Message · Missing details", "Enter an adjuster’s email and claim number, then create your message."],
   ["send", "Review your message · Interactive", "Start with a saved draft, edit it, and simulate sent confirmation."],
+  ["no-dispute", "Review · valuation supported", "Completed review with no supported dispute and retained access after a simulated refund."],
   ["completed", "Completed review", "Existing review, evidence, and section navigation."],
   ["waiting", "Waiting for insurer · Interactive", "Start with a fictional sent message, open the sample report, and try the response form."],
-  ["processing", "Free valuation processing", "Processing within the stable shell."],
+  ["processing", "Free valuation processing", "Current star animation while the free valuation is prepared."],
   ["intake", "Saved appraisal details", "Existing-case intake within the same shell."],
   ["zero", "Zero-case customer", "Passive start without creating a case."],
 ] as const;
@@ -48,7 +54,7 @@ export function snapshot(): Snapshot {
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey) ?? "null");
     if (saved?.phase === "approval") return { ...saved, phase: "ready", transition: false };
-    return saved ?? { phase: "free", changed: Date.now(), transition: false };
+    return saved && scenarios.some(([phase]) => phase === saved.phase) ? saved : { phase: "free", changed: Date.now(), transition: false };
   }
   catch { return { phase: "free", changed: Date.now(), transition: false }; }
 }
@@ -58,6 +64,7 @@ export function resetScenario(phase: Scenario) {
   if (isMessageScenario(phase)) resetMessagePreview(phase);
   save({ phase, transition: false, changed: Date.now(), paymentFieldsEmpty: phase === "payment-unverified" });
   localStorage.removeItem("venfour-workspace-preview-signed-out");
+  localStorage.removeItem(AUTH_RETURN_LOCATION_STORAGE_KEY);
   localStorage.removeItem(`venfour:claim-email-code-cooldown:${GUEST_USER_ID}`);
   sessionStorage.removeItem("venfour-workspace-preview-requests");
 }
@@ -67,7 +74,7 @@ export function scenarioPath(phase: Scenario) {
   if (isMessageScenario(phase)) return `${base}/claim/review/${phase === "waiting" ? "waiting" : "request"}`;
   return phase === "zero" ? "/app" : phase === "intake" ? `/start?service=total-loss&caseId=${CASE_ID}` : phase === "upload" ? `${base}/analysis?upload=report` : ["free", "listing", "insufficient", "saved-report", "missing-detail", "processing"].includes(phase) ? `${base}/analysis`
     : phase === "payment-unverified" || phase === "payment" || phase === "confirming" ? `${base}/claim/checkout` : phase === "paid" ? `${base}/claim/processing`
-    : phase === "completed" ? `${base}/claim/review/result` : `${base}/review-report`;
+    : ["completed", "no-dispute"].includes(phase) ? `${base}/claim/review/result` : `${base}/review-report`;
 }
 function record(method: string, path: string) {
   const requests = JSON.parse(sessionStorage.getItem("venfour-workspace-preview-requests") ?? "[]");
@@ -84,17 +91,17 @@ function reportState(caseId: string): FullReviewState {
   }
   if (caseId === OTHER_CASE_ID) phase = "ready";
   const hasReport = !["free", "upload", "listing", "insufficient", "saved-report", "missing-detail", "processing", "zero"].includes(phase);
-  const ready = ["strict", "ready", "payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase);
+  const ready = ["review-insufficient", "review-failed", "no-dispute", "strict", "ready", "payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase);
   return {
     caseId, stage: "full_review", analysisInputId: RUN_ID, analysisInputRevision: 3,
-    status: ready ? "ready" : phase === "confirmation" ? "needs_confirmation" : phase === "extracting" || phase === "strict" ? "extracting" : "report_required",
-    ready, checkoutAvailable: phase === "ready", locked: ["payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase), canReuseReport: ["saved-report", "missing-detail"].includes(phase),
+    status: ready ? "ready" : phase === "report-invalid" ? "report_invalid" : phase === "extraction-failed" ? "extraction_failed" : phase === "confirmation" ? "needs_confirmation" : phase === "extracting" || phase === "strict" ? "extracting" : "report_required",
+    ready, checkoutAvailable: phase === "ready", locked: ["payment-unverified", "payment", "confirming", "paid", "completed", "no-dispute", "message", "message-details", "send", "waiting"].includes(phase), canReuseReport: ["saved-report", "missing-detail"].includes(phase),
     report: hasReport ? { id: REPORT_ID, revision: 1, filename: snapshot().filename ?? "Insurer_valuation_report.pdf" } : null,
-    message: phase === "confirmation" ? "Confirm this detail so we can finish your review." : "Your report is saved.",
+    message: phase === "report-invalid" ? "This file is missing valuation pages. Please upload the complete report." : phase === "extraction-failed" ? "We couldn’t read this report. Try reading the saved file again." : phase === "confirmation" ? "Confirm this detail so we can finish your review." : "Your report is saved.",
     issues: phase === "confirmation" ? [{ field: "mileage", code: "REPORT_FACT_CONFLICT", message: "Which mileage is correct for this review?", reportValue: 32000, savedValue: 30000 }] : [],
     paymentReadiness: {
-      status: ["ready", "payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase) ? "eligible" : phase === "strict" ? "processing" : "not_evaluated",
-      eligible: ["ready", "payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase),
+      status: phase === "review-insufficient" ? "insufficient" : phase === "review-failed" ? "failed" : ["no-dispute", "ready", "payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase) ? "eligible" : phase === "strict" ? "processing" : "not_evaluated",
+      eligible: ["no-dispute", "ready", "payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase),
       reviewId: "88888888-8888-4888-8888-888888888888", version: "1", digest: "a".repeat(64),
     },
   };
@@ -121,7 +128,7 @@ function claim(caseId: string) {
   };
   const progress = completedEducationSteps();
   if (phase === "waiting") progress.send = { completedAt: NOW, viewedAt: NOW, skippedAt: null };
-  const value = claimProjection({ journey: phase === "payment" || phase === "confirming" ? "checkout" : phase === "paid" ? "processing" : phase === "waiting" ? "awaiting_insurer_response" : "guide_result", progress, withDraft: phase === "send", fulfillmentState: phase === "paid" ? "finalizing" : undefined });
+  const value = claimProjection({ continuingSupported: phase !== "no-dispute", entitlementStatus: phase === "no-dispute" ? "refunded_access_retained" : "active", journey: phase === "payment" || phase === "confirming" ? "checkout" : phase === "paid" ? "processing" : phase === "waiting" ? "awaiting_insurer_response" : "guide_result", progress, withDraft: phase === "send", fulfillmentState: phase === "paid" ? "finalizing" : undefined });
   if (phase === "confirming") return {
     ...value, caseId,
     commerce: { ...value.commerce, checkoutAvailable: false, paymentStatus: "pending", orderStatus: "pending", nextTask: "checkout_confirmation" },
@@ -132,7 +139,7 @@ function claim(caseId: string) {
 function freeResult() {
   const phase = snapshot().phase;
   const result = structuredClone(materialUndervalueAnalysis);
-  result.vehicle = { ...result.vehicle, year: 2026, make: "Hyundai", model: "Kona", trim: "SE" };
+  result.vehicle = { ...result.vehicle, year: 2026, make: "Hyundai", model: "Kona", trim: "SE", mileage: 30000, lossDate: "2026-09-01", postalCode: "60601" };
   if (["saved-report", "missing-detail"].includes(phase)) return {
     ...result, runId: RUN_ID, primaryExternalEvidence: null,
     assessment: { ...result.assessment, classification: "INSUFFICIENT_EVIDENCE" },
@@ -142,7 +149,11 @@ function freeResult() {
     version: "1", outcome: phase === "insufficient" ? "INSUFFICIENT" : phase === "listing" ? "LISTING_CONTEXT" : "ESTIMATE", evidenceBasis: "CURRENT_MARKET", evidenceDate: "2026-09-15", sampleSize: phase === "insufficient" ? 0 : 6,
     estimatedRange: phase === "listing" || phase === "insufficient" ? null : { lowCents: 2300000, highCents: 2540000 },
     listingPriceSpan: phase === "listing" ? { lowCents: 2300000, highCents: 2540000 } : null,
-    listings: [], limitations: phase === "insufficient" ? ["There are too few closely matched listings to show a useful range."] : [], reasonCodes: [], insurerComparison: null,
+    listings: phase === "insufficient" ? [] : [2300000, 2340000, 2400000, 2460000, 2500000, 2540000].map((askingPriceCents, index) => ({
+      identity: `fictional-kona-${index + 1}`, year: 2026, make: "Hyundai", model: "Kona", trim: "SE",
+      askingPriceCents, mileage: 29000 + index * 1000, distanceMiles: 12 + index * 7,
+      certified: false, source: "Fictional dealer listing", listingUrl: null, limitations: [],
+    })), limitations: phase === "insufficient" ? ["There are too few closely matched listings to show a useful range."] : [], reasonCodes: [], insurerComparison: null,
   } };
 }
 export function installPreviewFetch() {
@@ -234,7 +245,7 @@ export const previewAuth: AuthService = {
 export function previewCases(): AppraisalCase[] {
   const phase = snapshot().phase;
   if (phase === "zero") return [];
-  const base: AppraisalCase = { id: CASE_ID, userId: phase === "payment-unverified" ? GUEST_USER_ID : USER_ID, serviceType: "total_loss", status: "check_complete", createdAt: NOW, updatedAt: NOW, lastActivityAt: NOW, caseStage: "analysis_complete", analysisStatus: "completed", vehicleLabel: "2026 Hyundai Kona SE", hasFullReviewReport: !["free", "upload", "listing", "insufficient", "saved-report", "missing-detail", "processing"].includes(phase), hasTotalLossClaimWorkflow: isResponseScenario(phase) || ["payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase), workspaceStatus: isResponseScenario(phase) && savedResponseClaim(phase).resolution ? "case_closed" : phase === "waiting" ? "awaiting_insurer_response" : phase === "completed" ? "report_ready" : undefined };
+  const base: AppraisalCase = { id: CASE_ID, userId: phase === "payment-unverified" ? GUEST_USER_ID : USER_ID, serviceType: "total_loss", status: "check_complete", createdAt: NOW, updatedAt: NOW, lastActivityAt: NOW, caseStage: "analysis_complete", analysisStatus: "completed", vehicleLabel: "2026 Hyundai Kona SE", hasFullReviewReport: !["free", "upload", "listing", "insufficient", "saved-report", "missing-detail", "processing"].includes(phase), hasTotalLossClaimWorkflow: isResponseScenario(phase) || ["payment-unverified", "payment", "confirming", "paid", "completed", "no-dispute", "message", "message-details", "send", "waiting"].includes(phase), workspaceStatus: isResponseScenario(phase) && savedResponseClaim(phase).resolution ? "case_closed" : phase === "waiting" ? "awaiting_insurer_response" : ["completed", "no-dispute"].includes(phase) ? "report_ready" : undefined };
   return [{ ...base, ...(phase === "intake" ? { status: "draft" as const, hasFullReviewReport: false, analysisStatus: null, caseStage: undefined } : {}) }, { ...base, id: OTHER_CASE_ID, vehicleLabel: "2024 Hyundai Elantra Limited", lastActivityAt: "2026-09-12T12:00:00Z", hasFullReviewReport: true, hasTotalLossClaimWorkflow: false, workspaceStatus: "review_prepared" }];
 }
 const previewDraft = (userId: string): AppraisalCase => ({ id: CASE_ID, userId, serviceType: "total_loss", status: "draft", createdAt: NOW, updatedAt: NOW, lastActivityAt: NOW });
@@ -256,7 +267,15 @@ const savedDetails: TotalLossCaseDetails = {
 export const previewDetails = {
   appraisalCaseService: previewCaseService,
   totalLossDetailsService: {
-    getDetails: async () => snapshot().phase === "zero" ? null : snapshot().phase === "intake" ? savedDetails : { ...savedDetails, intakeMode: "report", analysisInputId: RUN_ID, analysisInputRevision: 3 },
+    getDetails: async () => {
+      const phase = snapshot().phase;
+      if (phase === "zero") return null;
+      if (phase === "intake") return savedDetails;
+      const reportAvailable = !["free", "listing", "insufficient", "upload"].includes(phase);
+      return { ...savedDetails, intakeMode: reportAvailable ? "report" : "manual", insurerName: "Example Insurance", insurerVehicleValuation: 20000,
+        reportOriginalFilename: reportAvailable ? "Insurer_valuation_report.pdf" : null, reportUploadedAt: reportAvailable ? NOW : null,
+        intakeCompletedAt: NOW, analysisInputId: RUN_ID, analysisInputRevision: 3 };
+    },
     updateDetails: async () => ({ ...savedDetails, analysisInputId: RUN_ID, analysisInputRevision: 4 }),
     confirmIntake: async () => { setPhase("processing"); return { ...savedDetails, analysisInputId: RUN_ID, analysisInputRevision: 4 }; },
   },

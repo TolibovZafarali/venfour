@@ -77,9 +77,8 @@ function report(continuingSupported = true) {
       adjustmentContext:
         "Insurer adjustments are shown as disclosed; missing details are not invented.",
       comparableCount: 3,
-      comparables: [
-        {
-          adjustedValue: "$20,000.00",
+      comparables: [0, 1, 2].map(index => ({
+          adjustedValue: ["$20,000.00", "$20,200.00", "$20,400.00"][index],
           adjustmentDisclosure: "Fully disclosed",
           adjustments: {
             condition: "$0.00",
@@ -87,13 +86,12 @@ function report(continuingSupported = true) {
             options: "$0.00",
             package: "$0.00",
           },
-          advertisedPrice: "$19,800.00",
+          advertisedPrice: ["$19,800.00", "$20,000.00", "$20,200.00"][index],
           contributionPercent: 33.33,
-          mileage: 32_000,
+          mileage: 32_000 + index * 1000,
           netAdjustment: "$200.00",
           vehicle: "2026 Hyundai Kona SE",
-        },
-      ],
+        })),
       insurerName: "Example Insurance",
       methodologyStatement:
         "Every insurer comparable was shown descriptively; V1 did not assign professional weights.",
@@ -102,8 +100,8 @@ function report(continuingSupported = true) {
         adjustedValues: null,
         advertisedPriceMissingCount: 0,
         advertisedPrices: null,
-        fullyDisclosedAdjustmentCount: 2,
-        partiallyDisclosedAdjustmentCount: 1,
+        fullyDisclosedAdjustmentCount: 3,
+        partiallyDisclosedAdjustmentCount: 0,
         totalCount: 3,
         unavailableAdjustmentCount: 0,
         undisclosedAdjustmentCount: 0,
@@ -111,19 +109,17 @@ function report(continuingSupported = true) {
     },
     issueDate: "2026-08-29",
     marketEvidence: {
-      comparables: [
-        {
-          advertisedPrice: "$21,000.00",
-          dealer: "Example Motors",
+      comparables: [0, 1, 2].map(index => ({
+          advertisedPrice: ["$20,000.00", "$21,000.00", "$22,000.00"][index],
+          dealer: `Example Motors ${index + 1}`,
           distanceMiles: 12.5,
           evidenceDate: "2026-08-28",
           location: "Chicago, IL",
-          mileage: 31_500,
+          mileage: 30_500 + index * 1000,
           role: "PRIMARY",
           temporalBasis: "Current listing",
           vehicle: "2026 Hyundai Kona SE",
-        },
-      ],
+        })),
       evidenceDateContext: {
         currentObservedDate: "2026-08-28",
         historicalEvidenceDate: null,
@@ -136,7 +132,7 @@ function report(continuingSupported = true) {
         evidenceDate: "2026-08-28",
         label: "Current market evidence",
         prices: null,
-        selectedCount: 1,
+        selectedCount: 3,
       },
       secondary: null,
     },

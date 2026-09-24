@@ -24,12 +24,13 @@ export const categories: Category[] = [
   { id: "account", title: "Account & access", description: "Entry, sign-in, saved cases, and recovery.", screens: [
     screen("entry", "Entering the app", entryPreviewHref("slow"), "Try fast, slow, held loading, and new visitor entry."),
     { ...screen("sign-in", "Sign in", "/find-review?previewSignIn=1", "Open the shared sign-in dialog with a fictional account."), signedOut: true },
+    { ...screen("public-sign-in", "Account sign-in page", "/auth/sign-in", "Dedicated sign-in page with simulated authentication."), signedOut: true },
     screen("workspace", "Customer workspace", "/app", "Resume the saved appraisal and switch cases.", "free"),
     ...states("zero"),
     screen("find-review", "Find your review", "/find-review", "Saved-review recovery form."),
     { ...screen("return", "Return to a saved review", `${base}/return`, "Signed-out review recovery."), signedOut: true },
     screen("invalid-return", "Incomplete return link", "/total-loss/cases/example/return", "Recovery when a return link is incomplete."),
-    screen("callback", "Sign-in callback", "/auth/callback", "Callback error with no sign-in parameters."),
+    { ...screen("callback", "Sign-in callback", "/auth/callback?error_description=This%20sign-in%20link%20has%20expired.", "Expired sign-in link with account recovery."), signedOut: true },
   ] },
   { id: "intake", title: "Intake & free valuation", description: "Starting a case and reviewing the initial market result.", screens: [
     screen("start", "Start a review", "/start?service=total-loss", "Report and no-report starting choices.", "zero"),
@@ -38,20 +39,20 @@ export const categories: Category[] = [
     screen("analysis", "Saved analysis", `/analyses/${RUN_ID}`, "The saved analysis presentation.", "free"),
     screen("loading", "Free valuation loading", "/_local/valuation-processing", "Full-screen loading animation and transition to the result."),
   ] },
-  { id: "report", title: "Insurer report", description: "Upload, extraction, fact confirmation, and review readiness.", screens: states("upload", "extracting", "confirmation", "strict", "ready") },
+  { id: "report", title: "Insurer report", description: "Upload, extraction, fact confirmation, and review readiness.", screens: states("upload", "extracting", "confirmation", "strict", "ready", "report-invalid", "extraction-failed", "review-insufficient", "review-failed") },
   { id: "payment", title: "Payment & preparation", description: "Verification, checkout, and preparation of the paid report.", screens: [
     screen("secure", "Secure your review", `${base}/claim`, "Verify the fictional guest account.", "payment-unverified"),
     ...states("payment-unverified", "payment", "confirming", "paid"),
   ] },
   { id: "review", title: "Completed review", description: "Open each part of the completed customer report.", screens: [
-    ...states("completed"),
+    ...states("completed", "no-dispute"),
     ...[["insurer", "Insurer explanation"], ["market", "Market evidence"], ["meaning", "Comparison meaning"]].map(([id, title]) => screen(`review-${id}`, title, `${base}/claim/review/${id}`, "Saved report with completed reading checkpoints.", "completed")),
     screen("review-request", "Prepare your message · Interactive", `${base}/claim/review/request`, "Create, edit, download a sample report, and simulate sending. Nothing is sent.", "message"),
     ...states("message-details", "send"),
   ] },
   { id: "response", title: "Insurer response & outcome", description: "Waiting, saved responses, follow-up, and case closure.", screens: states("waiting", "response", "response-received", "response-reviewing", "response-reviewed", "follow-up", "acceptance", "resolution") },
   { id: "admin", title: "Admin", description: "Staff operations with fictional customers, cases, and payments.", screens: [
-    ...[["", "Overview"], ["cases", "Cases"], ["customers", "Customers"], ["reports", "Reports"], ["processing", "Processing"], ["payments", "Payments"], ["payment-approvals", "Payment approvals"], ["communications", "Communications"], ["activity", "Activity"], ["referral-partners", "Referral partners"], ["referral-partners/templates", "Agreement templates"]].map(([id, title]) => screen(`admin-${id || "overview"}`, title, `/admin${id ? `/${id}` : ""}?state=populated`, "Shared staff page with local demonstration records.")),
+    ...[["", "Overview"], ["cases", "Cases"], ["customers", "Customers"], ["incomplete-intakes", "Incomplete intakes"], ["reports", "Reports"], ["processing", "Processing"], ["payments", "Payments"], ["emails", "Email history"], ["activity", "Activity"], ["referral-partners", "Referral partners"], ["referral-partners/templates", "Agreement templates"]].map(([id, title]) => screen(`admin-${id || "overview"}`, title, `/admin${id ? `/${id}` : ""}?state=populated`, "Shared staff page with local demonstration records.")),
     screen("admin-case", "Case detail", "/admin/cases/00000010-3333-4333-8333-333333333333?state=populated", "Customer, report, analysis, and operation history."),
     screen("admin-customer", "Customer detail", "/admin/customers/00000020-2222-4222-8222-222222222222?state=populated", "A fictional customer's profile and cases."),
     screen("admin-outcome", "Partner case verification", "/admin/referral-partners/00061004-7000-4000-8000-000000000001/outcomes/00076999-7000-4000-8000-000000000001?state=populated", "Retained evidence, manager decisions, and fictional commission posting."),
@@ -60,6 +61,9 @@ export const categories: Category[] = [
   { id: "business", title: "Businesses", description: "Invitation, company setup, approval, and the business workspace.", screens: [
     ...[["journey", "Invitation & sign-in", "Invitation entry with simulated email sign-in."], ["onboarding", "Company details & agreement", "Business information and demonstration agreement."], ["approval", "Waiting for approval", "Signed agreement awaiting Venfour approval."], ["active", "Business dashboard", "Active referral link and sample referral history."]].map(([id, title, description]) => screen(`business-${id}`, title, `/_local/businesses?example=${id}`, description)),
     screen("business-list", "Business accounts", "/partners?example=active", "Businesses linked to the fictional partner account."),
+    screen("business-earnings", "Partner earnings", "/partners/earnings?example=active", "Fictional earnings across the partner’s businesses."),
+    screen("business-detail", "Business details", "/partners/00061004-7000-4000-8000-000000000001?example=active", "Referral activity, agreement, and business details."),
+    screen("business-detail-earnings", "Business earnings", "/partners/businesses/ozark-example-motor-services-fictional/earnings?example=active", "Fictional commissions and adjustments for one business."),
   ] },
   { id: "status", title: "Status & edge cases", description: "Loading, empty, error, and access states.", screens: [
     ...[["success", "Successful value check"], ["insufficient", "Insufficient evidence"], ["unavailable", "Service unavailable"], ["retry", "Retry value check"], ["missing", "Missing vehicle detail"], ["saved", "Review saved"], ["expired", "Expired access link"]].map(([id, title]) => screen(`status-${id}`, title, `/_local/status-experience?state=${id}`, "Isolated customer status preview.")),
@@ -68,4 +72,4 @@ export const categories: Category[] = [
   ] },
 ];
 export const screens = categories.flatMap(category => category.screens);
-export const screenHref = (item: PreviewScreen) => item.phase || item.signedOut ? `/_local/workspace?screen=${item.id}` : item.path;
+export const screenHref = (item: PreviewScreen) => item.phase || item.signedOut || (item.id !== "entry" && !item.path.startsWith("/_local/") && !/^\/(admin|partners)(?:\/|\?)/.test(item.path)) ? `/_local/workspace?screen=${item.id}` : item.path;

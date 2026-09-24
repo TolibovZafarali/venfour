@@ -30,7 +30,7 @@ export function LocalStatusExperiencePage() {
   if (state === "insufficient") {
     analysis.assessment.classification = "INSUFFICIENT_EVIDENCE";
     analysis.primaryExternalEvidence = null;
-    analysis.marketSearchContext = { baselineStatus: "LIMITED", summary: "Synthetic limited evidence", stopReasons: [], recovery: {kind: "UNRESOLVED_CONFIGURATION", field: "engine", correctionStep: "vehicle", message: "Synthetic internal detail; never customer copy."} };
+    analysis.marketSearchContext = { baselineStatus: "LIMITED", summary: "Limited market evidence", stopReasons: [], recovery: {kind: "UNRESOLVED_CONFIGURATION", field: "engine", correctionStep: null, message: "We need to check the vehicle details in your saved report. You don’t need to upload it again."} };
   }
   return <div className="w-full pb-44 sm:pb-20">
     <nav aria-label="Synthetic state controls" className="fixed bottom-0 left-0 right-0 z-[70] flex flex-wrap items-center justify-center gap-2 bg-canvas/95 px-3 py-2 text-xs backdrop-blur-sm">
@@ -39,7 +39,7 @@ export function LocalStatusExperiencePage() {
       <button className="min-h-11 rounded px-2 font-semibold text-brand" onClick={() => reset(state === "processing" ? "insufficient" : state)}>Replay transition</button>
     </nav>
     {state === "processing" ? <FreeValuationProcessing reviewKey="synthetic-status" development />
-      : state === "success" || state === "insufficient" ? <TotalLossAnalysisResult analysis={analysis} continueAction={<Button onClick={() => setState("saved")}>Upload insurer valuation PDF</Button>} insurerReportPath="?state=saved" />
+      : state === "success" || state === "insufficient" ? <TotalLossAnalysisResult analysis={analysis} continueAction={<Button onClick={() => setState("saved")}>Upload insurer valuation report</Button>} insurerReportPath="?state=saved" />
       : <ValuationStatus kind={["unavailable", "retry", "expired"].includes(state) ? "error" : "secure"}
           eyebrow={state === "saved" ? "Ready when you are" : undefined}
           heading={state === "saved" ? "Your review is saved." : state === "expired" ? "Let’s get you a new link." : state === "missing" ? "Add your ZIP code to continue." : "We couldn’t finish your value check."}
