@@ -1,10 +1,10 @@
 # Google Search Ads readiness
 
-Updated September 24, 2026 after removing the dedicated advertising page. Removal baseline: `f780feb`; the original shared readiness implementation is commit `cd13d05`. No advertising account was created or configured, no real advertising identifiers were supplied, and nothing was deployed by this update.
+Updated September 24, 2026 after the [complete production release](../engineering/production-release-2026-09-24-complete.md) of runtime source `e2ae5729bd018eebcf08177ae60c3be7e38e2520`. The original shared readiness implementation is `cd13d05`; the dedicated page was removed before this release. No advertising account was created or configured, and no real advertising identifiers were supplied.
 
-**PASS — ready to create the Google Ads account.** Search Ads will use the existing Venfour website and customer journey. A dedicated advertising page is neither required nor a launch condition. Shared tracking, attribution, consent, purchase/refund measurement, enhanced-conversion preparation, policy improvements, and security controls remain implemented.
+**PASS — ready to create the Google Ads account.** The shared tracking, attribution, consent, authoritative purchase/refund view, enhanced-conversion preparation, policy improvements, and security controls are now deployed. Search Ads will use the existing Venfour website and customer journey. A dedicated advertising page is neither required nor a launch condition.
 
-This is account-setup readiness, not confirmation that configured purchase conversions are live. Before campaign spend, release/verify the retained infrastructure where needed, supply the real account configuration, and complete conversion diagnostics. Those operational steps do not require a replacement page or homepage redesign.
+The product rollout is complete; Google purchase conversion delivery remains inactive until the actual account ID/label and corresponding CSP switch are configured. Complete the account-side diagnostics before campaign spend. Those steps require no replacement page or homepage redesign.
 
 ## 1. Audit and implementation summary
 
@@ -21,7 +21,7 @@ This is account-setup readiness, not confirmation that configured purchase conve
 | Existing tracking | No installed GA4/GTM/Google Ads implementation or paid-search attribution store was found. The existing analytics-only consent component was extended; no second analytics library was installed. Existing partner-referral attribution is untouched. |
 | Disclosures | Existing Venfour LLC footer, support/contact, Terms, Privacy, Cookies, and Fair-Result Refund Policy were reused. Terms now explicitly name Venfour LLC and the $199 full review. Privacy/Cookies describe future advertising measurement conditionally. |
 | Metadata/security | Existing site title/description behavior retained. Page-only canonical/Open Graph handling and dedicated HTML generation removed. The shared public sitemap, robots reference, and optional precise Google CSP controls remain. |
-| Availability | The previous audit recorded nationwide activation; see section 10 for that evidence and its limits. This removal changes no jurisdiction, price, refund, evidence, or payment rule. |
+| Availability | Fresh production checks confirm the existing nationwide product with enforcement off; see section 10. This release changes no jurisdiction, price, refund, evidence, or payment rule. |
 
 ## 2. Removal file inventory
 
@@ -133,54 +133,64 @@ Refund wording follows the existing two protections: automatic full refund if th
 
 No verified publishable business address was found in current public/company configuration, so none was invented. Use the owner's verified company details for any required advertiser verification/disclosure. This review does not guarantee Google policy approval or decide legal classification.
 
-## 10. Last recorded production jurisdictions
+## 10. Verified production jurisdictions
 
-During the original readiness task, a separate authorized release completed. Its [release record](../engineering/production-release-2026-09-24.md) excluded the then-unreleased Search Ads changes. That task's read-only Cloud Run inspection confirmed the final serving revision **`venfour-api-production-release-0924-3b10a43`**, receiving 100% traffic, with **`VENFOUR_NATIONWIDE_PRODUCT=true`** and **`VENFOUR_JURISDICTION_MODE=off`**. Earlier observations of the September 23 revision/disabled nationwide flag are superseded.
+The [complete release record](../engineering/production-release-2026-09-24-complete.md) covers the full repository delta and all production components. Fresh Cloud Run inspection confirms **`venfour-api-production-release-0924-3b10a43`**, 100% traffic, **`VENFOUR_NATIONWIDE_PRODUCT=true`**, and **`VENFOUR_JURISDICTION_MODE=off`**. The backend was not redeployed because all 182 uploaded source files match the current source and its configuration is unchanged. The new customer/partner build has nationwide support enabled.
 
-The release record reports frontend nationwide support enabled, all 51 authenticated production state API checks successful, and ten state UI checks successful. Those checks belong to that release, not this task's browser run. The original task also read `manual_approval_required=false` without modifying it; the final release record confirms that value remains unchanged.
+All **51 owner-authenticated production jurisdiction checks** passed on one explicitly synthetic unpaid draft. Each used the shared generic product, with no state-specific override prerequisite, no applied overrides, the same report label, and appraisal labels disabled. The normal UI also saved Missouri facts. The database has no active paid-delivery hold, and `manual_approval_required=false` remains unchanged.
 
 | Customer action | Current supported scope and boundary |
 | --- | --- |
 | Start | Generic product path for all 50 U.S. states and D.C.; normal guest intake and case facts still apply. Foreign countries/territories are outside the 51-record product inventory. |
 | Purchase | No live jurisdiction enforcement or state-specific override prerequisite. Cases in the same 51-record scope can reach checkout when existing report/evidence/ownership/payment gates pass. A state selection alone does not make a case eligible. |
-| Complete paid product | Shared generic report, customer-prepared reconsideration materials, and response guidance are technically enabled across that scope, subject to existing evidence, qualification, payment, processing, and delivery gates. This is not 51 independently completed paid customer journeys. |
-| Restricted activities | Direct insurer negotiation/representation, formal appraisal-clause/umpire service, assignment services, and appraisal labels remain disabled. State-specific settlement components remain unresolved/excluded as documented. |
+| Complete paid product | The shared report and customer-prepared reconsideration/response workflow remain technically enabled across that scope, subject to existing qualification, payment, processing, and delivery gates. This is not 51 completed paid customer journeys. |
+| Restricted activities | Direct insurer negotiation/representation, formal appraisal-clause/umpire services, assignment services, and appraisal labels remain disabled. State-specific settlement components remain unresolved/excluded. |
 
-There is no newly established state-specific technical blocker, and missing state overrides are not treated as automatic prohibitions. This task makes no legal approval or operating-permission determination. The existing nationwide release was owner-authorized; no additional nationwide activation is requested here. This removal makes no new geographic claims. Production was not re-inspected during this local-only update; recheck the recorded configuration before a future release. A supervised real paid customer journey remains unproven by the nonbillable checks; it must not be represented as already tested.
+No new state-specific technical blocker was established. Configuration and accessibility are not legal approval or an operating-permission determination. Enforcement was not activated, and no authority publication or enrollment was invented. A supervised real paid customer journey remains unproven by the nonbillable smoke.
 
-## 11. Verification after removal
+## 11. Release verification
 
-The retained tracking, attribution, consent, purchase/refund, privacy, jurisdiction, host-boundary, and existing-site tests are rerun for this update. Tests that exercised only the dedicated page or its obsolete redirect were deleted. Shared Worker CSP and sitemap checks now use the existing homepage/public pages; shared attribution fixtures use the homepage. No financial, consent, or jurisdiction assertion was removed.
+The complete release validation retains the broader tracking, attribution, consent, purchase/refund, privacy, jurisdiction, ownership, host-boundary, partner, staff, and report-processing coverage. Only tests specific to the retired page/redirect were removed during the earlier cleanup.
 
-These are fresh results from the removal update. Earlier screenshots and timing observations of the deleted page are not used as current destination evidence.
-
-| Check | Result |
+| Check | Fresh release result |
 | --- | --- |
-| Frontend/edge/environment tests | **601 tests passed, 16 files**, including existing homepage/intake, business events, attribution, consent/privacy, claim API/checkout, nationwide UI, Worker, and environment boundaries. |
-| Offline backend commerce and jurisdiction | **172 tests passed**, zero failures/errors/skips and zero unexpected network attempts; three deliberate guard probes blocked. |
-| Isolated database measurement/commerce/jurisdiction | All **89 migrations** applied to a new disposable network-isolated database; **261 assertions passed in 5 files**: measurement 31, commerce 152, jurisdiction foundation 35, jurisdiction authority 23, nationwide product 20. |
-| Production and public build | **Passed** production environment validation, generated contracts, TypeScript, and Vite; isolated public-only environment validation/build also passed. Both outputs contain no dedicated page HTML, headline, or styles. |
-| Changed-source lint and diff | **11 modified source/test files passed lint**; `git diff --check` passed. Protected-file comparison confirms the homepage, consent, payment/event service, policies, configuration, database migrations, and backend were not reverted. |
+| Complete frontend suite | **2,469 passed, 14 skipped**; 146 passed test files and one skipped file. |
+| Separate Worker/environment suite | **144 passed in three files**. |
+| Complete offline backend suite | **2,320 run**, zero failures/errors, four skipped, zero unexpected network attempts; three deliberate guard probes blocked. |
+| Complete isolated database validation | All **89 migrations** rehearsed; **2,906 assertions passed in 60 files**, including 31 dedicated measurement assertions. |
+| Production and public-site builds | Passed environment validation, generated contracts, TypeScript, Vite, and Worker dry runs. Neither output has the dedicated-page HTML/component/styles. |
+| Lint and source checks | Production source lint and diff checks passed. Full lint retains four unchanged local showcase errors, explicitly listed in the release report; those files are excluded from production. |
+| Hosted release identity | Both Worker bundles match the release build; all **20 served-asset comparisons** passed. Production has all 89 migrations. Backend source/configuration is unchanged and verified. |
+| Hosted routes and UI | **33 HTTP checks plus six role/referral boundary checks** passed. Ten informational/policy pages, desktop/mobile homepage and intake, customer sign-in, partner sign-in, and staff Access protection were checked. |
+| Hosted acquisition/consent | No optional attribution/event/tag before consent; all eight synthetic parameters persisted after consent, first paid touch survived a later visit, and the actual public-to-app transition saved the same owned acquisition. Withdrawal cleared browser and current-case attribution. Global Privacy Control produced denied optional preferences. |
+| Hosted authority/ownership | Owner receipt read succeeded with an empty unpaid receipt; other-owner read/write returned 403; forged purchase/refund events returned 400; repeated progress writes left one record. The unsubmitted draft could not obtain a checkout quote. |
 
 ```sh
-npm --prefix frontend test -- src/features/measurement src/features/privacy/cookie-consent.test.tsx src/app/app.test.tsx src/app/site-boundary.test.ts src/app/public-site.test.tsx src/pages/home-page.test.tsx src/pages/total-loss-start-page.test.tsx src/pages/total-loss-claim-workflow-page.test.tsx src/features/total-loss-claim/queries.test.ts src/features/total-loss-claim/api.test.ts src/features/nationwide/product-panel.test.tsx worker/index.test.ts scripts/production-environment.test.mjs scripts/public-site-environment.test.mjs scripts/staging-environment.test.mjs
-.venv/bin/python scripts/run_offline_tests.py test_commerce test_nationwide_product test_jurisdiction test_jurisdiction_integration
-python3 scripts/run_isolated_database_tests.py --container venfour-migration-rehearsal-search-removal --output /tmp/venfour-search-page-removal/database-tests supabase/tests/database/059_search_measurement.test.sql supabase/tests/database/015_total_loss_stripe_commerce.test.sql supabase/tests/database/056_jurisdiction_foundation.test.sql supabase/tests/database/057_jurisdiction_authority.test.sql supabase/tests/database/058_nationwide_product.test.sql
-npm --prefix frontend run build:production
+npm --prefix frontend test
+npm --prefix frontend run test:worker
+.venv/bin/python scripts/run_offline_tests.py
+npm --prefix frontend run lint
+# In the frontend package:
+./node_modules/.bin/eslint src worker scripts vite.config.ts
+# Dedicated network-isolated rehearsal container:
+python3 scripts/run_isolated_database_tests.py --container venfour-migration-rehearsal-current-release --output <protected-release-directory>/database-tests
+# Frozen source with explicit production/public environment files:
+./node_modules/.bin/wrangler deploy --env production --dry-run
+./node_modules/.bin/wrangler deploy --env public-site --dry-run
 git diff --check
 ```
 
-The existing large-bundle build advisory and jsdom canvas/scroll limitations remain non-failing diagnostics. Test logs and isolated build/rehearsal evidence are under `/tmp/venfour-search-page-removal/`; the disposable database was removed after validation.
+No real charge, insurer upload, paid-provider request, production email, manufactured entitlement, or fabricated Google account ID was used. Purchase/refund amounts and deduplication are verified by the deployed ledger/view implementation and isolated payment fixtures, not a new live transaction. No Google request occurred during browser smoke. Existing large-bundle advisories and provider-owned Turnstile/Access console diagnostics are recorded in the full release report.
 
-Shared tests exercise first paid attribution, all eight tracking parameters, malformed-input handling, legacy consent and Global Privacy Control, owner/guest isolation, forged-purchase rejection, actual purchase amount/USD, stable IDs, refresh/concurrent deduplication, absent configuration, blocked script handling, enhanced-email gating, and private-data exclusion. The database payment fixture deliberately uses an amount different from the advertised price to verify ledger-derived measurement.
+The dedicated-page removal inventory in section 2 remains the historical cleanup record. The full release report contains all 181 pending paths and exact distinctions between production source, configuration, migration, documentation, tests, and obsolete generated artifacts.
 
-## 12. Deployment and campaign activation
+## 12. Deployed infrastructure and campaign activation
 
-**No deployment by this update.** No hosted data, infrastructure, payment settings, or advertising account was changed. The prior readiness audit recorded the shared measurement migration/adapter/consent work as unreleased. This local removal does not establish a new hosted deployment status.
+**The complete intended product release is live.** Applied `20260924000000_search_measurement.sql` through the normal migration process; no local migration remains pending. Customer/partner Worker version: `b0467bdd-4f60-484e-9b1b-24782f001c1f`. Public Worker version: `15e50143-9c23-49a4-b345-d6ab286bb60d`. Both serve runtime source `e2ae5729bd018eebcf08177ae60c3be7e38e2520`; exact timestamps and the unchanged backend identity are in the release record.
 
-Before campaign spend, inspect the actual deployment inventory, release the retained shared infrastructure and additive measurement migration where still pending, configure actual account values, and verify consent, cross-host attribution, ownership, and the authoritative receipt boundary on the real hosts. Retain all existing financial/audit history. A missing optional RPC must not interrupt intake or delivery, but complete measurement rollout is still needed before relying on conversion reporting.
+The homepage is the intended ad destination. `/total-loss-review` returns 404 on the public host and has no dedicated route, component, replacement page, or redirect. The parent-domain consent/acquisition behavior and owner-restricted measurement RPCs have been checked on the real hosts. Security/RLS, financial/provider counters, private storage, and existing business history remain intact.
 
-There is no dedicated-page deployment requirement or replacement-page task. The existing website is the intended destination. Production rollout, actual conversion diagnostics, and supervised first paid delivery remain operational checks separate from readiness to create the account.
+Actual Google IDs are blank; `GOOGLE_ADS_MEASUREMENT=false` and enhanced conversions remain disabled. The remaining configuration and acceptance checks require the real account, as listed below. Installing actual build values requires the normal build/release process, followed by Google conversion diagnostics. A missing dedicated page is not a deployment or campaign-readiness blocker.
 
 ## 13. Items requiring the real Google Ads account
 

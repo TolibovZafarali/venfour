@@ -1,5 +1,7 @@
 # Consolidated production release — September 24, 2026
 
+A [subsequent complete release](production-release-2026-09-24-complete.md) deployed the later source, measurement migration, consent, and policy work. That report supersedes the deferred-work status below; this record remains the history of the earlier frozen release.
+
 Completed: the current Total-Loss Valuation Report is available through the generic product path in all 50 U.S. states and the District of Columbia. Backend, customer/partner application, and public site serve the validated source below. No state-specific product redesign was introduced.
 
 The owner explicitly authorized nationwide activation, jurisdiction mode off, and the consolidated release. After unrelated cookie-consent and measurement work appeared in the shared checkout, the owner instructed: “Still being edited—ship the validated candidate.” Deployment therefore used an isolated archive of the frozen commit. Later work, including the uncommitted search-measurement migration, is excluded from this release.
