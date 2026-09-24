@@ -1,10 +1,10 @@
 # Google Search Ads readiness
 
-Updated September 24, 2026 after the [complete production release](../engineering/production-release-2026-09-24-complete.md) of runtime source `e2ae5729bd018eebcf08177ae60c3be7e38e2520`. The original shared readiness implementation is `cd13d05`; the dedicated page was removed before this release. No advertising account was created or configured, and no real advertising identifiers were supplied.
+Updated September 24, 2026 after the Google configuration release of source **`de7f929b53371aa44303b63cdd596bfb97b1c1c6`**. The [complete product release](../engineering/production-release-2026-09-24-complete.md) remains the unchanged product/backend baseline.
 
-**PASS — ready to create the Google Ads account.** The shared tracking, attribution, consent, authoritative purchase/refund view, enhanced-conversion preparation, policy improvements, and security controls are now deployed. Search Ads will use the existing Venfour website and customer journey. A dedicated advertising page is neither required nor a launch condition.
+**PASS — the Google tag and purchase conversion infrastructure are live and configured.** The owner reports that the Google Ads account is created, the temporary onboarding Performance Max campaign is paused, and account-level Enhanced Conversions is enabled. This release did not access or change campaign settings.
 
-The product rollout is complete; Google purchase conversion delivery remains inactive until the actual account ID/label and corresponding CSP switch are configured. Complete the account-side diagnostics before campaign spend. Those steps require no replacement page or homepage redesign.
+The existing homepage and customer journey remain the destination. Final Google Ads purchase delivery, value, deduplication, attribution, and enhanced matching diagnostics still require an explicitly authorized purchase test before meaningful Search campaign spend. No real financial transaction is required for this infrastructure PASS, and none was performed.
 
 ## 1. Audit and implementation summary
 
@@ -67,7 +67,7 @@ One typed abstraction dispatches `venfour:business-event` with an allowlisted pa
 
 | Event | Trigger/source | Persistence and Google behavior |
 | --- | --- | --- |
-| `landing_view` | Existing public homepage entry, after optional permission | Browser abstraction only; deduplicated for that navigation. No unauthenticated public analytics collector or Google page-view event is installed. |
+| `landing_view` | Existing public homepage entry, after optional permission | Browser abstraction only; deduplicated for that navigation. No unauthenticated public analytics collector or application-emitted Google page-view event is installed. Google-owned tag beacons are described in section 14. |
 | `review_started` | Existing owned intake case is available | Owner-only first-party event; unique per case/event. |
 | `valuation_report_uploaded` | Existing report upload succeeds | Owner-only first-party event; unique per case/event. No filename or document data. |
 | `review_eligible` | Server checkout quote is available | Owner-only first-party event; unique per case/event. Describes quote availability, not legal approval. |
@@ -94,18 +94,18 @@ Campaign labels must contain campaign taxonomy, never customer information. UTM 
 
 ## 7. Google configuration and enhanced conversions
 
-No GA4 or GTM container is required for this direct Ads adapter. All live identifier defaults are blank.
+No GA4 or GTM container or separate tag ID is required. The direct Ads ID is also the Google tag ID. Example defaults remain inert; the protected production/public build inputs now contain the values below.
 
 | Configuration | Where/how to set after account creation |
 | --- | --- |
-| `VITE_GOOGLE_ADS_CONVERSION_ID` | Actual Ads destination ID, in the customer production and public-site build environments. Documented in both frontend environment examples. |
-| `VITE_GOOGLE_ADS_PURCHASE_LABEL` | Actual purchase conversion label in those same build environments. |
-| `VITE_GOOGLE_ENHANCED_CONVERSIONS` | Defaults `false`; set `true` only when the corresponding Google feature and intended consented email measurement are enabled. |
-| `GOOGLE_ADS_MEASUREMENT` | Worker variable in both `production` and `public-site` environments in `frontend/wrangler.jsonc`; defaults `false`. Set `true` with tag activation to allow the narrowly listed Google CSP destinations. |
+| `VITE_GOOGLE_ADS_CONVERSION_ID` | `AW-18473000475` in both production and public-site builds. |
+| `VITE_GOOGLE_ADS_PURCHASE_LABEL` | `SbutCPivmYQdEJu8zuhE` in both builds. |
+| `VITE_GOOGLE_ENHANCED_CONVERSIONS` | `true` in both builds; account enablement reported by the owner. Email is requested only with advertising consent and used only for an authoritative live purchase. |
+| `GOOGLE_ADS_MEASUREMENT` | `true` in both `production` and `public-site` Worker environments; verified in deployed settings. |
 
 Vite variables are build-time configuration: changing them requires a normal build/release, not product-code changes. Missing/invalid ID or label makes the adapter inert. Local, staging, partner, staff, and authentication surfaces cannot activate it. The script loads asynchronously only after advertising permission. Blocked/loading-failed scripts resolve without interrupting product work.
 
-The purchase payload contains destination, order UUID, actual purchase value, USD, and a sanitized fixed public page location/title/referrer. It does not use the insurer valuation or proposed settlement as revenue. Automatic page views, personalized advertising, and Google signals are disabled.
+The purchase payload contains destination, order UUID, actual purchase value, USD, and a sanitized fixed public page location/title/referrer. It does not use the insurer valuation or proposed settlement as revenue. The adapter sets `send_page_view=false`, disables personalized advertising and Google signals, and emits no application page-view event. Live inspection nevertheless observed Google-owned consented page-view/linker beacons; see section 14 for the exact distinction.
 
 Enhanced conversions use **`commerce_orders.purchaser_email`**, available on the authoritative paid order. The owner-only receipt returns it only on explicit request, with saved advertising permission and matching purchaser identity. It stays separate from generic business events. The adapter passes only this email to Google's documented `user_data` input when explicitly enabled, then clears the tag's user-data setting. Google's tag performs normalization and SHA-256 hashing; no custom hashing or automatic DOM/form scraping was added. Disable it by setting the enhanced-conversions variable to `false` and rebuilding, or by withdrawing advertising permission.
 
@@ -148,11 +148,11 @@ All **51 owner-authenticated production jurisdiction checks** passed on one expl
 
 No new state-specific technical blocker was established. Configuration and accessibility are not legal approval or an operating-permission determination. Enforcement was not activated, and no authority publication or enrollment was invented. A supervised real paid customer journey remains unproven by the nonbillable smoke.
 
-## 11. Release verification
+## 11. Complete product release verification (prior baseline)
 
 The complete release validation retains the broader tracking, attribution, consent, purchase/refund, privacy, jurisdiction, ownership, host-boundary, partner, staff, and report-processing coverage. Only tests specific to the retired page/redirect were removed during the earlier cleanup.
 
-| Check | Fresh release result |
+| Check | Prior complete product release result |
 | --- | --- |
 | Complete frontend suite | **2,469 passed, 14 skipped**; 146 passed test files and one skipped file. |
 | Separate Worker/environment suite | **144 passed in three files**. |
@@ -190,14 +190,72 @@ The dedicated-page removal inventory in section 2 remains the historical cleanup
 
 The homepage is the intended ad destination. `/total-loss-review` returns 404 on the public host and has no dedicated route, component, replacement page, or redirect. The parent-domain consent/acquisition behavior and owner-restricted measurement RPCs have been checked on the real hosts. Security/RLS, financial/provider counters, private storage, and existing business history remain intact.
 
-Actual Google IDs are blank; `GOOGLE_ADS_MEASUREMENT=false` and enhanced conversions remain disabled. The remaining configuration and acceptance checks require the real account, as listed below. Installing actual build values requires the normal build/release process, followed by Google conversion diagnostics. A missing dedicated page is not a deployment or campaign-readiness blocker.
+The Google configuration release in section 14 supersedes the blank-ID and disabled-tag state of that product release. Current Worker versions are recorded below. A missing dedicated page is not a deployment or campaign-readiness blocker.
 
-## 13. Items requiring the real Google Ads account
+## 13. Remaining account-side verification before Search spend
 
-1. Create the account and complete actual business/advertiser verification if requested, billing, campaign settings, and chosen geographic targeting.
-2. Create the purchase conversion action, obtain its actual Ads ID and conversion label, and place them in the configuration locations in section 7. Use actual value, USD, and the supplied stable transaction ID; avoid creating a second competing purchase tag.
-3. Decide whether to enable enhanced conversions; if enabled, select the code-provided email method and corresponding feature/configuration. Do not enable automatic collection from claim forms.
-4. Release the configured builds and exact CSP toggle, then verify tag/consent behavior on both actual hosts with Google's diagnostics: denied/accepted/withdrawn consent, cross-host attribution, one confirmed purchase, correct value/order ID, refresh deduplication, and conditional enhanced email. Use an explicitly authorized transaction; never infer conversion success from a tag callback alone.
-5. Verify destination review/approval and conversion diagnostics before enabling campaign spend. Google acceptance, attribution and enhanced-conversion matching cannot be proven without the real account.
+The account, purchase action identifiers, and Enhanced Conversions account switch have been supplied by the owner; the real identifiers and corresponding production integration are now installed. The temporary Performance Max campaign remains paused according to the owner. No account or campaign mutation was performed here.
 
-Refunds are available as authoritative first-party events. If campaign reporting should retract/refund conversions, use the actual account's conversion-adjustment process with the stable order reference; this implementation does not send an invented refund conversion.
+1. Confirm required business/advertiser verification, billing, destination approval, geographic targeting, and Search campaign settings in the account.
+2. Confirm that the supplied purchase conversion action uses actual transaction value, USD, and the code-provided transaction ID. Avoid a second competing purchase tag; use the code-provided enhanced email method rather than automatic collection from claim forms.
+3. Explicitly authorize a purchase test, then inspect Google Ads diagnostics for receipt of one purchase with its actual value/order reference, refresh deduplication, attribution, and conditional enhanced email matching. A tag callback alone is not acceptance or attribution proof.
+4. Resolve account-side diagnostics before meaningful campaign spend. Campaign activation is a separate action; this release does not authorize or perform it.
+
+Refunds remain authoritative first-party events. If reporting should retract/refund conversions, use the actual account's conversion-adjustment process with the stable order reference; the adapter does not send an invented refund conversion.
+
+## 14. Google production configuration release
+
+### Configuration, source, and deployment
+
+- Runtime source: **`de7f929b53371aa44303b63cdd596bfb97b1c1c6`**. Its only tracked runtime configuration change is the two existing Worker CSP switches. Regression tests were added to `frontend/src/features/measurement/google.test.ts`; no adapter, homepage, intake, checkout, pricing, refund, backend, or database implementation changed.
+- Protected normal build configuration: `frontend/.env.production.local` and `frontend/.env.public-site.local`, retained with explicit inputs under `~/.venfour-releases/2026-09-24-google/`. Existing non-Google release inputs were preserved. No secret-bearing environment file is committed.
+- Purchase destination: **`AW-18473000475/SbutCPivmYQdEJu8zuhE`**. No separate tag/container is installed.
+- Customer/partner Worker `venfour-frontend-production`: **`0f232f0d-d3ef-41e5-b27f-591639e77c57`**, deployed September 24 at **22:30:36 UTC**, 100% traffic.
+- Public Worker `venfour-public-site`: **`e729a36f-814d-4003-bbbb-133ab77a28d2`**, deployed at **22:30:07 UTC**, 100% traffic.
+- Both deployed Worker bundles match the retained build; all **20 served-asset comparisons** pass. Both build outputs contain the exact real ID/label and enabled enhanced configuration. No Cloud Run deployment or database migration was needed.
+- Rollback references: customer `b0467bdd-4f60-484e-9b1b-24782f001c1f`, public `15e50143-9c23-49a4-b345-d6ab286bb60d`. These restore the prior inactive measurement builds without changing financial history.
+
+### CSP and live tag behavior
+
+Only `GOOGLE_ADS_MEASUREMENT=false` changed to `true` in the existing two environments. The exact-origin allowlist in `frontend/worker/index.ts` is unchanged and matches [Google's current CSP guidance](https://developers.google.com/tag-platform/security/guides/csp). No wildcard, script `unsafe-inline`, or `unsafe-eval` allowance was added. Partner, staff, and authentication exclusions remain enforced.
+
+On the homepage, advertising permission loads exactly one `https://www.googletagmanager.com/gtag/js?id=AW-18473000475` script and one tag initialization/configuration. The app build uses the same configuration but deliberately defers script loading until an authoritative live purchase is measured; an unpaid `/start` flow has zero Google scripts/requests. There is no second tag implementation.
+
+No Google CSP violation or uncaught page error was observed. The existing third-party Turnstile frame emitted diagnostic console messages, including two errors and four warnings; these did not prevent intake and did not originate from the Google integration. Builds retain the existing non-failing large-chunk advisory.
+
+### Consent and attribution evidence
+
+| Scenario | Live result |
+| --- | --- |
+| Fresh visitor | Zero Google requests/scripts; no persistent acquisition before consent. |
+| Analytics allowed, advertising denied | Zero Google requests/scripts. |
+| Advertising allowed | One real tag; default-denied commands precede consent update/configuration; personalization remains denied. |
+| Withdrawal | Loaded tag receives all-denied update; acquisition cookie removed; current owned draft receives successful attribution-clear RPC. Subsequent public/app visit has no Google requests. |
+| Global Privacy Control | On both public/app hosts, GPC overrides an existing saved opt-in, stores both optional purposes as denied, and sends zero Google requests. |
+| Synthetic acquisition | All eight supported fields pass from the actual homepage Start link to the app through the shared cookie. An owned unpaid draft reload returns 204 for its attribution save and 200 with an empty financial receipt. No identity email or purchase is available on that unpaid receipt. |
+| First paid touch | A later synthetic paid visit preserves the original first-party acquisition values. |
+
+The new draft was created without report upload, vehicle lookup, analysis, checkout creation, or payment. Case association was verified when the existing owner draft bootstrap ran on reload; this check does not claim immediate association at the instant a new draft is first created. Withdrawal succeeded through that same owner boundary. One synthetic anonymous draft remains as verification evidence with optional attribution withdrawn.
+
+### Payload and purchase boundaries
+
+Observed Google requests during consented homepage testing were the tag script, `www.google.com/ccm/collect`, `www.googleadservices.com/pagead/set_partitioned_cookie`, and `ad.doubleclick.net/ccm/s/collect`. Google-owned beacons included `en=page_view` despite the adapter's `send_page_view=false`; this is not a purchase conversion and no conversion label, order ID, value, or email was transmitted during the unpaid live tests.
+
+Observed fields include the Ads destination, fixed public URL/title, validated synthetic click ID, Google-generated cookie/browser identifier, consent flags, non-personalization flag, tag/version/experiment metadata, and timing/random values. Requests inherently expose the connecting IP and standard browser transport headers to Google. UTM fields remain first-party; `gbraid`/`wbraid` are available in the sanitized configured location, although the observed beacons selected `gclid`. No private route, case UUID, document, claim/vehicle/valuation/comparable data, generated content, authorization token, or profile identity was present in the captured payloads.
+
+The configured purchase payload remains `send_to`, actual ledger-derived amount, USD, stable order UUID, and fixed sanitized page metadata. A nonstandard **149.50 USD** unit fixture verifies that neither 1.0 nor 199 is hardcoded. Enhanced identity is only the authorized purchaser email, passed to Google's documented normalization/SHA-256 behavior and immediately cleared from tag settings. Account-side enhanced matching and actual purchase transmission remain unproven until the separately authorized transaction test.
+
+### Fresh validation results
+
+| Check | Result |
+| --- | --- |
+| Focused measurement, privacy, application and checkout tests | **173 passed in 5 files**, zero failures. Includes five new real-destination/initialization/consent tests. |
+| Worker/environment suite | **144 passed in 3 files**, zero failures. |
+| Changed-test lint | Passed. |
+| Production and public builds | Both passed environment validation, generated-contract freshness, TypeScript, Vite, and Worker dry runs. |
+| Hosted financial/ownership boundary | **7 checks passed**: own receipt 200/empty; other-owner receipt 403; forged purchase/refund writes each 400; repeated progress writes each 204; unqualified draft checkout quote rejected with existing 404 boundary. |
+| Deployed bundle/assets/config | Both Worker bundles match; **20/20** assets match; real ID/label present in both builds; both deployed CSP switches verified true. |
+| Browser consent/attribution/privacy | Results above, using synthetic values and isolated browser sessions; no purchase conversion emitted. |
+| Source/diff | Scope limited to configuration, regression coverage, and this record; `git diff --check` passed. |
+
+The full backend/database suites in section 11 are the prior complete release baseline, not rerun or represented as fresh for this configuration-only release. The deployed financial implementation and schema are unchanged. No real charge, paid provider request, production email, or campaign activation was performed.
