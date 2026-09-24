@@ -71,7 +71,7 @@
       "vars": {
         "API_ORIGIN": "https://venfour-api-production-usmgwdpgqq-uk.a.run.app",
         "DEPLOYMENT_ENVIRONMENT": "production",
-        "GOOGLE_ADS_MEASUREMENT": "false"
+        "GOOGLE_ADS_MEASUREMENT": "true"
       },
       "secrets": {
         "required": [
@@ -105,7 +105,7 @@
       ],
       "vars": {
         "DEPLOYMENT_ENVIRONMENT": "public-site",
-        "GOOGLE_ADS_MEASUREMENT": "false"
+        "GOOGLE_ADS_MEASUREMENT": "true"
       },
       "assets": {
         "directory": "./dist",

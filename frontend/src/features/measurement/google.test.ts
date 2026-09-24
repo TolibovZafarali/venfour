@@ -29,6 +29,55 @@ function loaded() {
 }
 
 describe("Google purchase adapter", () => {
+  it("uses the configured production destination with the authoritative nonstandard amount", async () => {
+    vi.stubEnv("VITE_GOOGLE_ADS_CONVERSION_ID", "AW-18473000475");
+    vi.stubEnv("VITE_GOOGLE_ADS_PURCHASE_LABEL", "SbutCPivmYQdEJu8zuhE");
+    const { sendGooglePurchase } = await import("./google");
+    const event = { ...order(), value: 149.5 };
+    const pending = sendGooglePurchase(event, true);
+    expect(document.querySelector<HTMLScriptElement>('script[src*="googletagmanager"]')?.src)
+      .toBe("https://www.googletagmanager.com/gtag/js?id=AW-18473000475");
+    loaded(); await pending;
+    expect(conversions()[0][2]).toMatchObject({
+      send_to: "AW-18473000475/SbutCPivmYQdEJu8zuhE",
+      value: 149.5, currency: "USD", transaction_id: event.transaction_id,
+    });
+  });
+  it("shares one initialization across concurrent loads and sends no purchase on load", async () => {
+    const { loadGoogleTag } = await import("./google");
+    const pending = [loadGoogleTag(), loadGoogleTag(), loadGoogleTag()];
+    expect(document.querySelectorAll('script[src*="googletagmanager"]')).toHaveLength(1);
+    loaded(); await Promise.all(pending);
+    expect(tag.mock.calls.filter(call => call[0] === "config")).toHaveLength(1);
+    expect(tag.mock.calls.filter(call => call[0] === "js")).toHaveLength(1);
+    expect(conversions()).toHaveLength(0);
+  });
+  it("keeps analytics-only consent from loading the advertising tag", async () => {
+    writeStoredCookieConsent(createCookieConsent(true, "preferences", false));
+    const { loadGoogleTag } = await import("./google");
+    expect(await loadGoogleTag()).toBe(false);
+    expect(tag).not.toHaveBeenCalled();
+  });
+  it("denies a loaded tag after withdrawal and suppresses later purchases", async () => {
+    const { loadGoogleTag, updateGoogleConsent, sendGooglePurchase } = await import("./google");
+    const pending = loadGoogleTag(); loaded(); await pending;
+    writeStoredCookieConsent(createCookieConsent(false, "reject-non-essential"));
+    updateGoogleConsent();
+    await sendGooglePurchase(order(), true, "buyer@example.test");
+    expect(tag).toHaveBeenLastCalledWith("consent", "update", {
+      analytics_storage: "denied", ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied",
+    });
+    expect(conversions()).toHaveLength(0);
+  });
+  it("honors GPC even when saved advertising consent exists", async () => {
+    Object.defineProperty(navigator, "globalPrivacyControl", { configurable: true, value: true });
+    try {
+      const { loadGoogleTag, sendGooglePurchase } = await import("./google");
+      expect(await loadGoogleTag()).toBe(false);
+      await sendGooglePurchase(order(), true, "buyer@example.test");
+      expect(tag).not.toHaveBeenCalled();
+    } finally { Reflect.deleteProperty(navigator, "globalPrivacyControl"); }
+  });
   it("defaults consent before config and deduplicates retries, concurrent calls, and a refreshed module", async () => {
     const { sendGooglePurchase } = await import("./google");
     const event = order();
