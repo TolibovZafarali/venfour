@@ -12,6 +12,28 @@ const response: ProductResponse = { context: { case_id: "case", product_version:
 afterEach(() => vi.clearAllMocks());
 
 describe("product fact confirmation", () => {
+  it.each([
+    ["MO", "Missouri"], ["CA", "California"], ["TX", "Texas"], ["FL", "Florida"],
+    ["NY", "New York"], ["PA", "Pennsylvania"], ["MA", "Massachusetts"],
+    ["AK", "Alaska"], ["HI", "Hawaii"], ["DC", "District of Columbia"],
+  ])("continues with %s facts while settlement rules remain unresolved", async (code, name) => {
+    const stateResponse = { ...response, locations: [{ code, name }] };
+    api.loadProduct.mockResolvedValue(stateResponse);
+    api.saveProduct.mockResolvedValue(stateResponse);
+    const saveRef = createRef<SaveProductFacts>();
+    render(<ProductFactsForm caseId="case" accessToken="token" saveRef={saveRef} />);
+    await screen.findAllByRole("option", { name });
+    fireEvent.change(screen.getByLabelText("Vehicle registration state"), { target: { value: `US-${code}` } });
+    fireEvent.click(screen.getByLabelText(/The vehicle’s home, loss location/));
+    fireEvent.click(screen.getByLabelText(/I confirm these answers/));
+    await act(async () => { await saveRef.current!(); });
+    const submitted = confirmedValues(api.saveProduct.mock.calls[0][3] as Facts);
+    expect(submitted.vehicle_registration).toBe(`US-${code}`);
+    expect(submitted.garaging_at_loss).toBe(`US-${code}`);
+    expect(submitted.loss_location).toBe(`US-${code}`);
+    expect(submitted.policy_issued).toBe(`US-${code}`);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
   it("keeps conflicting document facts and replaces confirmed customer answers", () => {
     const facts: Facts = { schema_version:"1", assertions:[{field:"vehicle_registration",value:"US-MO",provenance:"customer",reference:"old",recorded_at:"old"},{field:"vehicle_registration",value:"US-IL",provenance:"document",reference:"document",recorded_at:"old"}] };
     expect(confirmedValues(facts).vehicle_registration).toBe("");

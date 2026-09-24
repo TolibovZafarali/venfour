@@ -1,7 +1,7 @@
 # Nationwide total-loss product
 
 Implemented against repository baseline `b10cd95`, September 22, 2026. This is product
-implementation, with disabled activation flags. No jurisdiction is approved by a
+implementation, with separately controlled activation flags. No jurisdiction is approved by a
 product record. The research inventory supplies source references and unresolved
 questions, not verified valuation or settlement rules.
 
@@ -161,13 +161,20 @@ reconciled even if new work is held. Payment does not grant delivery permission.
 - `VENFOUR_JURISDICTION_MODE` remains the existing `off`/`shadow` setting; no enforce
   mode, authority reviewer/key, publication, enrollment or release is added.
 
-Controlled activation requires reviewed operating scope, current authority and
-credential/document decisions where applicable, policy acceptance corrections,
-applying the additive migration through a separately authorized process, and
-matching frontend/backend flags. Rehearse the complete new report template through
-existing automated/staff release review and obtain any required provider qualification
-before a hosted pilot. Local fixtures do not establish provider or hosted readiness.
-Do not interpret a product-ready record or generic method as nationwide availability.
+The owner authorized generic nationwide activation on September 24, 2026, with
+the same product, price, method and workflow in all 50 states and the District of
+Columbia. Matching frontend/backend flags may be enabled after migration parity,
+release validation and the accepted Template-5 qualification are verified.
+Jurisdiction mode remains `off`; activation does not publish authority rules,
+enroll cases, enable regulated capabilities or establish legal review of any state.
+Unresolved state-specific settlement treatment, disclosures, terminology and
+method enhancements remain unresolved. They are not additional admission gates
+for the generic product. Existing explicit technical restrictions, ownership,
+evidence, payment and report-release protections remain authoritative. Policy
+review work remains separate and must not be represented as completed.
+Local fixtures do not establish provider or hosted readiness. The dated release
+report records actual deployed flags and verification; this authorization alone
+does not establish deployment or a completed customer journey.
 
 Rollback hides the new panels and disables new captures with the two flags. Keep
 migration/history and the template-5 renderer/validator installed so existing

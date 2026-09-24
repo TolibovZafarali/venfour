@@ -93,7 +93,7 @@ describe("guest homepage return", () => {
     expect(list).toHaveBeenCalledOnce();
     await user.click(links[0]);
     await waitFor(() => expect(router.state.location.pathname).toBe(ANALYSIS_PATH));
-    expect(await screen.findByRole("heading", { name: "Your insurer may be undervaluing your vehicle." })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Your insurer’s valuation may be too low." })).toBeVisible();
   });
 
   it("does not flash Get Started while the owned-case lookup is pending", async () => {

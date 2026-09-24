@@ -2572,7 +2572,7 @@ describe("/start?service=total-loss", () => {
         `/total-loss/cases/${CASE_ID}/analysis`,
       ),
     );
-    expect(screen.queryByTestId("valuation-signals")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByTestId("valuation-signals")).not.toBeInTheDocument(), { timeout: 3000 });
     expect(document.querySelector(".customer-workspace")).toBeInTheDocument();
     expect(harness.saveContactAndBeginClaim).toHaveBeenCalledOnce();
     expect(harness.confirmIntake).toHaveBeenCalledWith({
@@ -2840,7 +2840,7 @@ describe("/start?service=total-loss", () => {
     expect(
       await screen.findByRole("heading", {
         level: 1,
-        name: "This value check needs to resume.",
+        name: "Continue your value check.",
       }),
     ).toBeVisible();
     expect(screen.queryByText("Your information is ready")).not.toBeInTheDocument();

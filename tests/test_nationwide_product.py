@@ -144,6 +144,22 @@ class ProductApiTests(unittest.TestCase):
         self.gateway.append_product_facts.assert_called_once_with('synthetic-token', CASE, 1, facts().to_dict())
         self.assertIsNone(result.json()['delivery'])
         self.assertEqual(result.json()['context']['authority'], 'not_determined_by_product_configuration')
+    def test_all_states_can_save_generic_product_facts_without_published_rules(self):
+        for code in sorted(US_JURISDICTIONS):
+            with self.subTest(state=code):
+                self.gateway.get_case_product_facts.return_value = context(facts(code))
+                result = self.client.post(self.path, headers=self.headers, json={
+                    'expected_revision': 1, 'facts': facts(code).to_dict(),
+                })
+                self.assertEqual(result.status_code, 200)
+                product = result.json()['context']
+                self.assertTrue(product['generic_method_available'])
+                self.assertEqual(product['status'], 'PRODUCT_READY_WITH_GENERIC_RULES')
+                self.assertEqual(product['candidates'], [code])
+                self.assertEqual(product['applied_overrides'], [])
+                self.assertEqual(len(result.json()['locations']), 51)
+                self.assertTrue(all(item['status'] == 'unresolved_state_specific_component'
+                                    for item in product['settlement_components']))
     def test_revision_conflict_does_not_overwrite(self):
         self.gateway.append_product_facts.side_effect = SupabaseConflictError('changed')
         self.assertEqual(self.client.post(self.path, headers=self.headers, json={'expected_revision': 0, 'facts': facts().to_dict()}).status_code, 409)
