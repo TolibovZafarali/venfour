@@ -19,7 +19,7 @@ export function updateGoogleConsent() {
 }
 
 export function googlePageLocation(attribution = readAttribution()) {
-  const url = new URL("https://venfour.com/total-loss-review");
+  const url = new URL("https://venfour.com/");
   for (const key of ["gclid", "gbraid", "wbraid"] as const) if (attribution?.[key]) url.searchParams.set(key, attribution[key]);
   return url.href;
 }

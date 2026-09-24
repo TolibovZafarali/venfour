@@ -13,24 +13,24 @@ const allow = () => writeStoredCookieConsent(createCookieConsent(true, "preferen
 
 describe("paid acquisition", () => {
   it("captures exactly the eight supported keys with bounded values", () => {
-    expect(parseAttribution("?utm_source=google&utm_medium=cpc&utm_campaign=review&utm_term=total+loss&utm_content=search&gclid=Click_1&gbraid=Braid-2&wbraid=Braid_3&vin=private&email=secret", "/total-loss-review")).toMatchObject({ utm_source: "google", utm_medium: "cpc", utm_campaign: "review", utm_term: "total loss", utm_content: "search", gclid: "Click_1", gbraid: "Braid-2", wbraid: "Braid_3", landing_page: "/total-loss-review" });
+    expect(parseAttribution("?utm_source=google&utm_medium=cpc&utm_campaign=review&utm_term=total+loss&utm_content=search&gclid=Click_1&gbraid=Braid-2&wbraid=Braid_3&vin=private&email=secret", "/")).toMatchObject({ utm_source: "google", utm_medium: "cpc", utm_campaign: "review", utm_term: "total loss", utm_content: "search", gclid: "Click_1", gbraid: "Braid-2", wbraid: "Braid_3", landing_page: "/" });
     expect(JSON.stringify(parseAttribution("?utm_source=google&vin=private&email=secret", "/case/private"))).not.toMatch(/private|secret/);
   });
   it.each(["gclid=<script>", "gclid=one&gclid=two", "utm_source=a%0Ab", "utm_term=customer%40example.com", `gclid=${"a".repeat(257)}`, `utm_campaign=${"b".repeat(121)}`])("rejects malformed input %s", query => {
     expect(parseAttribution(query, "/")).toBeNull();
   });
   it("retains an entry in memory until permission, then preserves the first paid touch", () => {
-    captureAttribution("?gclid=First_click&utm_source=google", "/total-loss-review");
+    captureAttribution("?gclid=First_click&utm_source=google", "/");
     expect(readAttribution()).toBeNull();
     expect(document.cookie).not.toContain("venfour.acquisition");
     allow(); captureAttribution("", "/start");
-    expect(readAttribution()).toMatchObject({ gclid: "First_click", landing_page: "/total-loss-review" });
+    expect(readAttribution()).toMatchObject({ gclid: "First_click", landing_page: "/" });
     captureAttribution("?gclid=Second_click", "/");
     expect(readAttribution()?.gclid).toBe("First_click");
   });
   it("allows the first paid source to replace an earlier organic source", () => {
     allow(); captureAttribution("?utm_source=organic", "/");
-    captureAttribution("?wbraid=Paid_click", "/total-loss-review");
+    captureAttribution("?wbraid=Paid_click", "/");
     expect(readAttribution()?.wbraid).toBe("Paid_click");
   });
   it("expires first-touch attribution after 30 days and does not throw for corrupt storage", () => {
@@ -73,7 +73,7 @@ describe("consent and optional configuration", () => {
 describe("authoritative receipts and privacy allowlist", () => {
   it("uses the actual financial amount, USD and the stable order reference", () => {
     const event = parseFinancialReceipt({ ...receipt(), value: 149.5 })!.event;
-    expect(purchaseParameters(event, "test-destination")).toMatchObject({ transaction_id: id, currency: "USD", value: 149.5 });
+    expect(purchaseParameters(event, "test-destination")).toMatchObject({ transaction_id: id, currency: "USD", value: 149.5, page_location: "https://venfour.com/" });
   });
   it.each([{ currency: "EUR" }, { value: 0 }, { value: NaN }, { transaction_id: "pi_bad" }, { event_name: "checkout_clicked" }, { live: "true" }])("rejects malformed financial data %j", override => {
     expect(parseFinancialReceipt({ ...receipt(), ...override })).toBeNull();

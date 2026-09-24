@@ -100,7 +100,7 @@ select set_config('request.jwt.claim.sub','f1000000-0000-4000-8000-000000000001'
 select set_config('request.jwt.claim.role','authenticated',true);
 select is(public.get_case_measurement('f2000000-0000-4000-8000-000000000001'), '[]'::jsonb, 'unpaid cases have no purchase event');
 select lives_ok($$select public.save_case_acquisition('f2000000-0000-4000-8000-000000000001',jsonb_build_object('utm_source','organic','landing_page','/','captured_at',statement_timestamp()),true)$$,'an owner can attach validated attribution');
-select lives_ok($$select public.save_case_acquisition('f2000000-0000-4000-8000-000000000001',jsonb_build_object('gclid','First_click','landing_page','/total-loss-review','captured_at',statement_timestamp()),true)$$,'the first paid source can replace organic');
+select lives_ok($$select public.save_case_acquisition('f2000000-0000-4000-8000-000000000001',jsonb_build_object('gclid','First_click','landing_page','/','captured_at',statement_timestamp()),true)$$,'the first paid source can replace organic');
 select lives_ok($$select public.save_case_acquisition('f2000000-0000-4000-8000-000000000001',jsonb_build_object('gclid','Later_click','landing_page','/','captured_at',statement_timestamp()),true)$$,'later clicks do not fail intake');
 select throws_ok($$select public.save_case_acquisition('f2000000-0000-4000-8000-000000000001','{"vin":"private"}',true)$$,'22023','Unknown attribution field','private fields are rejected');
 select throws_ok($$select public.save_case_acquisition('f2000000-0000-4000-8000-000000000001',jsonb_build_object('gclid',repeat('a',257)),true)$$,'22023','Invalid click identifier','oversized identifiers are rejected');

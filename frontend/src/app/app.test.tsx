@@ -1084,29 +1084,6 @@ describe("Venfour application", () => {
     ).not.toBeInTheDocument();
   });
 
-  test("redirects the retired total-loss review URL to the unified intake", async () => {
-    const { router } = renderTotalLossApp(
-      ["/total-loss-review?campaign=renewal&service=diminished-value"],
-      createTestAnonymousSession(),
-    );
-
-    await waitFor(() => expect(router.state.location.pathname).toBe("/start"));
-    const searchParams = new URLSearchParams(router.state.location.search);
-    expect(searchParams.get("service")).toBe("total-loss");
-    expect(searchParams.get("campaign")).toBe("renewal");
-    expect(
-      await screen.findByRole("heading", { name: "Start with a free valuation." }),
-    ).toBeVisible();
-    expect(
-      screen.queryByRole("heading", { name: "Upload your insurance value report" }),
-    ).not.toBeInTheDocument();
-    await waitFor(() =>
-      expect(document.title).toBe(
-        "Start a Total Loss Review | Venfour",
-      ),
-    );
-  });
-
   test("keeps saved analysis routes operational", async () => {
     renderTestApp([`/analyses/${representativeRunId}`], {
       authService: createTestAuthService(createTestSession()),

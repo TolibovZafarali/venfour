@@ -16,7 +16,7 @@ export function MeasurementLifecycle({ caseId }: { caseId?: string }) {
       if (!hasAdvertisingConsent() && readStoredCookieConsent()) clearAttribution();
       captureAttribution(location.search, location.pathname);
       updateGoogleConsent();
-      if (location.pathname === "/" || location.pathname === "/total-loss-review") {
+      if (location.pathname === "/") {
         if (hasAnalyticsConsent() || hasAdvertisingConsent()) emitBusinessEvent({ event_name: "landing_view", event_id: landingEventId, timestamp: new Date().toISOString() });
         void loadGoogleTag();
       }

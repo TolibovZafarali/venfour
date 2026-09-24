@@ -1,4 +1,3 @@
-import { searchLandingHtml } from "./scripts/search-landing-html.ts";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 
@@ -46,7 +45,7 @@ export function createViteConfiguration(
   ].join("; ");
 
   return {
-    plugins: [react(), tailwindcss(), searchLandingHtml()],
+    plugins: [react(), tailwindcss()],
     ...(nonce ? { html: { cspNonce: nonce } } : {}),
     resolve: {
       alias: {
