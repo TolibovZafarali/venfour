@@ -87,13 +87,13 @@ function CompletedTotalLossAnalysis({
         eyebrow={unavailable ? "Analysis unavailable" : "Unable to load result"}
         heading={
           unavailable
-            ? "We couldn’t find the completed analysis."
-            : "We couldn’t load your completed result."
+            ? "We couldn’t find your saved result."
+            : "We couldn’t load your result."
         }
         description={
           unavailable
-            ? "The appraisal completed, but its saved analysis is not available from this account."
-            : "A temporary connection problem prevented Venfour from opening the saved result."
+            ? "Your review is complete, but this account cannot access the saved result."
+            : "A connection problem stopped us from opening your saved result. Please try again."
         }
       >
         {!unavailable ? (
@@ -223,7 +223,7 @@ function AuthenticatedTotalLossAnalysisPage({
             ? "The appraisal may not exist, or it may belong to a different account."
             : authenticationFailed
               ? "Your session may have expired. Sign in again, then reopen this appraisal."
-              : "A temporary connection problem prevented Venfour from checking the current status."
+              : "We couldn’t check your progress because of a connection problem. Please try again."
         }
       >
         {unavailable || authenticationFailed ? (
@@ -253,7 +253,7 @@ function AuthenticatedTotalLossAnalysisPage({
 
   if (analysis.status === "not_submitted" && analysis.submissionAvailability?.available === false) {
     return <StateCard kind="error" eyebrow="Your information is saved"
-      heading="The value check is temporarily unavailable."
+      heading="The value check is unavailable right now."
       description="Your vehicle details are safe. You can continue to the report review or return to this case later.">
       {reportUploadAction}
       <Button variant="outline" onClick={() => void analysisQuery.refetch()}>Check availability</Button>
@@ -306,7 +306,7 @@ function AuthenticatedTotalLossAnalysisPage({
             ? needsResume
               ? "We couldn’t resume your value check."
               : "We couldn’t start your value check."
-            : "This value check needs to resume."
+            : "Continue your value check."
         }
         description={
           errorMessage ??
@@ -350,7 +350,7 @@ function AuthenticatedTotalLossAnalysisPage({
       : totalLossIntakeCorrectionPath(caseId, issue.correctionStep)) + `&vehicleFact=${encodeURIComponent(issue.field)}` : null;
     return <StateCard kind="error" eyebrow={reportNeeded ? "Your review is saved" : "Value check paused"}
       heading={recoveryRequired || processingInterrupted ? "Your value check was interrupted." : issue ? "Check your review details." : reportNeeded ? "Your insurer’s report can help." : "We couldn’t complete this value check."}
-      description={recoveryRequired ? "Your case information is saved. We need to recover the interrupted check before continuing. Please contact support for help." : processingInterrupted ? "A temporary processing problem interrupted the check. Your case information is saved. You can try to continue from the saved progress." : issue ? `Confirm the ${ordinaryFields[issue.field].toLowerCase()} shown in your documents so we can continue.` : reportNeeded ? "Review the insurer report and its highlighted details to continue. Your saved information is still here." : "We couldn’t finish the check right now. Your information is saved."}>
+      description={recoveryRequired ? "Your details are saved, but we need help restarting the check. Please contact support." : processingInterrupted ? "The check stopped unexpectedly. Your progress is saved, and you can try to continue." : issue ? `Confirm the ${ordinaryFields[issue.field].toLowerCase()} shown in your documents so we can continue.` : reportNeeded ? "Review your insurer’s report and confirm the highlighted details to continue." : "We couldn’t finish the check right now. Your information is saved."}>
       {correctionPath ? <Button asChild><Link to={correctionPath}>Review your details</Link></Button>
         : reportNeeded ? reportUploadAction
         : recoveryRequired ? (supportEmail ? <Button asChild><a href={`mailto:${supportEmail}?subject=Interrupted%20value%20check`}>Email support</a></Button> : null)
@@ -365,8 +365,8 @@ function AuthenticatedTotalLossAnalysisPage({
       <StateCard
         kind="error"
         eyebrow="Analysis unavailable"
-        heading="We couldn’t open the completed analysis."
-        description="The saved result did not include a valid analysis identifier. Try again later."
+        heading="We couldn’t open your result."
+        description="We couldn’t find the details needed to open this result. Please try again later."
       >
         <Button variant="outline" onClick={() => void analysisQuery.refetch()}>
           <RefreshCw className="size-4" aria-hidden />
@@ -395,7 +395,7 @@ function SavedReportBackground({ accessToken, caseId, userId, reportUploadAction
   const analysis = query.data;
   return analysis?.status === "completed" && canonicalUuid4Pattern.test(analysis.runId)
     ? <CompletedTotalLossAnalysis accessToken={accessToken} runId={analysis.runId} analysisInputId={analysis.analysisInputId} userId={userId} intakeCorrectionAllowed={analysis.intakeCorrectionAllowed === true} reportUploadAction={reportUploadAction} />
-    : <StateCard heading="Your valuation review" description="Review your insurer’s report in this workspace." />;
+    : <StateCard heading="Your valuation review" description="Review your insurer’s report here." />;
 }
 
 export function TotalLossAnalysisPage({ reportWorkspace = false }: { reportWorkspace?: boolean } = {}) {
@@ -411,7 +411,7 @@ export function TotalLossAnalysisPage({ reportWorkspace = false }: { reportWorks
         kind="error"
         eyebrow="Invalid appraisal link"
         heading="This appraisal link isn’t valid."
-        description="Check the complete link, or choose an appraisal from your account menu."
+        description="Check the link or open your review from the account menu."
       >
         <Button asChild>
           <Link to="/contact">Contact support</Link>
@@ -426,7 +426,7 @@ export function TotalLossAnalysisPage({ reportWorkspace = false }: { reportWorks
         kind="loading"
         eyebrow="Secure appraisal"
         heading="Checking secure access…"
-        description="Venfour is confirming this browser can open the private appraisal."
+        description="We’re checking that you can access this private review."
       />
     );
   }

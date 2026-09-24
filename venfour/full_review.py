@@ -82,7 +82,7 @@ def full_review_readiness(snapshot: Mapping[str, Any], extraction: Mapping[str, 
                 raise ValueError("Invalid report conflict resolution")
             if choice is None:
                 issues.append({"field": field, "code": "REPORT_FACT_CONFLICT", "savedValue": saved,
-                               "reportValue": printed, "message": f"Which {FIELD_LABELS.get(field, field).lower()} should the full review use?"})
+                               "reportValue": printed, "message": f"Which {FIELD_LABELS.get(field, field).lower()} is correct for this review?"})
             return saved if choice == "saved" else printed
         return printed
 
@@ -125,7 +125,7 @@ def full_review_readiness(snapshot: Mapping[str, Any], extraction: Mapping[str, 
                   for issue in confirmed_subject_readiness(effective, normalized, stage="full_review")["issues"]]
     return {"stage": "full_review", "status": "needs_confirmation" if issues else "ready", "ready": not issues,
             "issues": issues, "code": None,
-            "message": "Confirm the highlighted detail. Your free estimate is unchanged." if issues else "Your report is ready for the full review.",
+            "message": "Confirm this detail to continue. Your free result stays saved." if issues else "Your report is ready for the full review.",
             "effectiveInput": effective, "resolutions": choices, "documentSha256": ingestion.document_sha256}
 
 

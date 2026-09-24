@@ -65,12 +65,12 @@ export function ReportUploadDialog({ caseId, userId, accessToken, reportWorkspac
       <Button size="lg" className="valuation-result__upload-action" disabled={query.isPending}>{triggerLabel}{hasSavedReport ? <ArrowRight aria-hidden /> : <Upload aria-hidden />}</Button>
     </Dialog.Trigger>;
   const action = <div ref={actionRef} tabIndex={-1} data-report-review-complete={completed || undefined}>
-    {completed ? <p className="valuation-result__next-copy" role="status">{state.paymentReadiness.status === "insufficient" ? "Your report is saved. There isn’t enough reliable evidence to offer the full review yet." : "Your insurer’s report is saved. You’re ready to continue."}</p>
-      : <p className="valuation-result__next-copy">{query.isPending ? "Checking for the report saved to this case."
+    {completed ? <p className="valuation-result__next-copy" role="status">{state.paymentReadiness.status === "insufficient" ? "Your report is saved. We need more reliable evidence before we can offer the full review." : "Your insurer’s report is saved. You’re ready to continue."}</p>
+      : <p className="valuation-result__next-copy">{query.isPending ? "Checking for your saved report."
         : !state ? "We couldn’t check your saved report. Open the review to try again."
-        : state.status === "report_invalid" ? "The saved document needs to be replaced with the complete valuation report."
-        : hasSavedReport ? "Your report is saved. Continue without uploading it again."
-        : "Start with your insurer’s valuation report. Your free result stays saved."}</p>}
+        : state.status === "report_invalid" ? "Please replace this file with the complete valuation report."
+        : hasSavedReport ? "Continue with the report you already uploaded."
+        : "Add your insurer’s valuation report to continue. Your free result stays saved."}</p>}
     {continuationInput ? <ContinueReviewAction accessToken={accessToken} caseId={caseId} userId={userId} label="Continue to payment" input={continuationInput} /> : completed
       ? state.paymentReadiness.status === "eligible" ? <p className="valuation-result__payment-note">Payment is unavailable right now. Please try again later.</p> : null
       : <>{trigger}<p className="valuation-result__payment-note">No payment at this step</p></>}
@@ -83,7 +83,7 @@ export function ReportUploadDialog({ caseId, userId, accessToken, reportWorkspac
         if (actionRef.current) { event.preventDefault(); (actionRef.current.querySelector<HTMLButtonElement>("button") ?? actionRef.current).focus(); }
       }}>
         <Dialog.Title className="sr-only">Insurer valuation review</Dialog.Title>
-        <Dialog.Description className="sr-only">Review your saved report or add a report, confirm its details, and follow the review. Your free result stays saved.</Dialog.Description>
+        <Dialog.Description className="sr-only">Upload or use your saved report, then confirm any details we need. Your free result stays saved.</Dialog.Description>
         <div className="report-upload-dialog__body">
           <FullReviewReport key={`${userId}:${caseId}`} caseId={caseId} userId={userId} accessToken={accessToken} headingLevel="h2" onBusyChange={setBusy} onComplete={finish} confirmationDraft={confirmationDraft} onConfirmationDraftChange={setConfirmationDraft} />
         </div>

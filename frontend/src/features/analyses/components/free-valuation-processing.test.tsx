@@ -124,7 +124,7 @@ describe("free valuation processing environment", () => {
     expect(screen.getByTestId("valuation-signals")).toBe(signals);
     expect(screen.queryByText("2020 Toyota Camry SE")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("The displayed activities describe the checks included in your review.");
+    expect(screen.getByRole("status")).toHaveTextContent("The activities shown describe the review.");
 
     rendered.rerender(<Harness />);
     await act(async () => vi.advanceTimersByTimeAsync(1900));
@@ -228,6 +228,6 @@ describe("free valuation processing environment", () => {
     expect(screen.getByRole("button", { name: "Try again" })).toBeDisabled();
     await act(async () => vi.advanceTimersByTimeAsync(30_000));
     expect(screen.getByRole("alert")).toHaveTextContent(registration.error);
-    expect(screen.queryByText("Finding comparables")).not.toBeInTheDocument();
+    expect(screen.queryByText("Finding comparable vehicles")).not.toBeInTheDocument();
   });
 });

@@ -37,7 +37,7 @@ function setup(path = `${base}/analysis`, cached?: FullReviewState) {
 }
 function selectPdf() {
   const file = new File(["%PDF-fictional"], "valuation.pdf", { type: "application/pdf" });
-  fireEvent.change(screen.getByLabelText("Choose the complete valuation PDF"), { target: { files: [file] } });
+  fireEvent.change(screen.getByLabelText("Choose your valuation report"), { target: { files: [file] } });
   return file;
 }
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(getFullReview).mockResolvedValue(initial); });
@@ -53,11 +53,11 @@ describe("report upload modal", () => {
     expect(screen.getByRole("button", { name: "Checking saved report…" })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Upload insurer valuation report" })).not.toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Review saved report" }));
-    expect(await screen.findByRole("heading", { name: "Your valuation report is already saved." })).toBeVisible();
-    expect(screen.getByText(/You don’t need to upload it again/)).toBeVisible();
-    expect(screen.getByLabelText("Choose the complete valuation PDF")).not.toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Your valuation report is saved." })).toBeVisible();
+    expect(within(screen.getByRole("dialog", { name: "Insurer valuation review" })).getByText(/Continue with the report you already uploaded/)).toBeVisible();
+    expect(screen.getByLabelText("Choose your valuation report")).not.toBeVisible();
     expect(extractFullReview).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "Use my saved valuation report" }));
+    await user.click(screen.getByRole("button", { name: "Use saved report" }));
     expect(await screen.findByRole("heading", { name: "Reading your valuation report." })).toBeVisible();
     expect(extractFullReview).toHaveBeenCalledExactlyOnceWith("saved-case", "owner-token");
     expect(uploadFullReview).not.toHaveBeenCalled();
@@ -68,7 +68,7 @@ describe("report upload modal", () => {
     const { user } = setup();
     await user.click(await screen.findByRole("button", { name: "Open report review" }));
     expect(await screen.findByRole("heading", { name: "We couldn’t open your report." })).toBeVisible();
-    expect(screen.queryByLabelText("Choose the complete valuation PDF")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Choose your valuation report")).not.toBeInTheDocument();
     expect(uploadFullReview).not.toHaveBeenCalled();
   });
 
@@ -78,7 +78,7 @@ describe("report upload modal", () => {
     const trigger = await screen.findByRole("button", { name: "Upload insurer valuation report" });
     expect(getFullReview).toHaveBeenCalledOnce();
     await user.click(trigger);
-    await screen.findByLabelText("Choose the complete valuation PDF");
+    await screen.findByLabelText("Choose your valuation report");
     expect(await screen.findByRole("dialog", { name: "Insurer valuation review" })).toBeVisible();
     expect(result).toBeInTheDocument();
     expect(router.state.location.pathname).toBe(`${base}/analysis`);
@@ -87,7 +87,7 @@ describe("report upload modal", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(trigger).toHaveFocus();
     await act(async () => { await router.navigate(1); });
-    await screen.findByLabelText("Choose the complete valuation PDF");
+    await screen.findByLabelText("Choose your valuation report");
     await act(async () => { await router.navigate(-1); });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Saved free result" })).toBe(result);
@@ -98,7 +98,7 @@ describe("report upload modal", () => {
 
   it("reopens from a refreshed deep link and removes only the modal parameter when closed", async () => {
     const { router, user } = setup(`${base}/analysis?source=saved&upload=report`);
-    await screen.findByLabelText("Choose the complete valuation PDF");
+    await screen.findByLabelText("Choose your valuation report");
     await user.click(screen.getByRole("button", { name: "Close report review" }));
     expect(router.state.location.pathname).toBe(`${base}/analysis`);
     expect(router.state.location.search).toBe("?source=saved");
@@ -107,7 +107,7 @@ describe("report upload modal", () => {
 
   it("validates the PDF before upload and leaves the modal recoverable", async () => {
     setup(`${base}/analysis?upload=report`);
-    const input = await screen.findByLabelText("Choose the complete valuation PDF");
+    const input = await screen.findByLabelText("Choose your valuation report");
     fireEvent.change(input, { target: { files: [new File(["invalid"], "photo.png", { type: "image/png" })] } });
     expect(await screen.findByRole("alert")).toBeVisible();
     expect(screen.getByRole("dialog")).toBeVisible();
@@ -122,7 +122,7 @@ describe("report upload modal", () => {
       return saved;
     });
     const { user, router } = setup(`${base}/analysis?upload=report`);
-    await screen.findByLabelText("Choose the complete valuation PDF");
+    await screen.findByLabelText("Choose your valuation report");
     const dialog = screen.getByRole("dialog");
     const file = selectPdf();
     await waitFor(() => expect(screen.getByRole("button", { name: "Close report review" })).toBeDisabled());
@@ -141,7 +141,7 @@ describe("report upload modal", () => {
   it("does not advance on an upload acknowledgement without a persisted report", async () => {
     vi.mocked(uploadFullReview).mockResolvedValue(saved);
     const { router } = setup(`${base}/analysis?upload=report`);
-    await screen.findByLabelText("Choose the complete valuation PDF");
+    await screen.findByLabelText("Choose your valuation report");
     selectPdf();
     await waitFor(() => expect(getFullReview).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.getByRole("button", { name: "Close report review" })).toBeEnabled());
@@ -157,13 +157,13 @@ describe("report upload modal", () => {
     });
     const { router, user } = setup();
     await user.click(await screen.findByRole("button", { name: "Upload insurer valuation report" }));
-    await screen.findByLabelText("Choose the complete valuation PDF");
+    await screen.findByLabelText("Choose your valuation report");
     selectPdf();
     await waitFor(() => expect(screen.getByRole("button", { name: "Close report review" })).toBeDisabled());
     await act(async () => { await router.navigate(-1); });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Upload insurer valuation report" }));
-    await screen.findByLabelText("Choose the complete valuation PDF");
+    await screen.findByLabelText("Choose your valuation report");
     expect(screen.getByRole("dialog")).toBeVisible();
     await act(async () => { finish(); });
     expect(uploadFullReview).toHaveBeenCalledOnce();
@@ -175,7 +175,7 @@ describe("report upload modal", () => {
       throw new Error("The response was lost after persistence");
     });
     setup(`${base}/analysis?upload=report`);
-    await screen.findByLabelText("Choose the complete valuation PDF");
+    await screen.findByLabelText("Choose your valuation report");
     selectPdf();
     await within(screen.getByRole("dialog")).findByRole("heading", { name: "Reading your valuation report." });
     expect(uploadFullReview).toHaveBeenCalledOnce();
@@ -183,7 +183,7 @@ describe("report upload modal", () => {
 
   it("waits for a fresh read instead of advancing from a stale cached report", async () => {
     const { router } = setup(`${base}/analysis?upload=report`, saved);
-    await screen.findByLabelText("Choose the complete valuation PDF");
+    await screen.findByLabelText("Choose your valuation report");
     expect(router.state.location.search).toBe("?upload=report");
     expect(screen.getByRole("dialog")).toBeVisible();
   });
@@ -191,7 +191,7 @@ describe("report upload modal", () => {
   it("keeps invalid and failed reports available for explicit replacement or retry", async () => {
     vi.mocked(getFullReview).mockResolvedValue({ ...saved, status: "report_invalid", message: "Include all valuation pages." });
     const { router } = setup(`${base}/analysis?upload=report`);
-    await screen.findByLabelText("Upload a replacement PDF");
+    await screen.findByLabelText("Replace report PDF");
     expect(router.state.location.search).toBe("?upload=report");
     expect(uploadFullReview).not.toHaveBeenCalled();
   });
@@ -269,7 +269,7 @@ describe("report upload modal", () => {
     vi.mocked(uploadFullReview).mockImplementation(async () => { vi.mocked(getFullReview).mockResolvedValue(ready); return ready; });
     const { router } = setup(`${base}/analysis?source=saved&upload=report`);
     const result = screen.getByRole("heading", { name: "Saved free result", hidden: true });
-    await screen.findByLabelText("Choose the complete valuation PDF");
+    await screen.findByLabelText("Choose your valuation report");
     selectPdf();
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(screen.getByRole("heading", { name: "Saved free result" })).toBe(result);
@@ -285,7 +285,7 @@ describe("report upload modal", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     if (status === "eligible") expect(screen.getByRole("button", { name: "Continue to payment" })).toBeVisible();
     else {
-      expect(screen.getByText(/isn’t enough reliable evidence/)).toBeVisible();
+      expect(screen.getByText(/need more reliable evidence/)).toBeVisible();
       expect(screen.queryByRole("button", { name: "Continue to payment" })).not.toBeInTheDocument();
     }
     expect(uploadFullReview).not.toHaveBeenCalled();

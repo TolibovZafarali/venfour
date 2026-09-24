@@ -5,7 +5,9 @@ import {
   ChevronDown,
   FileCheck2,
   FileText,
+  X,
 } from "lucide-react";
+import { Dialog } from "radix-ui";
 import { useId } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
@@ -30,6 +32,7 @@ import { ValuationStatus, ValuationSurface } from "@/components/valuation-status
 import "./total-loss-analysis-result.css";
 import "./preliminary-analysis-result.css";
 import "./result-review-panel.css";
+import "./result-viewport.css";
 import { VehicleDetailQuestion } from "./vehicle-detail-question";
 
 export interface TotalLossAnalysisProgressProps {
@@ -42,9 +45,9 @@ export interface TotalLossAnalysisProgressProps {
 
 export function TotalLossAnalysisProgress({
   description =
-    "Venfour is examining the saved information now. You can safely leave this page and return later.",
-  eyebrow = "Reviewing & analyzing",
-  heading = "We’re reviewing and analyzing your claim.",
+    "We’re reviewing your saved details. You can leave this page and return later.",
+  eyebrow = "Valuation review",
+  heading = "We’re reviewing your vehicle.",
   headingLevel = "h1",
 }: TotalLossAnalysisProgressProps = {}) {
   return <ValuationStatus kind="loading" heading={heading} description={description} eyebrow={eyebrow} headingLevel={headingLevel} />;
@@ -63,21 +66,21 @@ const resultPresentationByClassification: Record<
   ResultPresentation
 > = {
   MATERIAL_UNDERVALUE_SIGNAL: {
-    heading: "Your insurer may be undervaluing your vehicle.",
+    heading: "Your insurer’s valuation may be too low.",
     summary:
       "We found market evidence suggesting your vehicle could be worth more.",
     worthwhileHeading: "This looks worth pursuing.",
     worthwhileSummary:
-      "There appears to be enough of a difference to take a closer look.",
+      "The difference looks large enough to review further.",
     showContinue: true,
   },
   POTENTIAL_UNDERVALUE: {
-    heading: "Your insurer may be undervaluing your vehicle.",
+    heading: "Your insurer’s valuation may be too low.",
     summary:
       "We found market evidence suggesting your vehicle could be worth more.",
     worthwhileHeading: "This looks worth pursuing.",
     worthwhileSummary:
-      "The difference may be worth a closer look, though some uncertainty remains.",
+      "The difference may be worth reviewing, but the evidence is not yet clear.",
     showContinue: true,
   },
   NO_MATERIAL_DISCREPANCY: {
@@ -94,14 +97,14 @@ const resultPresentationByClassification: Record<
       "The market evidence is mixed, so we can’t tell whether your insurer’s valuation is too low.",
     worthwhileHeading: "It’s too soon to say.",
     worthwhileSummary:
-      "A closer look at the differences is needed before deciding what to do next.",
+      "We need to review the differences before suggesting a next step.",
     showContinue: false,
   },
   INSUFFICIENT_EVIDENCE: {
     heading: "We need more information to be sure.",
     summary:
       "We couldn’t find enough reliable market evidence to assess your insurer’s valuation.",
-    worthwhileHeading: "A clearer picture comes first.",
+    worthwhileHeading: "More evidence is needed.",
     worthwhileSummary:
       "This doesn’t mean your insurer’s valuation is right or wrong.",
     showContinue: false,
@@ -157,8 +160,8 @@ function PreliminaryAnalysisResult({
   const summary = estimate
     ? null
     : context
-      ? "Useful price context, not an estimate of your vehicle’s value."
-      : "Your details are saved. The available market evidence doesn’t yet support a reliable range.";
+      ? "These are asking prices, not a valuation of your vehicle."
+      : "Your details are saved. We need more reliable market evidence to estimate a range.";
   const insurerLabel = analysis.insurerValuation.source === "CUSTOMER_ENTERED" ? "Insurer’s offer" : "Insurer’s valuation";
   const comparison = estimate && result.evidenceBasis === "LOSS_DATE_HISTORICAL" ? result.insurerComparison : null;
   const onePrice = range?.lowCents === range?.highCents;
@@ -201,7 +204,7 @@ function PreliminaryAnalysisResult({
           </section> : null}
           {summary ? <p className="preliminary-result__summary">{summary}</p> : null}
           {range ? <div className="preliminary-result__caveats">
-            {result.evidenceBasis !== "LOSS_DATE_HISTORICAL" ? <p>Not a loss-date valuation.</p> : null}
+            {result.evidenceBasis !== "LOSS_DATE_HISTORICAL" ? <p>Not a valuation for your date of loss.</p> : null}
             <p>Asking prices aren’t guaranteed sale prices or settlement amounts.</p>
           </div> : null}
           <details className="preliminary-result__details">
@@ -209,8 +212,8 @@ function PreliminaryAnalysisResult({
             <div className="preliminary-result__details-content">
               <p>{result.evidenceBasis === "LOSS_DATE_HISTORICAL"
                 ? `Based on ${sampleLabel} with advertised prices verified around your date of loss${result.evidenceDate ? `, ${formatDate(result.evidenceDate)}` : ""}.`
-                : result.evidenceBasis === "CURRENT_MARKET" ? `Based on ${sampleLabel} in current advertised inventory${result.evidenceDate ? ` as of ${formatDate(result.evidenceDate)}` : ""}. This is not a loss-date valuation.`
-                  : "The available market evidence does not support a reliable range."}</p>
+                : result.evidenceBasis === "CURRENT_MARKET" ? `Based on ${sampleLabel} in current advertised inventory${result.evidenceDate ? ` as of ${formatDate(result.evidenceDate)}` : ""}. This is not a valuation for your date of loss.`
+                  : "There isn’t enough reliable market evidence to estimate a range."}</p>
               {context && result.listings.length > 0 ? <ul className="preliminary-result__listings" aria-label="Comparable listing examples">
                 {result.listings.slice(0, 3).map(listing => <li key={listing.identity}>
                   <strong>{formatMoneyCents(listing.askingPriceCents)} asking</strong>
@@ -221,8 +224,8 @@ function PreliminaryAnalysisResult({
             </div>
           </details>
         <section className="preliminary-result__next result-review-panel" aria-labelledby={`${headingId}-next`}>
-          <h2 id={`${headingId}-next`}>Understand your insurer’s number.</h2>
-          {!reportUploadAction ? <p className="preliminary-result__next-description">{analysis.analysisScope.reportAvailable ? "Continue with your saved report to review the vehicle details, comparable vehicles, and adjustments." : "Upload your report to see how your insurer reached its number."}</p> : null}
+          <h2 id={`${headingId}-next`}>Review your insurer’s valuation.</h2>
+          {!reportUploadAction ? <p className="preliminary-result__next-description">{analysis.analysisScope.reportAvailable ? "Use your saved report to check the vehicle details, comparable vehicles, and adjustments." : "Upload your report to see how your insurer calculated the value."}</p> : null}
           {reportUploadAction || insurerReportPath ? <div className="preliminary-result__action">
             {reportUploadAction ?? <Button asChild size="lg" className="valuation-result__upload-action"><Link to={insurerReportPath!}>{analysis.analysisScope.reportAvailable ? "Review saved report" : "Upload insurer valuation report"}<ArrowRight aria-hidden /></Link></Button>}
           </div> : null}
@@ -230,9 +233,9 @@ function PreliminaryAnalysisResult({
             <summary>What does the full review include?<ChevronDown aria-hidden /></summary>
             <div className="preliminary-result__details-content">
               <InsurerReviewScope />
-              <p className="preliminary-result__deliverables">You receive clear findings, a valuation evidence report, and guidance for raising supported concerns with your adjuster.</p>
+              <p className="preliminary-result__deliverables">Get a valuation report with our findings and guidance on discussing supported concerns with your adjuster.</p>
               <p>Optional full review: $199. Upload and confirmation are free.</p>
-              <p className="preliminary-result__purchase-note">We check your report and evidence before payment is available. You choose whether to continue.</p>
+              <p className="preliminary-result__purchase-note">We check your report and evidence first. You decide whether to pay for the full review.</p>
             </div>
           </details>
         </section>
@@ -246,8 +249,8 @@ function PreliminaryAnalysisResult({
 function InsurerReviewScope() {
   return <dl className="result-review-panel__scope" aria-label="What we examine">
     <div><dt><span aria-hidden>01</span>Vehicle details</dt><dd>Trim, mileage, and equipment.</dd></div>
-    <div><dt><span aria-hidden>02</span>Comparable vehicles</dt><dd>How closely the insurer’s choices match.</dd></div>
-    <div><dt><span aria-hidden>03</span>Valuation adjustments</dt><dd>What changed the insurer’s number.</dd></div>
+    <div><dt><span aria-hidden>02</span>Comparable vehicles</dt><dd>How well they match your vehicle.</dd></div>
+    <div><dt><span aria-hidden>03</span>Valuation adjustments</dt><dd>How adjustments affect the value.</dd></div>
   </dl>;
 }
 
@@ -258,11 +261,31 @@ function ResultReviewHeader() {
   </div>;
 }
 
-function SavedReviewContext({ analysis, insurerValue }: { analysis: AnalysisPresentation; insurerValue?: string | null }) {
+function SavedReviewContext({ analysis, insurerValue, reviewNote }: { analysis: AnalysisPresentation; insurerValue?: string | null; reviewNote?: string }) {
+  return <>
+    <aside className="saved-review-context saved-review-context--desktop" aria-label="Saved case information"><SavedReviewDetails analysis={analysis} insurerValue={insurerValue} /></aside>
+    <Dialog.Root>
+      <Dialog.Trigger asChild><button className="result-context-trigger" type="button"><FileText aria-hidden /><span>Case details & review notes</span><ChevronDown aria-hidden /></button></Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="result-context-overlay" />
+        <Dialog.Content className="result-context-dialog">
+          <Dialog.Title>Case details</Dialog.Title>
+          <Dialog.Description>Your vehicle, saved report, and review notes.</Dialog.Description>
+          <div className="saved-review-context"><SavedReviewDetails analysis={analysis} insurerValue={insurerValue} /></div>
+          {reviewNote ? <p className="result-context-dialog__note">{reviewNote}</p> : null}
+          <p className="result-context-dialog__note">Advertised prices aren’t guaranteed sale prices or settlement amounts. This review does not determine what your insurer owes.</p>
+          <Dialog.Close asChild><button className="result-context-dialog__close" aria-label="Close case details"><X aria-hidden /></button></Dialog.Close>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  </>;
+}
+
+function SavedReviewDetails({ analysis, insurerValue }: { analysis: AnalysisPresentation; insurerValue?: string | null }) {
   const vehicle = [analysis.vehicle.year, analysis.vehicle.make, analysis.vehicle.model].filter(Boolean).join(" ");
   const savedReport = analysis.analysisScope.reportAvailable;
   const ReportIcon = savedReport ? FileCheck2 : FileText;
-  return <aside className="saved-review-context" aria-label="Saved case information">
+  return <>
     <p className="saved-review-context__eyebrow">Case overview</p>
     <div className="saved-review-context__vehicle">
       <CarFront aria-hidden />
@@ -274,8 +297,8 @@ function SavedReviewContext({ analysis, insurerValue }: { analysis: AnalysisPres
       <div><p>Valuation report</p><span>{savedReport ? "Saved to your case" : "Not added yet"}</span></div>
       {savedReport ? <CheckCircle2 className="saved-review-context__check" aria-label="Saved" /> : null}
     </div>
-    <p className="saved-review-context__note">{savedReport ? "You can return to this review at any time." : "Add your insurer’s report to keep the valuation and supporting details in one place."}</p>
-  </aside>;
+    <p className="saved-review-context__note">{savedReport ? "You can return to this review at any time." : "Add your insurer’s report to keep your review details together."}</p>
+  </>;
 }
 
 function SavedAnalysisResult({
@@ -335,24 +358,24 @@ function SavedAnalysisResult({
           ? "Here’s what we found for your vehicle."
           : "We need more information to be sure.",
         summary: rangeAvailable
-          ? "We found market prices for similar vehicles. An insurer’s offer is needed to see how it compares."
+          ? "We found prices for similar vehicles. Add your insurer’s offer to compare them."
           : "We couldn’t find enough reliable market evidence to estimate a range.",
         worthwhileHeading: rangeAvailable
           ? "Your insurer’s offer completes the picture."
-          : "A clearer picture comes first.",
+          : "More evidence is needed.",
         worthwhileSummary: rangeAvailable
-          ? "Without it, we can’t yet tell whether there’s a difference worth pursuing."
-          : "We can’t yet tell whether there’s a difference worth pursuing.",
+          ? "We need the offer to see whether the difference is worth reviewing."
+          : "We can’t yet tell whether the difference is worth reviewing.",
         showContinue: false,
       };
   const presentation: ResultPresentation = recovery ? {
     ...basePresentation,
     showContinue: false,
-    heading: targetedCorrectionPath && correctionFieldLabel ? `Let’s confirm your ${correctionFieldLabel.toLowerCase()}.`
+    heading: targetedCorrectionPath && correctionFieldLabel ? `Confirm your ${correctionFieldLabel.toLowerCase()}.`
       : recovery.kind === "MISSING_INFORMATION" ? "A few details are missing."
       : recovery.kind === "SEARCH_INTERRUPTED" ? "We couldn’t finish your estimate."
-      : recovery.kind === "UNRESOLVED_CONFIGURATION" && analysis.analysisScope.reportAvailable ? "Let’s check your saved report."
-      : "We couldn’t establish a reliable range yet.",
+      : recovery.kind === "UNRESOLVED_CONFIGURATION" && analysis.analysisScope.reportAvailable ? "Review your saved report."
+      : "We can’t give a reliable range yet.",
     summary: recovery.message,
     worthwhileHeading: "Your case is saved.",
     worthwhileSummary: "Your information is saved for a closer review.",
@@ -360,7 +383,7 @@ function SavedAnalysisResult({
 
   return (
     <ValuationSurface
-      className={cn("valuation-result saved-result", className)}
+      className={cn("valuation-result saved-result", targetedCorrectionPath && "saved-result--correction", className)}
       aria-labelledby={headingId}
       data-analysis-classification={analysis.assessment.classification}
       data-total-loss-analysis-result
@@ -384,6 +407,7 @@ function SavedAnalysisResult({
         <p className="valuation-result__summary">
           {presentation.summary}
         </p>
+        {targetedCorrectionPath ? <p className="saved-result__compact-summary">Choose the {correctionFieldLabel?.toLowerCase() ?? "detail"} shown in your vehicle documents.</p> : null}
 
         {rangeAvailable ? <section
           className="valuation-result__range"
@@ -490,7 +514,7 @@ function SavedAnalysisResult({
           {!targetedCorrectionPath && (insurerReportPath || reportUploadAction) ? <details className="preliminary-result__details result-review-panel__scope-details"><summary>What we look for in your report<ChevronDown aria-hidden /></summary><InsurerReviewScope /></details> : null}
         </section> : null}
         </div>
-        <SavedReviewContext analysis={analysis} insurerValue={!rangeAvailable && insurerValueAvailable ? displayMoney(insurerValue) : null} />
+        <SavedReviewContext analysis={analysis} insurerValue={!rangeAvailable && insurerValueAvailable ? displayMoney(insurerValue) : null} reviewNote={presentation.summary} />
         </div>
 
         <p className="valuation-result__disclaimer">

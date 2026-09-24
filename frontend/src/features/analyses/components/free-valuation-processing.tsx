@@ -9,7 +9,7 @@ import venfourMark from "../../../../../assets/brand/venfour-mark.svg";
 import "./free-valuation-processing.css";
 
 const reviewActivities = [
-  "Finding comparables",
+  "Finding comparable vehicles",
   "Checking vehicle details",
   "Comparing mileage & trim",
   "Reviewing market evidence",
@@ -182,7 +182,7 @@ function ProcessingEnvironment({ options, exiting, accountControl }: { options: 
         </div>
         {description && !error ? <p className="free-valuation-processing__error">{description}</p> : null}
         {error ? <p className="free-valuation-processing__error" role="alert">{error}</p> : null}
-        {phase === "reviewing" && !error ? <span className="sr-only" role="status">Venfour is reviewing your vehicle and market evidence. The displayed activities describe the checks included in your review. Your result will appear when it is ready.</span> : null}
+        {phase === "reviewing" && !error ? <span className="sr-only" role="status">We’re checking your vehicle details and market evidence. The activities shown describe the review. Your result will appear here when ready.</span> : null}
         {error && onRetry ? <button className="free-valuation-processing__retry" type="button" onClick={onRetry} disabled={retryDisabled}>Try again</button> : null}
         {notice ? <p className="free-valuation-processing__notice" role="status">{notice}</p> : null}
       </main>

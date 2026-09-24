@@ -91,7 +91,7 @@ function reportState(caseId: string): FullReviewState {
     ready, checkoutAvailable: phase === "ready", locked: ["payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase), canReuseReport: ["saved-report", "missing-detail"].includes(phase),
     report: hasReport ? { id: REPORT_ID, revision: 1, filename: snapshot().filename ?? "Insurer_valuation_report.pdf" } : null,
     message: phase === "confirmation" ? "Confirm this detail so we can finish your review." : "Your report is saved.",
-    issues: phase === "confirmation" ? [{ field: "mileage", code: "REPORT_FACT_CONFLICT", message: "Which mileage should the full review use?", reportValue: 32000, savedValue: 30000 }] : [],
+    issues: phase === "confirmation" ? [{ field: "mileage", code: "REPORT_FACT_CONFLICT", message: "Which mileage is correct for this review?", reportValue: 32000, savedValue: 30000 }] : [],
     paymentReadiness: {
       status: ["ready", "payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase) ? "eligible" : phase === "strict" ? "processing" : "not_evaluated",
       eligible: ["ready", "payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase),
@@ -136,7 +136,7 @@ function freeResult() {
   if (["saved-report", "missing-detail"].includes(phase)) return {
     ...result, runId: RUN_ID, primaryExternalEvidence: null,
     assessment: { ...result.assessment, classification: "INSUFFICIENT_EVIDENCE" },
-    marketSearchContext: { baselineStatus: "LIMITED", summary: "Limited evidence", stopReasons: [], recovery: phase === "missing-detail" ? { kind: "UNRESOLVED_CONFIGURATION", field: "drivetrain", correctionStep: "vehicle", message: "Confirm your vehicle’s drive type so we can check the right configuration. Your valuation report and other details are saved." } : { kind: "UNRESOLVED_CONFIGURATION", field: "engine", correctionStep: null, message: "Your valuation report is saved. We need to recheck its vehicle specifications before asking you for more details. You do not need to upload it again." } },
+    marketSearchContext: { baselineStatus: "LIMITED", summary: "Limited evidence", stopReasons: [], recovery: phase === "missing-detail" ? { kind: "UNRESOLVED_CONFIGURATION", field: "drivetrain", correctionStep: "vehicle", message: "Confirm your vehicle’s drive type so we can find the right comparable vehicles. Your valuation report and other details are saved." } : { kind: "UNRESOLVED_CONFIGURATION", field: "engine", correctionStep: null, message: "We need to check the vehicle details in your saved report. You don’t need to upload it again." } },
   };
   return { ...result, analysisScope: { ...result.analysisScope, reportAvailable: !["free", "listing", "insufficient", "upload"].includes(phase) }, runId: RUN_ID, presentationVersion: "8", vehicle: { ...result.vehicle, year: 2026, make: "Hyundai", model: "Kona", trim: "SE" }, preliminaryResult: {
     version: "1", outcome: phase === "insufficient" ? "INSUFFICIENT" : phase === "listing" ? "LISTING_CONTEXT" : "ESTIMATE", evidenceBasis: "CURRENT_MARKET", evidenceDate: "2026-09-15", sampleSize: phase === "insufficient" ? 0 : 6,

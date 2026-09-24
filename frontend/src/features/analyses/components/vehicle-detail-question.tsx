@@ -23,7 +23,7 @@ export function VehicleDetailQuestion({ field, onConfirm }: {
     setPending(true);
     setError(null);
     try { await onConfirm(field, answer); }
-    catch { setError("We couldn’t save this detail. Your existing information is safe. Try again or review your saved details."); }
+    catch { setError("We couldn’t save this detail. Your earlier information is still saved. Please try again."); }
     finally { setPending(false); }
   }}>
     {field === "drivetrain" ? <fieldset className="vehicle-detail-question__choices" disabled={pending} aria-describedby={`${id}-help`}>

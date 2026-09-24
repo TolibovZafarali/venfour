@@ -20,7 +20,7 @@ const CASE_ID = "22222222-2222-4222-8222-222222222222";
 const casePath = `/total-loss/cases/${CASE_ID}/analysis`;
 const progressHeading = "Preparing your valuation";
 const materialResultHeading =
-  "Your insurer may be undervaluing your vehicle.";
+  "Your insurer’s valuation may be too low.";
 
 function sessionFor(id = USER_ID) {
   return {
@@ -113,12 +113,12 @@ describe("total-loss case analysis page", () => {
       http.post("*/api/v1/appraisal-cases/:caseId/analysis", () => { post(); return HttpResponse.json({}); }),
     );
     const view = renderTestApp([casePath], { authService: authService(sessionFor()), strictMode: true });
-    expect(await screen.findByRole("heading", { name: "The value check is temporarily unavailable." })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "The value check is unavailable right now." })).toBeVisible();
     expect(await screen.findByRole("button", { name: "Upload insurer valuation report" })).toBeVisible();
     expect(screen.queryByText(/no suitable vehicles/i)).not.toBeInTheDocument();
     view.unmount();
     renderTestApp([casePath], { authService: authService(sessionFor()) });
-    expect(await screen.findByRole("heading", { name: "The value check is temporarily unavailable." })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "The value check is unavailable right now." })).toBeVisible();
     expect(post).not.toHaveBeenCalled();
   });
 
@@ -267,7 +267,7 @@ describe("total-loss case analysis page", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "This value check needs to resume.",
+        name: "Continue your value check.",
       }),
     ).toBeVisible();
     expect(postCount).toBe(0);
@@ -322,7 +322,7 @@ describe("total-loss case analysis page", () => {
 
       expect(
         screen.getByRole("heading", {
-          name: "This value check needs to resume.",
+          name: "Continue your value check.",
         }),
       ).toBeVisible();
       expect(
@@ -537,7 +537,7 @@ describe("total-loss case analysis page", () => {
       expect(screen.getByRole("button", { name: "Continue value check" })).toBeInTheDocument();
     } else {
       expect(screen.queryByRole("button", { name: /Continue|Retry|Try again/i })).not.toBeInTheDocument();
-      expect(screen.getByText(/recover the interrupted check before continuing/)).toBeInTheDocument();
+      expect(screen.getByText(/need help restarting the check/)).toBeInTheDocument();
     }
   });
 

@@ -73,7 +73,7 @@ def search_recovery(search: Mapping[str, Any], *, report_available: bool = False
         for row in rows for code in ("ENGINE_ESTIMATE_UNRESOLVED", "CYLINDERS_ESTIMATE_UNRESOLVED")
     ):
         return {"kind": "UNRESOLVED_CONFIGURATION", "field": "engine", "correctionStep": None,
-                "message": "Your valuation report is saved. We need to recheck its vehicle specifications before asking you for more details. Continue with your saved report; you do not need to upload it again."}
+                "message": "We need to check the vehicle details in your saved report. You don’t need to upload it again."}
     if field is None and rows and not search.get("input", {}).get("target", {}).get("drivetrain") and any(
         "DRIVETRAIN_ESTIMATE_UNRESOLVED" in row.get("assessment", {}).get("reasonCodes", []) for row in rows
     ):
@@ -84,19 +84,19 @@ def search_recovery(search: Mapping[str, Any], *, report_available: bool = False
         field = "engine"
     if field:
         return {"kind": "UNRESOLVED_CONFIGURATION", "field": field, "correctionStep": "vehicle",
-                "message": f"Confirm your vehicle’s {FIELD_LABELS[field].lower()} so we can check the right configuration. "
+                "message": f"Confirm your vehicle’s {FIELD_LABELS[field].lower()} so we can find the right comparable vehicles. "
                            + ("Your valuation report and other details are saved." if report_available else "Your other details are saved.")}
     reasons = set(search.get("stopReasons", {}).values())
     if "CUSTOMER_LOCATION_UNAVAILABLE" in reasons:
         return {"kind": "MISSING_INFORMATION", "field": "postalCode", "correctionStep": "claim",
-                "message": "Confirm your vehicle ZIP code so we can compare evidence from the right area. Your other information is saved."}
+                "message": "Confirm your vehicle’s ZIP code so we can compare prices in the right area. Your other details are saved."}
     if reasons & {"BUDGET_OR_QUOTA_LIMITED", "PROVIDER_FAILURE", "OBSERVATION_LIMIT"}:
         return {"kind": "SEARCH_INTERRUPTED", "field": None, "correctionStep": None,
-                "message": "The market search ended before enough evidence could be verified. This does not tell us whether your insurer’s offer is fair. "
+                "message": "We couldn’t finish checking the market evidence. We can’t yet say whether your insurer’s offer is fair. "
                            + ("Your report is saved and can be used for a closer review." if report_available else "You can add the insurer’s valuation report for a closer review.")}
     return {"kind": "SPARSE_EVIDENCE", "field": None, "correctionStep": None,
-            "message": "The available comparable vehicles did not provide enough reliable evidence for a market range. "
-                       + ("Your report is saved. Continue to review the insurer’s comparable vehicles and adjustments." if report_available else "Your insurer’s valuation report can help us review the details.")}
+            "message": "We couldn’t find enough reliable comparable vehicles to estimate a range. "
+                       + ("Your report is saved. We can still review the insurer’s comparable vehicles and adjustments." if report_available else "Your insurer’s valuation report can help us review the details.")}
 
 
 @lru_cache(maxsize=1)

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
@@ -59,8 +59,8 @@ function manualAnalysisWithoutOffer(): AnalysisPresentationBase {
 describe("total-loss analysis experience", () => {
   it("presents an open loading state without invented stages or a progress percentage", () => {
     const { container } = render(<TotalLossAnalysisProgress />);
-    expect(screen.getByRole("region", {name: "We’re reviewing and analyzing your claim."})).toHaveAttribute("aria-busy", "true");
-    expect(screen.getByText("Reviewing & analyzing")).toBeVisible();
+    expect(screen.getByRole("region", {name: "We’re reviewing your vehicle."})).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByText("Valuation review")).toBeVisible();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     expect(container.querySelector("[data-valuation-status]")).not.toHaveClass("border");
   });
@@ -68,13 +68,13 @@ describe("total-loss analysis experience", () => {
   it.each([
     {
       classification: "MATERIAL_UNDERVALUE_SIGNAL" as const,
-      heading: "Your insurer may be undervaluing your vehicle.",
+      heading: "Your insurer’s valuation may be too low.",
       worthwhile: "This looks worth pursuing.",
       continueVisible: true,
     },
     {
       classification: "POTENTIAL_UNDERVALUE" as const,
-      heading: "Your insurer may be undervaluing your vehicle.",
+      heading: "Your insurer’s valuation may be too low.",
       worthwhile: "This looks worth pursuing.",
       continueVisible: true,
     },
@@ -93,7 +93,7 @@ describe("total-loss analysis experience", () => {
     {
       classification: "INSUFFICIENT_EVIDENCE" as const,
       heading: "We need more information to be sure.",
-      worthwhile: "A clearer picture comes first.",
+      worthwhile: "More evidence is needed.",
       continueVisible: false,
     },
   ])(
@@ -374,6 +374,18 @@ describe("total-loss analysis experience", () => {
 });
 
 describe("inconclusive free-result recovery", () => {
+  it("keeps saved information and review limits accessible in the compact dialog", async () => {
+    const user = userEvent.setup();
+    render(<TotalLossAnalysisResult analysis={analysisFor("INSUFFICIENT_EVIDENCE")} />);
+    const trigger = screen.getByRole("button", { name: "Case details & review notes" });
+    await user.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "Case details" });
+    expect(within(dialog).getByText("Saved to your case")).toBeVisible();
+    expect(within(dialog).getByText(/This review does not determine what your insurer owes/)).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: "Close case details" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
   it("asks one question inline and saves only the confirmed fact", async () => {
     const user = userEvent.setup();
     const confirm = vi.fn().mockResolvedValue(undefined);
@@ -395,7 +407,7 @@ describe("inconclusive free-result recovery", () => {
       recovery: { kind: "UNRESOLVED_CONFIGURATION", field: "engine", correctionStep: null, message: "Your report is saved. We need to recheck its specifications." },
     } } as AnalysisPresentation;
     render(<MemoryRouter><TotalLossAnalysisResult analysis={analysis} reviewIntakePath="/start?caseId=saved" insurerReportPath="/report" /></MemoryRouter>);
-    expect(screen.getByRole("heading", { name: "Let’s check your saved report." })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Review your saved report." })).toBeVisible();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Confirm engine" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Review saved report" })).toBeVisible();
@@ -470,7 +482,7 @@ describe("versioned preliminary results", () => {
     const { container } = show(analysis);
     expect(screen.getByRole("heading", { name: "Comparable listing prices" })).toBeVisible();
     expect(screen.getByRole("region", { name: "Observed asking-price span" })).toHaveTextContent("$23,077–$25,333");
-    expect(screen.getByText(/not an estimate of your vehicle’s value/)).toBeVisible();
+    expect(screen.getByText(/not a valuation of your vehicle/)).toBeVisible();
     expect(screen.getByText(/certification premium has not been adjusted/)).not.toBeVisible();
     await userEvent.setup().click(screen.getByText("Evidence details · 2 limitations"));
     expect(screen.getByText(/2 listings in current advertised inventory as of September 14, 2026/)).toBeVisible();
@@ -497,7 +509,7 @@ describe("versioned preliminary results", () => {
     show(preliminaryAnalysis({ outcome: "ESTIMATE", sampleSize: 4, estimatedRange: { lowCents: 2_180_000, highCents: 2_260_000 }, listingPriceSpan: null, limitations: [], insurerComparison: { insurerValueCents: 2_000_000, position: "BELOW_RANGE" } }));
     expect(screen.getByRole("heading", { name: "Your preliminary value range." })).toBeVisible();
     expect(screen.getByRole("region", { name: "Preliminary estimated range" })).toHaveTextContent("$21,800–$22,600");
-    expect(screen.getByText("Not a loss-date valuation.")).toBeVisible();
+    expect(screen.getByText("Not a valuation for your date of loss.")).toBeVisible();
     expect(screen.queryByRole("figure")).not.toBeInTheDocument();
     expect(screen.queryByText("$20,000")).not.toBeInTheDocument();
     expect(screen.queryByText(/undervaluing|appears fair|worth pursuing/)).not.toBeInTheDocument();
