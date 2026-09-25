@@ -191,7 +191,15 @@ function renderTestApp(
   initialEntries: Parameters<typeof renderBaseTestApp>[0],
   options: Parameters<typeof renderBaseTestApp>[1] = {},
 ) {
-  return renderBaseTestApp(initialEntries, {
+  const intakeEntries = initialEntries?.map((entry) => {
+    if (typeof entry !== "string" || !entry.startsWith("/start?")) return entry;
+    const url = new URL(entry, "https://example.test");
+    if (!url.searchParams.has("view") && !url.searchParams.has("caseId")) {
+      url.searchParams.set("view", "intake");
+    }
+    return `${url.pathname}${url.search}`;
+  });
+  return renderBaseTestApp(intakeEntries, {
     customerProfileService: createConfirmedProfileService(),
     ...options,
   });
@@ -1567,9 +1575,7 @@ describe("/start?service=total-loss", () => {
       totalLossDependencies: harness.dependencies,
     });
 
-    const pageHeading = screen.getByRole("heading", { level: 1 });
-    expect(pageHeading).toBeVisible();
-    const layout = pageHeading.closest("[data-total-loss-layout]");
+    const layout = document.querySelector("[data-total-loss-layout]");
     expect(layout).toHaveClass(
       "lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]",
     );
@@ -1824,13 +1830,15 @@ describe("/start?service=total-loss", () => {
     expect(screen.queryByRole("heading", { name: "Loading your saved appraisal…" })).not.toBeInTheDocument();
   });
 
-  it("opens a referral link directly in intake and removes the code only after durable bootstrap", async () => {
+  it("retains a referral through service selection and removes it only after durable bootstrap", async () => {
     const auth = createAuthHarness(null);
     const harness = createDependencyHarness();
     const bootstrap = createDeferred<AppraisalCase>();
     const code = "a".repeat(48);
     harness.getOrCreateTotalLossDraft.mockReturnValueOnce(bootstrap.promise);
     const { router } = renderTestApp([`/r/${code}?caseId=${CASE_ID}&next=https://example.test`], { authService: auth.service, totalLossDependencies: harness.dependencies });
+    expect(harness.getOrCreateTotalLossDraft).not.toHaveBeenCalled();
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Continue" }));
     await waitFor(() => expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledWith({ userId: GUEST_USER_ID, referralCode: code }));
     expect(router.state.location.pathname).toBe("/start");
     expect(new URLSearchParams(router.state.location.search).get("ref")).toBe(code);
@@ -1864,6 +1872,7 @@ describe("/start?service=total-loss", () => {
     const { queryClient, router } = renderTestApp(["/privacy"], { authService: auth.service, totalLossDependencies: harness.dependencies });
     queryClient.setQueryData(appraisalCaseQueryKeys.totalLossDraft(USER_ID), appraisalCase(CASE_ID));
     await act(async () => { await router.navigate(`/r/${code}`); });
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Continue" }));
     await waitFor(() => expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledWith({ userId: USER_ID, referralCode: code }));
     await waitFor(() => expect(new URLSearchParams(router.state.location.search).has("ref")).toBe(false));
     expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledTimes(1);
@@ -1888,6 +1897,7 @@ describe("/start?service=total-loss", () => {
     const { queryClient, router } = renderTestApp(["/privacy"], { authService: auth.service, totalLossDependencies: harness.dependencies });
     queryClient.setQueryData(appraisalCaseQueryKeys.totalLossDraft(USER_ID, code), appraisalCase(CASE_ID));
     await act(async () => { await router.navigate(`/r/${code}`); });
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Continue" }));
     await waitFor(() => expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledWith({ userId: USER_ID, referralCode: code }));
     expect(new URLSearchParams(router.state.location.search).get("ref")).toBe(code);
     expect(queryClient.getQueryData(appraisalCaseQueryKeys.totalLossDraft(USER_ID))).toBeUndefined();
@@ -3840,7 +3850,7 @@ describe("/start?service=total-loss", () => {
     await waitFor(() => expect(harness.saveDetails).toHaveBeenCalledOnce());
     await user.click(screen.getByRole("button", { name: "Back" }));
 
-    const intro = document.querySelector("[data-appraisal-start-intro]");
+    const visual = document.querySelector(".appraisal-start-visual");
     const flow = document.querySelector("[data-appraisal-start-flow]");
     const transition = document.querySelector("[data-intake-transition]");
     const progress = screen.getByRole("list", { name: "Appraisal steps" });
@@ -3861,9 +3871,9 @@ describe("/start?service=total-loss", () => {
     });
 
     expect(
-      screen.getByRole("radio", { name: "Diminished Value" }),
+      screen.getByRole("button", { name: "Back to services" }),
     ).toBeEnabled();
-    expect(document.querySelector("[data-appraisal-start-intro]")).toBe(intro);
+    expect(document.querySelector(".appraisal-start-visual")).toBe(visual);
     expect(document.querySelector("[data-appraisal-start-flow]")).toBe(flow);
     expect(document.querySelector("[data-intake-transition]")).toBe(transition);
     expect(screen.getByRole("list", { name: "Appraisal steps" })).toBe(
@@ -3924,7 +3934,7 @@ describe("/start?service=total-loss", () => {
     });
     await waitFor(() =>
       expect(
-        screen.getByRole("radio", { name: "Diminished Value" }),
+        screen.getByRole("button", { name: "Back to services" }),
       ).toBeEnabled(),
     );
     expect(screen.getByRole("radio", { name: "Use my VIN" })).toBeEnabled();

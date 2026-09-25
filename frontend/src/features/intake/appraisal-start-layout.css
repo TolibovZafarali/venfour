@@ -1,0 +1,73 @@
+[data-appraisal-start-page].appraisal-start-gradient,
+[data-appraisal-start-page] .appraisal-start-flow-panel {
+  background: #fff;
+}
+
+.appraisal-start-visual {
+  position: relative;
+  display: none;
+  overflow: hidden;
+  color: #fff;
+  background:
+    radial-gradient(ellipse at 12% 90%, #646464 0%, transparent 65%),
+    radial-gradient(ellipse at 90% 8%, #454545 0%, transparent 58%),
+    linear-gradient(155deg, #141414, #303030);
+}
+
+.appraisal-start-visual__center {
+  position: sticky;
+  top: 4rem;
+  display: flex;
+  min-height: calc(100svh - 4rem);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2.5rem;
+  text-align: center;
+}
+
+.appraisal-start-document {
+  position: relative;
+  width: 218px;
+  padding: 27px 25px 24px;
+  border: 1px solid #ffffff55;
+  border-radius: 6px;
+  background: linear-gradient(145deg, #ffffff20, #ffffff08);
+  box-shadow: 0 28px 60px #00000026;
+  text-align: left;
+  transform: rotate(-7deg);
+}
+
+.appraisal-start-document__eyebrow {
+  display: block;
+  color: #e5e5e5;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+}
+
+.appraisal-start-document__title {
+  display: block;
+  margin-top: 23px;
+  font-size: 15px;
+  letter-spacing: -0.03em;
+}
+
+.appraisal-start-document__rule { height: 1px; margin: 15px 0; background: #ffffff38; }
+.appraisal-start-document__lines { display: grid; gap: 7px; }
+.appraisal-start-document__lines i { height: 3px; width: 87%; background: #ffffff38; }
+.appraisal-start-document__lines i:nth-child(2) { width: 100%; }
+.appraisal-start-document__lines i:nth-child(3) { width: 60%; }
+.appraisal-start-document__chart { display: flex; height: 65px; gap: 9px; align-items: end; margin-top: 22px; }
+.appraisal-start-document__chart i { flex: 1; height: 38%; background: #ffffff50; border-radius: 2px 2px 0 0; }
+.appraisal-start-document__chart i:nth-child(2) { height: 57%; }
+.appraisal-start-document__chart i:nth-child(3) { height: 49%; }
+.appraisal-start-document__chart i:nth-child(4) { height: 77%; }
+.appraisal-start-document__chart i:nth-child(5) { height: 100%; background: #ffffffbf; }
+.appraisal-start-document__lens { position: absolute; right: -27px; bottom: 30px; display: grid; width: 70px; height: 70px; place-items: center; border: 1px solid #ffffff70; border-radius: 50%; background: #4b4b4b; transform: rotate(7deg); }
+
+.appraisal-start-visual__heading { margin-top: 45px; font-size: clamp(1.75rem, 2.6vw, 2.75rem); line-height: 1.15; font-weight: 500; letter-spacing: -0.045em; }
+.appraisal-start-visual__caption { margin-top: 16px; color: #d4d4d4; font-size: 13px; line-height: 1.6; }
+
+@media (min-width: 64rem) {
+  .appraisal-start-visual { display: block; }
+}

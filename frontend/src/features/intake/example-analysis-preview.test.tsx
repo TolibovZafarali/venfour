@@ -64,7 +64,7 @@ describe("example analysis preview", () => {
     ).toBeVisible();
     expect(
       screen.getByLabelText(
-        "This example shows what a reviewer may examine. Submitting the current form does not create an automated appraisal.",
+        "Illustrative figures only. Diminished Value intake is currently paused.",
       ),
     ).toBeVisible();
 

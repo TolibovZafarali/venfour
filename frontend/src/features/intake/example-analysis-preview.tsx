@@ -54,7 +54,7 @@ const exampleAnalysisByService: Record<
       },
     ],
     explanation:
-      "A Total Loss review compares the insurer’s stated valuation with relevant market evidence when that value is available. Report-specific findings depend on the evidence supplied.",
+      "Illustrative figures only. Findings depend on your vehicle and supporting evidence.",
   },
   "diminished-value": {
     vehicle: "2025 Hyundai Tucson SEL",
@@ -75,7 +75,7 @@ const exampleAnalysisByService: Record<
       { label: "Post-repair", value: 28_900, widthPercent: 85 },
     ],
     explanation:
-      "This example shows what a reviewer may examine. Submitting the current form does not create an automated appraisal.",
+      "Illustrative figures only. Diminished Value intake is currently paused.",
   },
 };
 
@@ -100,7 +100,7 @@ export function ExampleAnalysisPreview({
 
   return (
     <section
-      className="mt-8 min-h-[16.5rem] border-t border-line/80 pt-5 sm:mt-10 sm:pt-6 lg:mt-11"
+      className="mt-6 border-t border-line/80 pt-5"
       aria-labelledby="example-analysis-heading"
       data-example-analysis
       data-example-service={service}
@@ -202,7 +202,7 @@ export function ExampleAnalysisPreview({
       </div>
 
       <p
-        className="mt-4 min-h-10 text-xs leading-5 text-copy"
+        className="mt-3 text-xs leading-5 text-copy"
         aria-label={example.explanation}
       >
         <AnimatedText

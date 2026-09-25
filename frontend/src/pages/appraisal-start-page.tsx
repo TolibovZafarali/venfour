@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import { fullReviewPriceLabel } from "@/config/review-price";
@@ -19,14 +19,14 @@ import {
 import { TotalLossIntakeFlow } from "@/pages/total-loss-start-page";
 
 const DEFAULT_SERVICE: AppraisalServiceSlug = "total-loss";
-type MobileStartView = "overview" | "intake";
+type StartStage = "overview" | "intake";
 
 function serviceFromSearch(search: string): AppraisalServiceSlug {
   const service = new URLSearchParams(search).get("service");
   return service === "diminished-value" ? service : DEFAULT_SERVICE;
 }
 
-function mobileViewFromSearch(search: string): MobileStartView {
+function stageFromSearch(search: string): StartStage {
   const view = new URLSearchParams(search).get("view");
   if (view === "intake") return "intake";
   if (view !== "overview" && readTotalLossIntakeCorrectionIntent(search)) {
@@ -39,7 +39,8 @@ export function AppraisalStartPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const service = serviceFromSearch(location.search);
-  const mobileView = mobileViewFromSearch(location.search);
+  const stage = stageFromSearch(location.search);
+  const previousStage = useRef(stage);
   const correctingTotalLossIntake =
     service === "total-loss" &&
     Boolean(readTotalLossIntakeCorrectionIntent(location.search));
@@ -65,18 +66,14 @@ export function AppraisalStartPage() {
   }, [location.pathname, location.search, navigate, service]);
 
   useEffect(() => {
-    if (
-      typeof window.matchMedia !== "function" ||
-      !window.matchMedia("(max-width: 1023px)").matches
-    ) {
-      return;
-    }
-
+    if (previousStage.current === stage) return;
+    previousStage.current = stage;
     const frame = window.requestAnimationFrame(() => {
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.getElementById("appraisal-intake")?.focus({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [mobileView]);
+  }, [stage]);
 
   const handleServiceChange = (nextService: AppraisalServiceSlug) => {
     if (nextService === service) return;
@@ -100,8 +97,8 @@ export function AppraisalStartPage() {
     );
   };
 
-  const handleMobileContinue = () => {
-    if (mobileView === "intake") return;
+  const handleContinue = () => {
+    if (stage === "intake") return;
 
     const params = new URLSearchParams(location.search);
     params.set("view", "intake");
@@ -112,8 +109,8 @@ export function AppraisalStartPage() {
     });
   };
 
-  const handleMobileBack = () => {
-    if (mobileView === "overview") return;
+  const handleBack = () => {
+    if (stage === "overview") return;
 
     const params = new URLSearchParams(location.search);
     if (correctingTotalLossIntake) {
@@ -137,15 +134,10 @@ export function AppraisalStartPage() {
     <AppraisalStartLayout
       caseWorkspace={totalLossSelected && Boolean(new URLSearchParams(location.search).get("caseId"))}
       service={service}
-      mobileView={mobileView}
+      stage={stage}
       onServiceChange={handleServiceChange}
-      onMobileContinue={handleMobileContinue}
-      onMobileBack={handleMobileBack}
-      mobileContinueLabel={
-        !totalLossSelected && !diminishedValueIntakeAvailable
-          ? "View service update"
-          : "Continue"
-      }
+      onContinue={handleContinue}
+      onBack={handleBack}
       serviceSwitchDisabled={
         (totalLossSelected && totalLossBusy) ||
         (!totalLossSelected && diminishedValueBusy)
@@ -169,10 +161,10 @@ export function AppraisalStartPage() {
         totalLossSelected
           ? correctingTotalLossIntake
             ? "Review and correct the saved information for this same case, then resubmit when you’re ready."
-            : "See how your vehicle compares with the market. Upload your insurer’s valuation report, or start with your vehicle details."
+            : "Compare your insurer’s valuation with market evidence. Start with a report or your vehicle details."
           : diminishedValueIntakeAvailable
             ? "We’ll securely gather accident, repair, vehicle, and contact details for a future manual review. Submission does not create an automated appraisal or schedule an appointment."
-            : "Diminished Value remains part of Venfour, but customer intake is not open. Venfour is completing the Total Loss experience first."
+            : "Review potential value loss after repairs. Customer intake is currently paused."
       }
     >
       {totalLossSelected ? (

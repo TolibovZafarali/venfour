@@ -1,4 +1,6 @@
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import "./appraisal-start-layout.css";
+
+import { ArrowLeft, ArrowRight, Search } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { ExampleAnalysisPreview } from "@/features/intake/example-analysis-preview";
@@ -73,11 +75,11 @@ export function ServiceSelector({
 export interface AppraisalStartLayoutProps {
   caseWorkspace?: boolean;
   service: AppraisalServiceSlug;
-  mobileView: "overview" | "intake";
+  stage: "overview" | "intake";
   onServiceChange: (service: AppraisalServiceSlug) => void;
-  onMobileContinue: () => void;
-  onMobileBack: () => void;
-  mobileContinueLabel?: ReactNode;
+  onContinue: () => void;
+  onBack: () => void;
+  continueLabel?: ReactNode;
   serviceSwitchDisabled?: boolean;
   eyebrow: ReactNode;
   title: ReactNode;
@@ -90,11 +92,11 @@ export interface AppraisalStartLayoutProps {
 export function AppraisalStartLayout({
   caseWorkspace = false,
   service,
-  mobileView,
+  stage,
   onServiceChange,
-  onMobileContinue,
-  onMobileBack,
-  mobileContinueLabel = "Continue",
+  onContinue,
+  onBack,
+  continueLabel = "Continue",
   serviceSwitchDisabled,
   eyebrow,
   title,
@@ -122,75 +124,61 @@ export function AppraisalStartLayout({
         data-appraisal-start-layout
         data-total-loss-layout
       >
-        <section
-          className={cn(
-            "appraisal-start-intro-panel min-w-0 lg:block",
-            mobileView === "intake" && "hidden",
-          )}
-          data-appraisal-start-intro
-          data-total-loss-intro
-          data-mobile-stage-visible={mobileView === "overview"}
-        >
-          <div
-            className="mx-auto w-full max-w-[44rem] px-5 py-5 sm:px-8 sm:py-8 lg:sticky lg:top-16 lg:mr-0 lg:ml-auto lg:px-10 lg:py-12 xl:px-14 xl:py-14"
-            data-appraisal-section-content="intro"
-          >
-            <ServiceSelector
-              value={service}
-              disabled={serviceSwitchDisabled}
-              onChange={onServiceChange}
-            />
-            <p className="text-xs font-semibold tracking-[0.14em] text-brand uppercase">
-              {eyebrow}
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-ink sm:text-4xl">
-              {title}
-            </h1>
-            <p className="mt-3 text-base leading-7 text-copy">
-              {description}
-            </p>
-            {priceNote ? <p className="mt-3 text-sm leading-6 text-copy" data-review-price-note>{priceNote}</p> : null}
-            <ExampleAnalysisPreview service={service} />
-            {mobileView === "overview" ? (
-              <button
-                type="button"
-                className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-brand px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none lg:hidden"
-                aria-controls="appraisal-intake"
-                data-mobile-intake-continue
-                onClick={onMobileContinue}
-              >
-                {mobileContinueLabel}
-                <ArrowRight className="size-4" aria-hidden />
-              </button>
-            ) : null}
+        <aside className="appraisal-start-visual" aria-label="Valuation review">
+          <div className="appraisal-start-visual__center">
+            <div className="appraisal-start-document" aria-hidden="true">
+              <span className="appraisal-start-document__eyebrow">VENFOUR</span>
+              <span className="appraisal-start-document__title">A clearer picture.</span>
+              <div className="appraisal-start-document__rule" />
+              <div className="appraisal-start-document__lines"><i /><i /><i /></div>
+              <div className="appraisal-start-document__chart"><i /><i /><i /><i /><i /></div>
+              <span className="appraisal-start-document__lens"><Search size={34} strokeWidth={1.25} /></span>
+            </div>
+            <p className="appraisal-start-visual__heading">Know where your<br />valuation stands.</p>
+            <p className="appraisal-start-visual__caption">Your vehicle. The evidence. A clearer next step.</p>
           </div>
-        </section>
-
+        </aside>
         <section
           id="appraisal-intake"
-          className={cn(
-            "appraisal-start-flow-panel min-w-0 lg:block",
-            mobileView === "overview" && "hidden",
-          )}
+          tabIndex={-1}
+          className="appraisal-start-flow-panel min-w-0 focus:outline-none"
           data-appraisal-start-flow
           data-total-loss-flow
-          data-mobile-stage-visible={mobileView === "intake"}
         >
-          <div
-            className="mx-auto w-full max-w-[52rem] px-5 py-5 sm:px-8 sm:py-8 lg:mr-auto lg:ml-0 lg:px-10 lg:py-12 xl:px-14 xl:py-14"
+          <div className="mx-auto w-full max-w-[44rem] px-5 py-7 sm:px-8 sm:py-8 lg:px-10 lg:py-12 xl:px-14"
             data-appraisal-section-content="flow"
           >
-            {mobileView === "intake" ? (
-              <button
-                type="button"
-                className="mb-4 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-copy transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand motion-reduce:transition-none lg:hidden"
-                onClick={onMobileBack}
-              >
-                <ArrowLeft className="size-4" aria-hidden />
-                Back to services
-              </button>
-            ) : null}
-            {children}
+            {stage === "overview" ? (
+              <div data-appraisal-start-intro data-total-loss-intro>
+                <p className="mb-5 text-xs font-medium tracking-[0.12em] text-copy uppercase">Choose your service</p>
+                <ServiceSelector value={service} disabled={serviceSwitchDisabled} onChange={onServiceChange} />
+                <p className="text-xs font-semibold tracking-[0.12em] text-copy uppercase">{eyebrow}</p>
+                <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-ink sm:text-4xl">{title}</h1>
+                <p className="mt-3 text-sm leading-6 text-copy">{description}</p>
+                {priceNote ? <p className="mt-3 text-xs leading-5 text-copy" data-review-price-note>{priceNote}</p> : null}
+                <ExampleAnalysisPreview service={service} />
+                <button
+                  type="button"
+                  className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-brand px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none"
+                  disabled={serviceSwitchDisabled}
+                  onClick={onContinue}
+                >
+                  {continueLabel}<ArrowRight className="size-4" aria-hidden />
+                </button>
+              </div>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="mb-4 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-copy transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand motion-reduce:transition-none disabled:opacity-50"
+                  disabled={serviceSwitchDisabled}
+                  onClick={onBack}
+                >
+                  <ArrowLeft className="size-4" aria-hidden />Back to services
+                </button>
+                {children}
+              </>
+            )}
           </div>
         </section>
       </div>
