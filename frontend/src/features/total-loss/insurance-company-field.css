@@ -1,0 +1,28 @@
+.insurance-company-field { position: relative; min-width: 0; }
+.insurance-details-panel { container: insurance-details / inline-size; }
+.insurance-details-fields { display: grid; align-items: start; gap: 14px; margin-top: 20px; }
+.insurance-valuation-field { position: relative; min-width: 0; }
+.insurance-valuation-field > div > div:first-child { position: absolute; z-index: 1; top: 12px; left: 16px; right: 16px; gap: 8px; min-height: 16px; }
+:root .insurance-valuation-field :is(label, span) { color: var(--copy); font-size: 12px; font-weight: 500; line-height: 16px; }
+.insurance-valuation-field label { white-space: nowrap; }
+.insurance-valuation-field > div > div:first-child > div { gap: 4px; }
+.insurance-valuation-field button { width: 16px; height: 16px; }
+:root[data-visual-system] .insurance-valuation-field input { margin-top: 0; min-height: 76px; padding: 32px 16px 12px; border-radius: 10px; font-size: 16px; line-height: 24px; font-weight: 500; }
+.insurance-valuation-field:focus-within label { color: var(--brand); }
+@container insurance-details (min-width: 560px) {
+  .insurance-details-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+}
+.insurance-company-field__label { position: absolute; z-index: 1; top: 12px; left: 16px; right: 16px; display: flex; justify-content: space-between; gap: 12px; pointer-events: none; }
+:root .insurance-company-field__label :is(label, span) { color: var(--copy); font-size: 12px; font-weight: 500; line-height: 16px; }
+:root[data-visual-system] .insurance-company-field__input { margin-top: 0; min-height: 76px; padding: 32px 40px 12px; border-radius: 10px; font-size: 16px; line-height: 24px; font-weight: 500; }
+.insurance-company-field__search { position: absolute; left: 16px; top: calc(50% + 8px); transform: translateY(-50%); color: var(--copy); }
+.insurance-company-field__chevron { position: absolute; right: 14px; top: calc(50% + 8px); margin-top: -8px; color: var(--copy); }
+.insurance-company-field:focus-within .insurance-company-field__label label { color: var(--brand); }
+.insurance-company-menu { display: flex; flex-direction: column; outline: none; }
+.insurance-company-menu .intake-select-menu__heading { flex-shrink: 0; }
+.insurance-company-menu__options { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.insurance-company-menu__option { width: 100%; text-align: left; background: transparent; border: 0; }
+.insurance-company-menu__option[data-other] { margin-top: 5px; border-top: 1px solid #eee; border-radius: 0 0 7px 7px; }
+@media (max-width: 639px) and (max-height: 740px) {
+  :root[data-visual-system] :is(.insurance-company-field__input, .insurance-valuation-field input) { min-height: 68px; padding-bottom: 10px; }
+}

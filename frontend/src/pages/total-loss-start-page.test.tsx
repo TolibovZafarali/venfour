@@ -10,6 +10,8 @@ import { http, HttpResponse } from "msw";
 import { PDFDocument } from "pdf-lib";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type * as EnvironmentConfig from "@/config/env";
+import type * as ProductApi from "@/features/nationwide/product-api";
 
 import type {
   AuthService,
@@ -56,9 +58,22 @@ import { renderTestApp as renderBaseTestApp } from "@/test/render";
 import { materialUndervalueAnalysis } from "@/test/fixtures/analysis-presentation";
 import { server } from "@/test/mocks/server";
 
-const { ingestReportMock, prepareIntakeCorrectionMock } = vi.hoisted(() => ({
+const { ingestReportMock, prepareIntakeCorrectionMock, loadProductMock, saveProductMock } = vi.hoisted(() => ({
   ingestReportMock: vi.fn(),
   prepareIntakeCorrectionMock: vi.fn(),
+  loadProductMock: vi.fn(),
+  saveProductMock: vi.fn(),
+}));
+
+vi.mock("@/config/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof EnvironmentConfig>();
+  return { ...actual, environment: { ...actual.environment, nationwideProductEnabled: true } };
+});
+
+vi.mock("@/features/nationwide/product-api", async (importOriginal) => ({
+  ...await importOriginal<typeof ProductApi>(),
+  loadProduct: loadProductMock,
+  saveProduct: saveProductMock,
 }));
 
 vi.mock("@/features/analyses/api/report-ingestion", () => ({
@@ -778,6 +793,8 @@ afterEach(() => {
 });
 
 beforeEach(() => {
+  loadProductMock.mockReset().mockRejectedValue(new Error("Product facts unavailable"));
+  saveProductMock.mockReset().mockRejectedValue(new Error("Stale product revision"));
   prepareIntakeCorrectionMock.mockReset().mockResolvedValue(undefined);
   ingestReportMock.mockReset().mockResolvedValue({
     status: "partial",
@@ -2525,12 +2542,11 @@ describe("/start?service=total-loss", () => {
 
     expect(
       await screen.findByRole("button", { name: "Continue to contact" }),
-    ).toBeEnabled();
+    ).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Continue to contact" }));
+    await user.click(screen.getByLabelText("Market ZIP code"));
+    await user.tab();
     expect(await screen.findByText("ZIP code is required.")).toBeVisible();
-    await waitFor(() =>
-      expect(screen.getByLabelText("Market ZIP code")).toHaveFocus(),
-    );
     expect(
       screen.queryByRole("heading", { name: "Contact details" }),
     ).not.toBeInTheDocument();
@@ -2583,6 +2599,9 @@ describe("/start?service=total-loss", () => {
     expect(screen.queryByRole("button", { name: "Review & analyze" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Venfour home" })).toBeVisible();
     expect(screen.getByTestId("valuation-signals")).toBeVisible();
+    expect(loadProductMock).not.toHaveBeenCalled();
+    expect(saveProductMock).not.toHaveBeenCalled();
+    expect(screen.queryByText("Review location and claim details")).not.toBeInTheDocument();
     await act(async () => confirmationGate.resolve());
 
     await waitFor(() =>
@@ -2711,6 +2730,8 @@ describe("/start?service=total-loss", () => {
     expect(harness.confirmIntake).not.toHaveBeenCalled();
     expect(harness.saveContactAndBeginClaim).toHaveBeenCalledOnce();
     expect(harness.detailRows.get(CASE_ID)).toMatchObject({ insurerName: null, insurerVehicleValuation: null, intakeCompletedAt: null });
+    expect(loadProductMock).not.toHaveBeenCalled();
+    expect(saveProductMock).not.toHaveBeenCalled();
     expect(readTotalLossDraft()).toMatchObject({ ok: true, draft: { step: "review", confirmedCaseId: CASE_ID } });
     expect(router.state.location.pathname).toBe("/start");
     available = true;
@@ -2718,6 +2739,8 @@ describe("/start?service=total-loss", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe(`/total-loss/cases/${CASE_ID}/analysis`));
     expect(harness.confirmIntake).toHaveBeenCalledOnce();
     await waitFor(() => expect(submissions).toBe(1));
+    expect(loadProductMock).not.toHaveBeenCalled();
+    expect(saveProductMock).not.toHaveBeenCalled();
   });
 
   it("bounds a late access-email security error after preserving the intake", async () => {

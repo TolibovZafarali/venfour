@@ -402,47 +402,50 @@ export function ClaimStep({
         </div>
       </section>
       <section
-        className="mt-8 rounded-xl border border-line bg-surface/55 p-4 sm:p-5"
+        className="insurance-details-panel mt-8 rounded-xl border border-line bg-surface/55 p-4 sm:p-5"
         aria-labelledby="insurance-information-heading"
       >
-        <h3
-          id="insurance-information-heading"
-          className="text-base font-semibold text-ink"
-        >
-          Insurance information
-        </h3>
+        <div className="flex items-baseline justify-between gap-3">
+          <h3
+            id="insurance-information-heading"
+            className="text-base font-semibold text-ink"
+          >
+            Insurance information
+          </h3>
+          <span className="text-xs text-copy">Optional</span>
+        </div>
         <p className="mt-1 text-sm leading-6 text-copy">
           Add the insurer details separately from the vehicle appraisal facts.
         </p>
-        <div className="mt-5 grid items-start gap-5 sm:grid-cols-2">
+        <div className="insurance-details-fields">
           <InsuranceCompanyField
             id="total-loss-insurer"
-            optional
             value={values.insurerName}
             error={errors.insurerName}
             disabled={fieldsDisabled}
             onChange={(value) => onChange("insurerName", value)}
             onBlur={() => onBlur("insurerName")}
           />
-          <IntakeTextField
-            id="total-loss-valuation"
-            label="Insurer’s vehicle valuation"
-            value={formatCurrencyInput(values.insurerVehicleValuation)}
-            error={errors.insurerVehicleValuation}
-            labelTooltip="The value assigned to the vehicle before deductible, loan payoff, or other settlement adjustments."
-            optional
-            inputMode="decimal"
-            autoComplete="off"
-            placeholder="$18,750.00"
-            disabled={fieldsDisabled}
-            onChange={(event) =>
-              onChange(
-                "insurerVehicleValuation",
-                formatCurrencyInput(event.target.value),
-              )
-            }
-            onBlur={() => onBlur("insurerVehicleValuation")}
-          />
+          <div className="insurance-valuation-field">
+            <IntakeTextField
+              id="total-loss-valuation"
+              label="Insurer’s vehicle valuation"
+              value={formatCurrencyInput(values.insurerVehicleValuation)}
+              error={errors.insurerVehicleValuation}
+              labelTooltip="The value assigned to the vehicle before deductible, loan payoff, or other settlement adjustments."
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder="$18,750.00"
+              disabled={fieldsDisabled}
+              onChange={(event) =>
+                onChange(
+                  "insurerVehicleValuation",
+                  formatCurrencyInput(event.target.value),
+                )
+              }
+              onBlur={() => onBlur("insurerVehicleValuation")}
+            />
+          </div>
         </div>
       </section>
       {error ? <InlineError message={error} /> : null}
@@ -696,8 +699,6 @@ export function ReportUploadStep({
 }
 
 interface ContactStepProps {
-  readonly locationDetails?: ReactNode;
-  readonly locationDetailsReady?: boolean;
   readonly mode: TotalLossIntakeMode;
   readonly values: TotalLossContactFormValues;
   readonly errors: TotalLossContactFormErrors;
@@ -714,8 +715,6 @@ interface ContactStepProps {
 }
 
 export function ContactStep({
-  locationDetails,
-  locationDetailsReady = true,
   mode,
   values,
   errors,
@@ -793,7 +792,6 @@ export function ContactStep({
   return (
     <FlowCard busy={busy}>
       <TotalLossProgress mode={mode} step="contact" />
-      {locationDetails}
       <StepHeading
         title="Contact details"
         description="Tell us where to save your private result."
@@ -924,7 +922,7 @@ export function ContactStep({
         onContinue={onContinue}
         busy={busy}
         continueLabel="Review & analyze"
-        continueDisabled={!locationDetailsReady || Object.keys(validateTotalLossContactForm(values)).length > 0}
+        continueDisabled={Object.keys(validateTotalLossContactForm(values)).length > 0}
       />
     </FlowCard>
   );

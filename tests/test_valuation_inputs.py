@@ -34,6 +34,28 @@ def snapshot(**overrides: object) -> dict:
 
 
 class ConfirmedValuationInputTests(unittest.TestCase):
+    def test_core_facts_remain_required_without_jurisdiction_assertions(self) -> None:
+        for mode in ("manual", "report"):
+            for field in (
+                "vehicle_year", "vehicle_make", "vehicle_model", "vehicle_trim",
+                "mileage_at_loss", "postal_code", "date_of_loss",
+            ):
+                with self.subTest(mode=mode, field=field):
+                    with self.assertRaises(ValuationInputError) as raised:
+                        ConfirmedValuationInput.from_snapshot(
+                            snapshot(intake_mode=mode, **{field: None})
+                        )
+                    self.assertEqual(raised.exception.field, field)
+
+    def test_insurer_name_remains_required_only_for_report_mode(self) -> None:
+        manual = ConfirmedValuationInput.from_snapshot(snapshot(insurer_name=None))
+        self.assertIsNone(manual.insurer)
+        with self.assertRaises(ValuationInputError) as raised:
+            ConfirmedValuationInput.from_snapshot(
+                snapshot(intake_mode="report", insurer_name=None)
+            )
+        self.assertEqual(raised.exception.field, "insurer_name")
+
     def test_preserves_provider_configuration_separately_from_display_trim(
         self,
     ) -> None:

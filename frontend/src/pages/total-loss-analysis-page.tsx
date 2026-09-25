@@ -110,6 +110,7 @@ function CompletedTotalLossAnalysis({
   }
 
   return (
+    <>
     <TotalLossAnalysisResult
       analysis={resultQuery.data}
       addInsurerOfferPath={
@@ -128,6 +129,8 @@ function CompletedTotalLossAnalysis({
         await queryClient.invalidateQueries({ queryKey: caseAnalysisQueryKeys.detail(userId, caseId) });
       } : undefined}
     />
+    {environment.nationwideProductEnabled && caseId ? <details className="mx-auto my-6 w-full max-w-3xl px-5"><summary className="cursor-pointer text-sm font-medium">Review location and claim details</summary><ProductFactsForm caseId={caseId} accessToken={accessToken} /></details> : null}
+    </>
   );
 }
 
@@ -467,7 +470,6 @@ export function TotalLossAnalysisPage({ reportWorkspace = false }: { reportWorks
         ? <SavedReportBackground accessToken={auth.session.access_token} caseId={caseId} userId={auth.user.id} reportUploadAction={reportUploadAction} />
         : <AuthenticatedTotalLossAnalysisPage accessToken={auth.session.access_token} caseId={caseId} userId={auth.user.id} reportUploadAction={reportUploadAction} />}
     </ReportUploadDialog>
-    {environment.nationwideProductEnabled ? <details className="mx-auto my-6 w-full max-w-3xl px-5"><summary className="cursor-pointer text-sm font-medium">Review location and claim details</summary><ProductFactsForm caseId={caseId} accessToken={auth.session.access_token} /></details> : null}
     </>
   );
 }

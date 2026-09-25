@@ -1,5 +1,6 @@
 import { Check, ChevronDown, ChevronUp, LoaderCircle } from "lucide-react";
 import { Select } from "radix-ui";
+import "./intake-select-menu.css";
 
 import type { IntakeSelectFieldProps } from "@/features/total-loss/intake-fields";
 
@@ -25,18 +26,18 @@ export function VehicleSelectField({ id, label, value, options, placeholder, dis
           </Select.Icon>
         </Select.Trigger>
         <Select.Portal>
-          <Select.Content className="vehicle-select-menu" aria-label={`${label} options`} position="popper" sideOffset={6} collisionPadding={12} onCloseAutoFocus={() => onBlur?.()}>
-            <div className="vehicle-select-menu__heading">{label}</div>
-            <Select.ScrollUpButton className="vehicle-select-scroll"><ChevronUp className="size-4" /></Select.ScrollUpButton>
-            <Select.Viewport className="vehicle-select-options">
+          <Select.Content className="intake-select-menu" aria-label={`${label} options`} position="popper" sideOffset={6} collisionPadding={12} onCloseAutoFocus={() => onBlur?.()}>
+            <div className="intake-select-menu__heading">{label}</div>
+            <Select.ScrollUpButton className="intake-select-scroll"><ChevronUp className="size-4" /></Select.ScrollUpButton>
+            <Select.Viewport className="intake-select-options">
               {items.map(option => (
-                <Select.Item key={option.value} value={option.value} textValue={option.label} className="vehicle-select-option">
+                <Select.Item key={option.value} value={option.value} textValue={option.label} className="intake-select-option">
                   <Select.ItemText>{option.label}</Select.ItemText>
-                  <Select.ItemIndicator className="vehicle-select-check"><Check className="size-4" /></Select.ItemIndicator>
+                  <Select.ItemIndicator className="intake-select-check"><Check className="size-4" /></Select.ItemIndicator>
                 </Select.Item>
               ))}
             </Select.Viewport>
-            <Select.ScrollDownButton className="vehicle-select-scroll"><ChevronDown className="size-4" /></Select.ScrollDownButton>
+            <Select.ScrollDownButton className="intake-select-scroll"><ChevronDown className="size-4" /></Select.ScrollDownButton>
           </Select.Content>
         </Select.Portal>
       </Select.Root>

@@ -1,6 +1,8 @@
 """Exercise shadow observations through existing server and worker fixtures."""
 
 from contextlib import ExitStack
+import copy
+from dataclasses import replace
 import hashlib
 import hmac
 import json
@@ -21,6 +23,73 @@ from test_jurisdiction import CASE, NOW, facts
 
 
 class JurisdictionIntegrationTests(unittest.TestCase):
+    def test_free_valuation_inputs_and_results_ignore_jurisdiction_completeness(self):
+        import test_case_analyses as fixtures
+        from test_nationwide_product import facts as product_facts
+        from venfour.jurisdiction import CaseFacts
+
+        contexts = [
+            ("no fact rows", 0, CaseFacts()),
+            ("all unknown", 1, CaseFacts(tuple(
+                replace(assertion, value=None) for assertion in product_facts().assertions
+            ))),
+        ]
+        for claim in ("first_party", "third_party", None):
+            for use in ("personal", "commercial", None):
+                contexts.append((f"{claim}/{use}", 7, product_facts(claim=claim, use=use)))
+        contexts.append(("unavailable", 0, CaseFacts()))
+
+        for mode in ("manual", "report"):
+            baseline = None
+            for label, revision, saved_facts in contexts:
+                with self.subTest(mode=mode, context=label):
+                    gateway = fixtures.FakeCaseGateway()
+                    snapshot = fixtures.confirmed_snapshot(mode)
+                    gateway.claim_row.update(
+                        intake_mode=mode,
+                        source_report_upload_id=fixtures.REPORT_UPLOAD_ID if mode == "report" else None,
+                        analysis_input_id=snapshot["analysis_input_id"],
+                        analysis_input_revision=2,
+                        input_snapshot=snapshot,
+                        report_extraction_available=mode == "report",
+                    )
+                    if mode == "report":
+                        gateway.extraction_rows[(fixtures.CASE_ID, fixtures.REPORT_UPLOAD_ID, 2)] = {
+                            "case_id": fixtures.CASE_ID,
+                            "report_upload_id": fixtures.REPORT_UPLOAD_ID,
+                            "analysis_input_revision": 2,
+                            "extraction_status": "confirmed",
+                            "normalized_report": fixtures.ingestion_result(partial=True).to_dict(),
+                        }
+                    context = {
+                        "case_id": fixtures.CASE_ID, "revision": revision,
+                        "facts": saved_facts.to_dict(), "date_of_loss": snapshot["date_of_loss"],
+                        "intake_updated_at": NOW.isoformat(),
+                    }
+                    before = copy.deepcopy(context)
+                    self.assertEqual(CaseFacts.from_dict(context["facts"]), saved_facts)
+                    gateway.get_jurisdiction_context = Mock(return_value=context)
+                    gateway.record_jurisdiction_decision = Mock()
+                    gateway.append_product_facts = Mock(side_effect=AssertionError("Unexpected fact write"))
+                    if label == "unavailable":
+                        gateway.get_jurisdiction_context.side_effect = RuntimeError("unavailable")
+                    factory = fixtures.ConfirmedCreationFactory()
+                    service = fixtures.CaseAnalysisServiceTests().make_service(gateway, factory)
+                    with patch.dict(os.environ, {FLAG: "shadow"}), patch("venfour.jurisdiction_adapter.LOGGER"):
+                        result = service.submit(fixtures.CASE_ID, fixtures.USER_ID)
+                    self.assertEqual(result.status, "completed")
+                    evidence = (result.to_dict(), factory.calls, gateway.artifacts)
+                    if baseline is None:
+                        baseline = copy.deepcopy(evidence)
+                    self.assertEqual(evidence, baseline)
+                    self.assertEqual(context, before)
+                    gateway.append_product_facts.assert_not_called()
+                    gateway.get_jurisdiction_context.assert_called_once()
+                    if label == "unavailable":
+                        gateway.record_jurisdiction_decision.assert_not_called()
+                    else:
+                        gateway.record_jurisdiction_decision.assert_called_once()
+
     def shadow_gateway(self):
         gateway = Mock()
         gateway.get_jurisdiction_context.side_effect = lambda case_id, owner_user_id=None: {

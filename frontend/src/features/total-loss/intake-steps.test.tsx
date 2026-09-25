@@ -45,12 +45,12 @@ afterEach(() => {
 });
 
 describe("total-loss intake step presentation", () => {
-  it("blocks contact submission until required details, consent, and location are ready", async () => {
+  it("requires contact details and consent without a jurisdiction confirmation", async () => {
     const user = userEvent.setup();
     const onContinue = vi.fn();
-    const renderContact = (values: TotalLossContactFormValues, locationDetailsReady = true) => (
+    const renderContact = (values: TotalLossContactFormValues) => (
       <MemoryRouter>
-        <ContactStep mode="manual" values={values} errors={{}} locationDetailsReady={locationDetailsReady}
+        <ContactStep mode="manual" values={values} errors={{}}
           onChange={vi.fn()} onBack={vi.fn()} onContinue={onContinue} />
       </MemoryRouter>
     );
@@ -61,10 +61,10 @@ describe("total-loss intake step presentation", () => {
     expect(onContinue).not.toHaveBeenCalled();
     rerender(renderContact({ ...contactValues, privacyAccepted: false }));
     expect(button).toBeDisabled();
-    rerender(renderContact(contactValues, false));
-    expect(button).toBeDisabled();
     rerender(renderContact({ ...contactValues, phoneNumber: "" }));
     expect(button).toBeEnabled();
+    expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+    expect(screen.queryByRole("heading", { name: "Location and claim details" })).not.toBeInTheDocument();
     await user.click(button);
     expect(onContinue).toHaveBeenCalledOnce();
   });

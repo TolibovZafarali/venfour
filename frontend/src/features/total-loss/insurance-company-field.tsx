@@ -1,6 +1,6 @@
 import { Check, ChevronDown, Search } from "lucide-react";
 import { Popover } from "radix-ui";
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type {
   ChangeEvent,
   FocusEvent,
@@ -13,6 +13,8 @@ import {
   totalLossInputClassName,
 } from "@/features/total-loss/intake-fields";
 import { cn } from "@/lib/utils";
+import "@/features/intake/intake-select-menu.css";
+import "./insurance-company-field.css";
 
 const commonAutoInsuranceCompanies = [
   "State Farm",
@@ -102,6 +104,10 @@ export function InsuranceCompanyField({
     ];
   }, [query, selection]);
 
+  useEffect(() => {
+    if (open) listboxRef.current?.querySelector('[data-highlighted]')?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, open]);
+
   const chooseOption = (option: InsurerOption) => {
     setSelection(option.value);
     setQuery(option.label);
@@ -174,8 +180,8 @@ export function InsuranceCompanyField({
   };
 
   return (
-    <div>
-      <div className="flex justify-between gap-3 items-baseline">
+    <div className="insurance-company-field">
+      <div className="insurance-company-field__label">
         <label htmlFor={id} className="text-sm font-semibold text-ink">
           Insurance company
         </label>
@@ -188,7 +194,7 @@ export function InsuranceCompanyField({
         <Popover.Anchor asChild>
           <div className="relative">
             <Search
-              className="pointer-events-none absolute left-3.5 top-1/2 mt-1 size-4 -translate-y-1/2 text-copy"
+              className="insurance-company-field__search pointer-events-none size-4"
               aria-hidden
             />
             <input
@@ -210,7 +216,7 @@ export function InsuranceCompanyField({
               value={query}
               placeholder="Search or select insurer"
               disabled={disabled}
-              className={cn(totalLossInputClassName, "pl-10 pr-10")}
+              className={cn(totalLossInputClassName, "insurance-company-field__input")}
               onFocus={(event) => {
                 event.currentTarget.select();
                 setActiveIndex(0);
@@ -227,7 +233,7 @@ export function InsuranceCompanyField({
             />
             <ChevronDown
               className={cn(
-                "pointer-events-none absolute right-3.5 top-1/2 mt-1 size-4 -translate-y-1/2 text-copy transition-transform motion-reduce:transition-none",
+                "insurance-company-field__chevron pointer-events-none size-4 transition-transform motion-reduce:transition-none",
                 open && !disabled && "rotate-180",
               )}
               aria-hidden
@@ -238,15 +244,18 @@ export function InsuranceCompanyField({
           <Popover.Content data-product-overlay
             align="start"
             sideOffset={6}
+            collisionPadding={12}
             onOpenAutoFocus={(event) => event.preventDefault()}
             onCloseAutoFocus={(event) => event.preventDefault()}
-            className="z-50 max-h-64 w-[var(--radix-popover-trigger-width)] min-w-56 overflow-y-auto rounded-xl border border-line bg-white p-1.5 shadow-[0_20px_55px_-24px_rgba(11,31,51,0.42)] outline-none"
+            className="intake-select-menu insurance-company-menu"
           >
+            <div className="intake-select-menu__heading">Insurance company</div>
             <div
               ref={listboxRef}
               id={listboxId}
               role="listbox"
               aria-label="Insurance companies"
+              className="intake-select-options insurance-company-menu__options"
             >
               {options.length === 1 && query.trim() ? (
                 <p className="px-3 py-2 text-xs leading-5 text-copy">
@@ -263,19 +272,17 @@ export function InsuranceCompanyField({
                     type="button"
                     role="option"
                     aria-selected={selected}
-                    className={cn(
-                      "flex min-h-10 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-brand-soft focus-visible:outline-none motion-reduce:transition-none",
-                      active && "bg-brand-soft",
-                      option.value === otherInsurerValue &&
-                        "mt-1 border-t border-line",
-                    )}
+                    data-state={selected ? "checked" : "unchecked"}
+                    data-highlighted={active ? "" : undefined}
+                    data-other={option.value === otherInsurerValue || undefined}
+                    className="intake-select-option insurance-company-menu__option"
                     onMouseDown={preserveSearchFocus}
                     onMouseEnter={() => setActiveIndex(index)}
                     onClick={() => chooseOption(option)}
                   >
                     <span>{option.label}</span>
                     {selected ? (
-                      <Check className="size-4 shrink-0 text-brand" aria-hidden />
+                      <span className="intake-select-check"><Check className="size-4" aria-hidden /></span>
                     ) : null}
                   </button>
                 );

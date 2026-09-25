@@ -2,14 +2,24 @@ import { http, HttpResponse } from "msw";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Session } from "@supabase/supabase-js";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type * as EnvironmentConfig from "@/config/env";
 
 import type { AuthService } from "@/features/auth";
 import type { AnalysisPresentationBase } from "@/features/analyses/analysis-presentation.generated";
 import { materialUndervalueAnalysis, representativeRunId } from "@/test/fixtures/analysis-presentation";
 import { server } from "@/test/mocks/server";
 import { renderTestApp } from "@/test/render";
-import { requestAutomaticSubmission } from "@/features/analyses/case-analysis-queries";
+import { caseAnalysisQueryKeys, requestAutomaticSubmission } from "@/features/analyses/case-analysis-queries";
+const flags = vi.hoisted(() => ({ nationwideProductEnabled: false }));
+vi.mock("@/config/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof EnvironmentConfig>();
+  return { ...actual, environment: {
+    ...actual.environment,
+    get nationwideProductEnabled() { return flags.nationwideProductEnabled; },
+  } };
+});
+afterEach(() => { flags.nationwideProductEnabled = false; });
 
 vi.mock("@/features/analyses/components/valuation-signal-field", () => ({
   ValuationSignalField: () => <canvas aria-hidden="true" data-testid="valuation-signals" />,
@@ -55,6 +65,36 @@ function authService(session: Session | null): AuthService {
 }
 
 describe("total-loss case analysis page", () => {
+  it("loads existing product details only after the free result is visible", async () => {
+    flags.nationwideProductEnabled = true;
+    let completed = false;
+    const productRequests = vi.fn(({ request }: { request: Request }) => {
+      expect(request.method).toBe("GET");
+      return HttpResponse.json({}, { status: 503 });
+    });
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/product", productRequests),
+      http.post("*/api/v1/appraisal-cases/:caseId/product", productRequests),
+      http.get("*/api/v1/appraisal-cases/:caseId/analysis", () => HttpResponse.json(
+        completed
+          ? { status: "completed", attemptCount: 1, runId: representativeRunId }
+          : { status: "processing", attemptCount: 1, processingExpiresAt: null },
+      )),
+    );
+    const { queryClient } = renderTestApp([casePath], { authService: authService(sessionFor()) });
+    expect(await screen.findByRole("heading", { name: progressHeading })).toBeVisible();
+    expect(screen.queryByText("Review location and claim details")).not.toBeInTheDocument();
+    expect(productRequests).not.toHaveBeenCalled();
+
+    completed = true;
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: caseAnalysisQueryKeys.detail(USER_ID, CASE_ID) });
+    });
+    expect(await screen.findByRole("heading", { name: materialResultHeading })).toBeVisible();
+    expect(screen.getByText("Review location and claim details")).toBeVisible();
+    await waitFor(() => expect(productRequests).toHaveBeenCalledOnce());
+  });
+
   it("submits a just-confirmed intake once and sends the bearer token", async () => {
     requestAutomaticSubmission(USER_ID, CASE_ID, { expectedAnalysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", expectedAnalysisInputRevision: 1 });
     let postCount = 0;
