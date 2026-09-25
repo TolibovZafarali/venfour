@@ -65,9 +65,9 @@
   "market_review": {
     "intro": "Five separate hypothetical vehicles match the subject's year, model, trim and drivetrain. Each record is stipulated, for this example only, to have been advertised on the September 2 loss date.",
     "table_note": "Every row: 2020 Toyota RAV4 XLE AWD. Distances are illustrative miles from ZIP 60618. IDs H1-H5 replace identifying dealer and listing details; there are no live listing links in this sample.",
-    "selection": "In a real review, vehicle similarity and recorded search coverage guide selection; price is not the ranking criterion. This sample's complete set is displayed above. None of its records represents the subject vehicle, a duplicate listing or a supplemental search for higher prices.",
-    "timing": "The historical activity shown here is a hypothetical assumption, not a verified archive result. Venfour distinguishes loss-date evidence from current listings. Current asking prices alone do not establish what was available on the loss date.",
-    "limits": "These are advertised asking prices, not verified sale prices. There is no independent dollar adjustment for mileage, condition, equipment, location, certification or warranty. Listing condition and optional equipment may differ. The selected vehicles do not represent the entire market.",
+    "selection": "Venfour ranks vehicles by similarity, not price. This sample shows the complete comparison set: five separate hypothetical vehicles, with no duplicates, subject-vehicle matches or supplemental listings chosen for higher prices.",
+    "timing": "Historical activity here is assumed for illustration, not verified. Venfour distinguishes loss-date records from current listings. A current listing does not establish that a vehicle was available at that price on the loss date.",
+    "limits": "Asking prices are not verified sale prices. No independent dollar adjustments are made for mileage, condition, equipment, location, certification or warranty. Condition and optional equipment may differ. These vehicles do not represent the entire market.",
     "record_note": "A real case's available source details, dates and limitations matter. Missing evidence must remain missing; a sample ID or a current listing cannot substitute for historical verification."
   },
   "reasoning": {

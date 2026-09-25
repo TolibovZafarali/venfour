@@ -1,0 +1,357 @@
+PAGE 1
+Venfour
+SAMPLE / HYPOTHETICAL CASE
+venfour.com
+SAMPLE-TL-2026-01  /  NOT A REAL CLAIM
+01 / 08
+TOTAL-LOSS VALUATION / CUSTOMER CASE PACKET
+Sample Venfour
+Total-Loss Review
+A hypothetical completed review of an insurer's vehicle valuation, with a customer
+reconsideration request and an example of guidance after the insurer replies.
+SUBJECT VEHICLE
+2020 Toyota RAV4 XLE AWD
+80,000 miles  /  Loss: September 2, 2026
+Review issued September 18, 2026
+INSURER VEHICLE VALUE
+$20,500
+SELECTED ASKING-PRICE RANGE
+$22,400 - $23,400
+Median $22,900 / 5 sample records
+Before separate settlement items
+The evidence supports asking for reconsideration.
+In this example, the insurer's $20,500 vehicle valuation sits below all five selected asking prices. The report
+also leaves a repeated condition deduction unexplained. Together, these points support a focused request
+for review.
+INDICATED ASKING-PRICE GAP
+$2,400
+$22,900 median asking price minus $20,500 insurer vehicle value. This is a
+comparison to discuss, not a promised increase or an amount determined to be
+owed.
+All case details, people, insurer records, listings and prices are invented for this sample. No real customer records or live market
+searches were used. This packet brings the report and related customer guidance together; it is not an exact export of the
+application.
+
+
+PAGE 2
+Venfour
+SAMPLE / HYPOTHETICAL CASE
+venfour.com
+SAMPLE-TL-2026-01  /  NOT A REAL CLAIM
+02 / 08
+01 / CASE AND MATERIALS
+What this review covers
+The review focuses on the vehicle value in the insurer's report and the evidence supporting it. It keeps that
+value separate from the customer's final settlement payment.
+Case and vehicle summary
+Vehicle
+2020 Toyota RAV4 XLE AWD
+Odometer at loss
+80,000 miles
+Loss date / market
+September 2, 2026 / Chicago area, ZIP 60618
+Customer / insurer
+Jordan Lee / Sample Insurer (both hypothetical)
+Condition / equipment
+Customer reports normal pre-loss condition, no existing damage and standard
+XLE equipment. No physical inspection.
+Vehicle identity
+Subject V0; individual VINs omitted from this illustrative packet. All comparable
+records represent separate hypothetical vehicles.
+Illustrative review file
+R1
+Insurer valuation
+September 8 report: $20,500 vehicle value; three comparables, disclosed adjustments and equal
+weighting. Reproduced on page 3.
+C1
+Customer information
+Vehicle details and pre-loss condition statement shown above. Customer-reported facts are not
+independently inspected.
+H1-H5
+Market records
+Five fictional historical asking-price observations for the loss date. The entire sample comparison set is on
+page 4.
+R2
+Later insurer reply
+September 23 hypothetical response, shown on page 7. It is separate from the September 18 original
+review.
+The sample source IDs identify records described within this document, not externally retrieved documents. No actual insurer PDF,
+listing archive or VIN verification accompanies this example.
+Vehicle value and settlement payment are separate
+Taxes, title or registration fees, deductible, loan payoff and other settlement items have not been evaluated or
+added. No net settlement check is calculated. No state-specific entitlement or deadline is determined.
+
+
+PAGE 3
+Venfour
+SAMPLE / HYPOTHETICAL CASE
+venfour.com
+SAMPLE-TL-2026-01  /  NOT A REAL CLAIM
+03 / 08
+02 / INSURER VALUATION
+Where the report needs clarity
+The hypothetical report uses three 2020 RAV4 XLE AWD vehicles. Its disclosed adjustments produce an
+equally weighted vehicle value of $20,500. The arithmetic works; the basis for some adjustments needs
+explanation.
+Record
+Mileage
+Asking
+price
+Mileage
+adjustment
+Condition
+adjustment
+Insurer-
+adjusted
+I1
+72,600
+$22,000
+-$400
+-$1,100
+$20,500
+I2
+88,000
+$21,500
++$500
+-$1,100
+$20,900
+I3
+77,800
+$21,300
+-$100
+-$1,100
+$20,100
+All amounts are hypothetical USD. Adjustments above are the insurer's figures, not dollar adjustments calculated or endorsed by
+Venfour. Other disclosed adjustments are $0 in this example.
+REPORTED VEHICLE VALUE
+($20,500 + $20,900 + $20,100) / 3 = $20,500
+01
+The same $1,100 condition deduction appears three times.
+R1 gives no itemized explanation for the deduction. C1 reports normal pre-loss condition. Ask what the
+deduction represents and what evidence supports it. Its repetition alone does not prove it is improper.
+02
+Mileage differences matter, but the adjustment method is unclear.
+The insurer subtracts $400 for I1, adds $500 for I2 and subtracts $100 for I3. Those directions are
+consistent with their lower or higher mileage. The sample report does not explain the rates or method.
+03
+The insurer's result is below the separate market set.
+All five selected historical asking prices are above $20,500. Ask the insurer to address the comparable
+records and explain any material differences. Asking prices alone do not establish completed-sale value.
+Priority: request the condition-adjustment basis and a written response to the five market records. Do not add the
+$1,100 deduction to the $2,400 asking-price gap; these are overlapping ways to examine the same valuation.
+
+
+PAGE 4
+Venfour
+SAMPLE / HYPOTHETICAL CASE
+venfour.com
+SAMPLE-TL-2026-01  /  NOT A REAL CLAIM
+04 / 08
+03 / COMPARABLE EVIDENCE
+The market records behind the gap
+Five separate hypothetical vehicles match the subject's year, model, trim and drivetrain. Each record is
+stipulated, for this example only, to have been advertised on the September 2 loss date.
+Record
+Fictional listing source
+Mileage
+Distance
+Asking price
+H1
+Sample dealer A
+82,400
+14 mi
+$22,400
+H2
+Sample dealer B
+78,900
+22 mi
+$22,700
+H3
+Sample dealer C
+80,500
+31 mi
+$22,900
+H4
+Sample dealer D
+75,300
+48 mi
+$23,200
+H5
+Sample dealer E
+85,600
+62 mi
+$23,400
+Every row: 2020 Toyota RAV4 XLE AWD. Distances are illustrative miles from ZIP 60618. IDs H1-H5 replace identifying dealer and
+listing details; there are no live listing links in this sample.
+LOW
+$22,400
+MEDIAN
+$22,900
+HIGH
+$23,400
+How the set is used
+Venfour ranks vehicles by similarity, not price. This sample shows the complete comparison set: five separate
+hypothetical vehicles, with no duplicates, subject-vehicle matches or supplemental listings chosen for higher
+prices.
+Loss-date context
+Historical activity here is assumed for illustration, not verified. Venfour distinguishes loss-date records from
+current listings. A current listing does not establish that a vehicle was available at that price on the loss date.
+Material limitations
+Asking prices are not verified sale prices. No independent dollar adjustments are made for mileage, condition,
+equipment, location, certification or warranty. Condition and optional equipment may differ. These vehicles do
+not represent the entire market.
+
+
+PAGE 5
+Venfour
+SAMPLE / HYPOTHETICAL CASE
+venfour.com
+SAMPLE-TL-2026-01  /  NOT A REAL CLAIM
+05 / 08
+04 / CONCLUSION AND ACTION
+What the evidence supports
+The supported conclusion is a reason to question the insurer's current vehicle valuation. The evidence does
+not establish a new appraised value or a guaranteed settlement target.
+Start with the same measure.
+The $20,500 baseline is the insurer's vehicle valuation before separate settlement items. It is not a check after
+a deductible or loan payoff.
+Compare it with the recorded market evidence.
+The five hypothetical asking prices run from $22,400 to $23,400, with a $22,900 median. The insurer's value is
+$1,900 below the lowest asking price and $2,400 below the median.
+Treat the gap as a review question.
+The $2,400 median difference is about 11.7% of the insurer's $20,500 value. It shows the size of the
+discrepancy worth discussing. It does not isolate an insurer error or measure the amount the customer will
+recover.
+Keep the adjustment questions separate.
+A clearer explanation of the $1,100 condition deduction may resolve some of the difference. Removing that
+deduction would not, by itself, establish the market value. Do not count it again on top of the asking-price gap.
+A practical reconsideration plan
+1
+Send one focused request
+Attach the review and comparable evidence. Ask the adjuster to reconsider the vehicle value and explain
+the condition and mileage adjustments.
+2
+Ask for a written, itemized reply
+Request an updated valuation report, or a brief explanation of why the current value is maintained and how
+the listed vehicles were considered.
+3
+Save the reply for the next review
+Keep the sent request and attachments. When the insurer responds, add its exact reply, revised report and
+vehicle-value amount to the Venfour case.
+A useful outcome may be a corrected value, a documented explanation or confirmation that more evidence is needed. The
+customer decides how to proceed.
+
+
+PAGE 6
+Venfour
+SAMPLE / HYPOTHETICAL CASE
+venfour.com
+SAMPLE-TL-2026-01  /  NOT A REAL CLAIM
+06 / 08
+05 / READY-TO-SEND EXAMPLE
+A clear request to the adjuster
+An example of the customer-controlled reconsideration request. The wording is complete for this
+hypothetical case; real claim details and attachments must be reviewed before sending.
+SUBJECT
+Request to review vehicle valuation - claim SAMPLE-TL-2026-01
+Hello Morgan,
+Thank you for your help with my total-loss claim for my 2020 Toyota RAV4 XLE AWD. I reviewed
+the September 8 valuation report and would appreciate another look at the $20,500 vehicle
+valuation.
+The attached review includes five comparable vehicles with asking prices from $22,400 to
+$23,400 and a median of $22,900. The records relate to the September 2 loss date. I understand
+these are asking prices rather than verified sale prices, and differences between vehicles may
+affect the comparison.
+Could you please explain the $1,100 condition deduction applied to each of the three
+comparables and the evidence supporting it? I reported normal pre-loss condition and no
+existing damage. I would also appreciate an explanation of the mileage adjustments.
+Please reconsider the vehicle valuation in light of the comparable records. If the valuation
+remains unchanged, could you explain how those vehicles were considered and which
+differences or adjustments support your conclusion? An updated valuation report or a written
+explanation would be helpful.
+Thank you for your time and help,
+Jordan Lee
+Attachments and final check
+For an actual claim: the customer's Venfour valuation report and its supporting comparable evidence. This sample
+packet and its invented records must not be submitted as evidence for a real claim.
+The customer checks the recipient, claim number, facts and attachments, then sends the message through their own
+email or insurer channel. Venfour prepares guidance; it does not send to or negotiate directly with the insurer.
+
+
+PAGE 7
+Venfour
+SAMPLE / HYPOTHETICAL CASE
+venfour.com
+SAMPLE-TL-2026-01  /  NOT A REAL CLAIM
+07 / 08
+06 / FOLLOW-UP EXAMPLE
+The insurer revises its valuation
+This hypothetical continuation shows how a later insurer reply can be reviewed against the original request
+and saved evidence. It does not replace or rewrite the original report.
+HYPOTHETICAL INSURER REPLY / SEPTEMBER 23, 2026
+R2 / Sample Insurer
+We reviewed your request and revised the vehicle valuation to $21,300. We reduced the condition
+deduction from $1,100 to $300 for each comparable; the mileage adjustments and equal weighting
+remain unchanged. The vehicles you supplied are dealer asking prices, so we have retained our
+valuation method.
+What changed
+R2 states a revised vehicle value of $21,300 and a lower condition deduction. Check the amount and changes
+against the revised valuation report.
+What the insurer addressed
+The insurer reconsidered the condition adjustment and correctly distinguishes dealer asking prices from sale
+prices. The reply should be acknowledged rather than treated as a rejection of every point.
+What remains unresolved
+R2 does not explain the remaining $300 deduction, the mileage method or how the individual market vehicles
+were evaluated. The revised value remains below the saved asking-price range; that fact alone does not decide
+whether to accept it.
+No clear recommendation yet
+The saved conclusion assessed $20,500, not the new $21,300 amount. Venfour can explain the reply and
+unresolved points, but the original asking-price range does not establish whether this revised offer should
+be accepted or challenged further.
+Confirm the revised report and amount, then decide whether to request clarification of the remaining
+adjustments. Where supported and available, Venfour can prepare a follow-up using the saved evidence. It does
+not calculate a new appraised value from the reply.
+
+
+PAGE 8
+Venfour
+SAMPLE / HYPOTHETICAL CASE
+venfour.com
+SAMPLE-TL-2026-01  /  NOT A REAL CLAIM
+08 / 08
+07 / CONTINUING THE CASE
+Support after the first request
+The customer remains in control of the insurer conversation and the decision. Venfour organizes the
+evidence and helps interpret what the insurer says next.
+After sending
+Mark the request as sent in the case and keep a copy of what was sent. The case
+moves to waiting for the insurer. Venfour does not contact the adjuster on the
+customer's behalf.
+When the insurer replies
+Paste the response or upload the original reply, and record any revised vehicle-value
+offer. Review the interpretation and check uncertain amounts against the original.
+If a follow-up is
+supported
+Choose whether to continue, review the prepared follow-up and send it yourself. Save
+subsequent replies in the case so the next review has the prior request and evidence.
+When deciding to finish
+The customer chooses the next step and confirms any acceptance with the insurer.
+Recording a decision in Venfour does not communicate acceptance to the insurer. The
+case retains its saved report, replies and history.
+$199 / one-time full review
+The package includes the review, downloadable report, supported reconsideration request and guidance after the
+insurer replies. No subscription. A higher valuation or settlement is not guaranteed.
+No supported dispute
+If the completed review does not reasonably support a valuation dispute, the full fee is refunded automatically. The
+completed review and report remain available.
+Supported dispute; final increase under $1,000
+After following the Venfour-supported reconsideration process, the customer may request a full refund with sufficient
+final-outcome documentation within 30 days of the insurer's final written response. The threshold compares vehicle value
+at purchase with the final verified vehicle value, not the settlement check. An interim reply is not a final outcome.
+Full eligibility: venfour.com/refund-policy
+For the referring attorney: this packet puts the vehicle-value baseline, adjustment questions, comparable evidence and
+customer correspondence in one readable record. It can reduce the work of organizing a client's property-damage
+valuation question while leaving legal advice and representation with counsel.
+Venfour is a self-service evidence review. It is not legal advice, an independent appraisal, a determination of what is owed or direct
+insurer negotiation. No claim outcome is promised.
+Service terms: venfour.com/terms

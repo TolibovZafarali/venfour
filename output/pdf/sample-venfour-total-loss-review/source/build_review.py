@@ -238,15 +238,15 @@ class Packet:
         y = self.heading('Case and vehicle summary', y)
         for label, value in s['vehicle_facts']:
             self.paragraph(label, y, width=130, size=9.3, leading=13, color=COPY)
-            bottom = self.paragraph(value, y, x=197, width=361, size=10, leading=14)
-            y = bottom + 9
+            bottom = self.paragraph(value, y, x=197, width=361, size=10, leading=13)
+            y = bottom + 6
         self.line(y + 1)
-        y = self.heading('Illustrative review file', y + 18)
+        y = self.heading('Illustrative review file', y + 14)
         for ref, label, body in s['records']:
             self.text(ref, y + 1, size=9, font='Bold', color=COPY)
             y = self.paragraph(label, y, x=105, width=453, size=10, leading=13, font='Bold') + 3
-            y = self.paragraph(body, y, x=105, width=453, size=9.5, leading=13) + 10
-        y = self.paragraph(s['scope_note'], y + 1, size=8.6, leading=11.5, color=COPY) + 14
+            y = self.paragraph(body, y, x=105, width=453, size=9.5, leading=13) + 8
+        y = self.paragraph(s['scope_note'], y + 1, size=8.6, leading=11.5, color=COPY) + 10
         self.callout('Vehicle value and settlement payment are separate', s['boundary'], y, 9.3, 13)
 
     def insurer(self):
@@ -269,7 +269,7 @@ class Packet:
         y = self.start('03 / COMPARABLE EVIDENCE', 'The market records behind the gap', s['intro'])
         rows = [[r['id'], r['dealer'], f"{r['mileage']:,}", f"{r['distance']} mi", cash(r['price'])] for r in self.d['market']]
         y = self.row_table(['Record', 'Fictional listing source', 'Mileage', 'Distance', 'Asking price'], rows,
-                           [49, 187, 85, 80, 103], y, numeric=(2,3,4), body_size=10, padding=10)
+                           [49, 187, 85, 80, 103], y, numeric=(2,3,4), body_size=10, padding=8)
         y = self.paragraph(s['table_note'], y + 10, size=8.7, leading=12, color=COPY) + 16
         self.box(y, 61)
         for x, label, value in [(70, 'LOW', '$22,400'), (238, 'MEDIAN', '$22,900'), (406, 'HIGH', '$23,400')]:
@@ -278,18 +278,17 @@ class Packet:
         y += 80
         for title, body in [('How the set is used', s['selection']), ('Loss-date context', s['timing']), ('Material limitations', s['limits'])]:
             y = self.heading(title, y, 11)
-            y = self.paragraph(body, y, size=10, leading=14) + 16
-        self.paragraph(s['record_note'], y, size=8.7, leading=12, color=COPY)
+            y = self.paragraph(body, y, size=10, leading=14) + 13
 
     def reasoning(self):
         s = self.d['reasoning']
         y = self.start('04 / CONCLUSION AND ACTION', 'What the evidence supports', s['intro'])
         for title, body in s['steps']:
             y = self.heading(title, y, 11.2)
-            y = self.paragraph(body, y, size=10.2, leading=14.2) + 16
+            y = self.paragraph(body, y, size=10.2, leading=14.2) + 12
         self.line(y)
         y = self.heading('A practical reconsideration plan', y + 19, 14)
-        y = self.numbered(s['strategy'], y, body_size=10, leading=14, gap=13)
+        y = self.numbered(s['strategy'], y, body_size=10, leading=14, gap=10)
         self.paragraph(s['closing'], y, size=9.2, leading=13, color=COPY)
 
     def request(self):
@@ -300,7 +299,7 @@ class Packet:
         self.line(y)
         y += 22
         for text in s['paragraphs']:
-            y = self.paragraph(text, y, x=LEFT + 15, width=WIDTH - 30, size=11, leading=16) + 13
+            y = self.paragraph(text, y, x=LEFT + 15, width=WIDTH - 30, size=11, leading=15.5) + 10
         self.line(y + 3)
         y = self.heading('Attachments and final check', y + 22, 11)
         y = self.paragraph(s['attachments'], y, size=9.5, leading=13.5) + 13

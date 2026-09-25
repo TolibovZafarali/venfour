@@ -1,0 +1,14 @@
+{
+  "pages": 8,
+  "sample_labels": "all pages",
+  "bookmarks": 8,
+  "embedded_fonts": [
+    "/AAAAAA+AvenirNext-DemiBold-2",
+    "/AAAAAA+HelveticaNeue-0",
+    "/AAAAAA+HelveticaNeue-Bold-1"
+  ],
+  "content_bounds": "passed",
+  "arithmetic": "builder assertions passed",
+  "pdf_sha256": "369d5e5a6778fec545cdf4de3b92a19a47084d18321ae723627018d7046e04ec",
+  "page_visual_review": "all eight rendered pages inspected"
+}

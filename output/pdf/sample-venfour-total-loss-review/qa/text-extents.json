@@ -1,0 +1,836 @@
+[
+  {
+    "page": 1,
+    "top": 121,
+    "bottom": 181,
+    "text": "Sample Venfour\nTotal-Loss Review"
+  },
+  {
+    "page": 1,
+    "top": 198,
+    "bottom": 230,
+    "text": "A hypothetical completed review of an insurer's vehicle valuation, wit"
+  },
+  {
+    "page": 1,
+    "top": 281,
+    "bottom": 299,
+    "text": "2020 Toyota RAV4 XLE AWD"
+  },
+  {
+    "page": 1,
+    "top": 449,
+    "bottom": 466,
+    "text": "The evidence supports asking for reconsideration."
+  },
+  {
+    "page": 1,
+    "top": 475,
+    "bottom": 520,
+    "text": "In this example, the insurer's $20,500 vehicle valuation sits below al"
+  },
+  {
+    "page": 1,
+    "top": 552,
+    "bottom": 591,
+    "text": "$22,900 median asking price minus $20,500 insurer vehicle value. This "
+  },
+  {
+    "page": 1,
+    "top": 637,
+    "bottom": 673,
+    "text": "All case details, people, insurer records, listings and prices are inv"
+  },
+  {
+    "page": 2,
+    "top": 121,
+    "bottom": 151,
+    "text": "What this review covers"
+  },
+  {
+    "page": 2,
+    "top": 165,
+    "bottom": 195,
+    "text": "The review focuses on the vehicle value in the insurer's report and th"
+  },
+  {
+    "page": 2,
+    "top": 215,
+    "bottom": 233,
+    "text": "Case and vehicle summary"
+  },
+  {
+    "page": 2,
+    "top": 242,
+    "bottom": 255,
+    "text": "Vehicle"
+  },
+  {
+    "page": 2,
+    "top": 242,
+    "bottom": 255,
+    "text": "2020 Toyota RAV4 XLE AWD"
+  },
+  {
+    "page": 2,
+    "top": 261,
+    "bottom": 274,
+    "text": "Odometer at loss"
+  },
+  {
+    "page": 2,
+    "top": 261,
+    "bottom": 274,
+    "text": "80,000 miles"
+  },
+  {
+    "page": 2,
+    "top": 280,
+    "bottom": 293,
+    "text": "Loss date / market"
+  },
+  {
+    "page": 2,
+    "top": 280,
+    "bottom": 293,
+    "text": "September 2, 2026 / Chicago area, ZIP 60618"
+  },
+  {
+    "page": 2,
+    "top": 299,
+    "bottom": 312,
+    "text": "Customer / insurer"
+  },
+  {
+    "page": 2,
+    "top": 299,
+    "bottom": 312,
+    "text": "Jordan Lee / Sample Insurer (both hypothetical)"
+  },
+  {
+    "page": 2,
+    "top": 318,
+    "bottom": 331,
+    "text": "Condition / equipment"
+  },
+  {
+    "page": 2,
+    "top": 318,
+    "bottom": 344,
+    "text": "Customer reports normal pre-loss condition, no existing damage and sta"
+  },
+  {
+    "page": 2,
+    "top": 350,
+    "bottom": 363,
+    "text": "Vehicle identity"
+  },
+  {
+    "page": 2,
+    "top": 350,
+    "bottom": 376,
+    "text": "Subject V0; individual VINs omitted from this illustrative packet. All"
+  },
+  {
+    "page": 2,
+    "top": 396,
+    "bottom": 414,
+    "text": "Illustrative review file"
+  },
+  {
+    "page": 2,
+    "top": 423,
+    "bottom": 436,
+    "text": "Insurer valuation"
+  },
+  {
+    "page": 2,
+    "top": 439,
+    "bottom": 465,
+    "text": "September 8 report: $20,500 vehicle value; three comparables, disclose"
+  },
+  {
+    "page": 2,
+    "top": 473,
+    "bottom": 486,
+    "text": "Customer information"
+  },
+  {
+    "page": 2,
+    "top": 489,
+    "bottom": 515,
+    "text": "Vehicle details and pre-loss condition statement shown above. Customer"
+  },
+  {
+    "page": 2,
+    "top": 523,
+    "bottom": 536,
+    "text": "Market records"
+  },
+  {
+    "page": 2,
+    "top": 539,
+    "bottom": 565,
+    "text": "Five fictional historical asking-price observations for the loss date."
+  },
+  {
+    "page": 2,
+    "top": 573,
+    "bottom": 586,
+    "text": "Later insurer reply"
+  },
+  {
+    "page": 2,
+    "top": 589,
+    "bottom": 615,
+    "text": "September 23 hypothetical response, shown on page 7. It is separate fr"
+  },
+  {
+    "page": 2,
+    "top": 624,
+    "bottom": 647.0,
+    "text": "The sample source IDs identify records described within this document,"
+  },
+  {
+    "page": 2,
+    "top": 670.0,
+    "bottom": 684.0,
+    "text": "Vehicle value and settlement payment are separate"
+  },
+  {
+    "page": 2,
+    "top": 691.0,
+    "bottom": 717.0,
+    "text": "Taxes, title or registration fees, deductible, loan payoff and other s"
+  },
+  {
+    "page": 3,
+    "top": 121,
+    "bottom": 151,
+    "text": "Where the report needs clarity"
+  },
+  {
+    "page": 3,
+    "top": 165,
+    "bottom": 210,
+    "text": "The hypothetical report uses three 2020 RAV4 XLE AWD vehicles. Its dis"
+  },
+  {
+    "page": 3,
+    "top": 230,
+    "bottom": 240,
+    "text": "Record"
+  },
+  {
+    "page": 3,
+    "top": 230,
+    "bottom": 240,
+    "text": "Mileage"
+  },
+  {
+    "page": 3,
+    "top": 230,
+    "bottom": 250,
+    "text": "Asking\nprice"
+  },
+  {
+    "page": 3,
+    "top": 230,
+    "bottom": 250,
+    "text": "Mileage\nadjustment"
+  },
+  {
+    "page": 3,
+    "top": 230,
+    "bottom": 250,
+    "text": "Condition\nadjustment"
+  },
+  {
+    "page": 3,
+    "top": 230,
+    "bottom": 250,
+    "text": "Insurer-\nadjusted"
+  },
+  {
+    "page": 3,
+    "top": 269,
+    "bottom": 282,
+    "text": "I1"
+  },
+  {
+    "page": 3,
+    "top": 300,
+    "bottom": 313,
+    "text": "I2"
+  },
+  {
+    "page": 3,
+    "top": 331,
+    "bottom": 344,
+    "text": "I3"
+  },
+  {
+    "page": 3,
+    "top": 363,
+    "bottom": 387,
+    "text": "All amounts are hypothetical USD. Adjustments above are the insurer's "
+  },
+  {
+    "page": 3,
+    "top": 469,
+    "bottom": 483,
+    "text": "The same $1,100 condition deduction appears three times."
+  },
+  {
+    "page": 3,
+    "top": 488,
+    "bottom": 516,
+    "text": "R1 gives no itemized explanation for the deduction. C1 reports normal "
+  },
+  {
+    "page": 3,
+    "top": 533,
+    "bottom": 547,
+    "text": "Mileage differences matter, but the adjustment method is unclear."
+  },
+  {
+    "page": 3,
+    "top": 552,
+    "bottom": 580,
+    "text": "The insurer subtracts $400 for I1, adds $500 for I2 and subtracts $100"
+  },
+  {
+    "page": 3,
+    "top": 597,
+    "bottom": 611,
+    "text": "The insurer's result is below the separate market set."
+  },
+  {
+    "page": 3,
+    "top": 616,
+    "bottom": 644,
+    "text": "All five selected historical asking prices are above $20,500. Ask the "
+  },
+  {
+    "page": 3,
+    "top": 662,
+    "bottom": 688,
+    "text": "Priority: request the condition-adjustment basis and a written respons"
+  },
+  {
+    "page": 4,
+    "top": 121,
+    "bottom": 151,
+    "text": "The market records behind the gap"
+  },
+  {
+    "page": 4,
+    "top": 165,
+    "bottom": 195,
+    "text": "Five separate hypothetical vehicles match the subject's year, model, t"
+  },
+  {
+    "page": 4,
+    "top": 215,
+    "bottom": 225,
+    "text": "Record"
+  },
+  {
+    "page": 4,
+    "top": 215,
+    "bottom": 225,
+    "text": "Fictional listing source"
+  },
+  {
+    "page": 4,
+    "top": 215,
+    "bottom": 225,
+    "text": "Mileage"
+  },
+  {
+    "page": 4,
+    "top": 215,
+    "bottom": 225,
+    "text": "Distance"
+  },
+  {
+    "page": 4,
+    "top": 215,
+    "bottom": 225,
+    "text": "Asking price"
+  },
+  {
+    "page": 4,
+    "top": 253,
+    "bottom": 266,
+    "text": "H1"
+  },
+  {
+    "page": 4,
+    "top": 253,
+    "bottom": 266,
+    "text": "Sample dealer A"
+  },
+  {
+    "page": 4,
+    "top": 282,
+    "bottom": 295,
+    "text": "H2"
+  },
+  {
+    "page": 4,
+    "top": 282,
+    "bottom": 295,
+    "text": "Sample dealer B"
+  },
+  {
+    "page": 4,
+    "top": 311,
+    "bottom": 324,
+    "text": "H3"
+  },
+  {
+    "page": 4,
+    "top": 311,
+    "bottom": 324,
+    "text": "Sample dealer C"
+  },
+  {
+    "page": 4,
+    "top": 340,
+    "bottom": 353,
+    "text": "H4"
+  },
+  {
+    "page": 4,
+    "top": 340,
+    "bottom": 353,
+    "text": "Sample dealer D"
+  },
+  {
+    "page": 4,
+    "top": 369,
+    "bottom": 382,
+    "text": "H5"
+  },
+  {
+    "page": 4,
+    "top": 369,
+    "bottom": 382,
+    "text": "Sample dealer E"
+  },
+  {
+    "page": 4,
+    "top": 400,
+    "bottom": 424,
+    "text": "Every row: 2020 Toyota RAV4 XLE AWD. Distances are illustrative miles "
+  },
+  {
+    "page": 4,
+    "top": 520,
+    "bottom": 535,
+    "text": "How the set is used"
+  },
+  {
+    "page": 4,
+    "top": 544,
+    "bottom": 586,
+    "text": "Venfour ranks vehicles by similarity, not price. This sample shows the"
+  },
+  {
+    "page": 4,
+    "top": 599,
+    "bottom": 614,
+    "text": "Loss-date context"
+  },
+  {
+    "page": 4,
+    "top": 623,
+    "bottom": 651,
+    "text": "Historical activity here is assumed for illustration, not verified. Ve"
+  },
+  {
+    "page": 4,
+    "top": 664,
+    "bottom": 679,
+    "text": "Material limitations"
+  },
+  {
+    "page": 4,
+    "top": 688,
+    "bottom": 730,
+    "text": "Asking prices are not verified sale prices. No independent dollar adju"
+  },
+  {
+    "page": 5,
+    "top": 121,
+    "bottom": 151,
+    "text": "What the evidence supports"
+  },
+  {
+    "page": 5,
+    "top": 165,
+    "bottom": 195,
+    "text": "The supported conclusion is a reason to question the insurer's current"
+  },
+  {
+    "page": 5,
+    "top": 215,
+    "bottom": 230.2,
+    "text": "Start with the same measure."
+  },
+  {
+    "page": 5,
+    "top": 239.2,
+    "bottom": 267.59999999999997,
+    "text": "The $20,500 baseline is the insurer's vehicle valuation before separat"
+  },
+  {
+    "page": 5,
+    "top": 279.59999999999997,
+    "bottom": 294.79999999999995,
+    "text": "Compare it with the recorded market evidence."
+  },
+  {
+    "page": 5,
+    "top": 303.79999999999995,
+    "bottom": 332.19999999999993,
+    "text": "The five hypothetical asking prices run from $22,400 to $23,400, with "
+  },
+  {
+    "page": 5,
+    "top": 344.19999999999993,
+    "bottom": 359.3999999999999,
+    "text": "Treat the gap as a review question."
+  },
+  {
+    "page": 5,
+    "top": 368.3999999999999,
+    "bottom": 410.9999999999999,
+    "text": "The $2,400 median difference is about 11.7% of the insurer's $20,500 v"
+  },
+  {
+    "page": 5,
+    "top": 422.9999999999999,
+    "bottom": 438.1999999999999,
+    "text": "Keep the adjustment questions separate."
+  },
+  {
+    "page": 5,
+    "top": 447.1999999999999,
+    "bottom": 475.59999999999985,
+    "text": "A clearer explanation of the $1,100 condition deduction may resolve so"
+  },
+  {
+    "page": 5,
+    "top": 506.59999999999985,
+    "bottom": 524.5999999999999,
+    "text": "A practical reconsideration plan"
+  },
+  {
+    "page": 5,
+    "top": 533.5999999999999,
+    "bottom": 547.5999999999999,
+    "text": "Send one focused request"
+  },
+  {
+    "page": 5,
+    "top": 552.5999999999999,
+    "bottom": 580.5999999999999,
+    "text": "Attach the review and comparable evidence. Ask the adjuster to reconsi"
+  },
+  {
+    "page": 5,
+    "top": 590.5999999999999,
+    "bottom": 604.5999999999999,
+    "text": "Ask for a written, itemized reply"
+  },
+  {
+    "page": 5,
+    "top": 609.5999999999999,
+    "bottom": 637.5999999999999,
+    "text": "Request an updated valuation report, or a brief explanation of why the"
+  },
+  {
+    "page": 5,
+    "top": 647.5999999999999,
+    "bottom": 661.5999999999999,
+    "text": "Save the reply for the next review"
+  },
+  {
+    "page": 5,
+    "top": 666.5999999999999,
+    "bottom": 694.5999999999999,
+    "text": "Keep the sent request and attachments. When the insurer responds, add "
+  },
+  {
+    "page": 5,
+    "top": 704.5999999999999,
+    "bottom": 730.5999999999999,
+    "text": "A useful outcome may be a corrected value, a documented explanation or"
+  },
+  {
+    "page": 6,
+    "top": 121,
+    "bottom": 151,
+    "text": "A clear request to the adjuster"
+  },
+  {
+    "page": 6,
+    "top": 165,
+    "bottom": 195,
+    "text": "An example of the customer-controlled reconsideration request. The wor"
+  },
+  {
+    "page": 6,
+    "top": 233,
+    "bottom": 247,
+    "text": "Request to review vehicle valuation - claim SAMPLE-TL-2026-01"
+  },
+  {
+    "page": 6,
+    "top": 285,
+    "bottom": 300.5,
+    "text": "Hello Morgan,"
+  },
+  {
+    "page": 6,
+    "top": 310.5,
+    "bottom": 357.0,
+    "text": "Thank you for your help with my total-loss claim for my 2020 Toyota RA"
+  },
+  {
+    "page": 6,
+    "top": 367.0,
+    "bottom": 429.0,
+    "text": "The attached review includes five comparable vehicles with asking pric"
+  },
+  {
+    "page": 6,
+    "top": 439.0,
+    "bottom": 485.5,
+    "text": "Could you please explain the $1,100 condition deduction applied to eac"
+  },
+  {
+    "page": 6,
+    "top": 495.5,
+    "bottom": 557.5,
+    "text": "Please reconsider the vehicle valuation in light of the comparable rec"
+  },
+  {
+    "page": 6,
+    "top": 567.5,
+    "bottom": 583.0,
+    "text": "Thank you for your time and help,"
+  },
+  {
+    "page": 6,
+    "top": 593.0,
+    "bottom": 608.5,
+    "text": "Jordan Lee"
+  },
+  {
+    "page": 6,
+    "top": 640.5,
+    "bottom": 655.5,
+    "text": "Attachments and final check"
+  },
+  {
+    "page": 6,
+    "top": 664.5,
+    "bottom": 691.5,
+    "text": "For an actual claim: the customer's Venfour valuation report and its s"
+  },
+  {
+    "page": 6,
+    "top": 704.5,
+    "bottom": 731.5,
+    "text": "The customer checks the recipient, claim number, facts and attachments"
+  },
+  {
+    "page": 7,
+    "top": 121,
+    "bottom": 151,
+    "text": "The insurer revises its valuation"
+  },
+  {
+    "page": 7,
+    "top": 165,
+    "bottom": 195,
+    "text": "This hypothetical continuation shows how a later insurer reply can be "
+  },
+  {
+    "page": 7,
+    "top": 249,
+    "bottom": 263,
+    "text": "R2 / Sample Insurer"
+  },
+  {
+    "page": 7,
+    "top": 270,
+    "bottom": 328.0,
+    "text": "We reviewed your request and revised the vehicle valuation to $21,300."
+  },
+  {
+    "page": 7,
+    "top": 363.0,
+    "bottom": 378.0,
+    "text": "What changed"
+  },
+  {
+    "page": 7,
+    "top": 387.0,
+    "bottom": 415.0,
+    "text": "R2 states a revised vehicle value of $21,300 and a lower condition ded"
+  },
+  {
+    "page": 7,
+    "top": 431.0,
+    "bottom": 446.0,
+    "text": "What the insurer addressed"
+  },
+  {
+    "page": 7,
+    "top": 455.0,
+    "bottom": 483.0,
+    "text": "The insurer reconsidered the condition adjustment and correctly distin"
+  },
+  {
+    "page": 7,
+    "top": 499.0,
+    "bottom": 514.0,
+    "text": "What remains unresolved"
+  },
+  {
+    "page": 7,
+    "top": 523.0,
+    "bottom": 565.0,
+    "text": "R2 does not explain the remaining $300 deduction, the mileage method o"
+  },
+  {
+    "page": 7,
+    "top": 594.0,
+    "bottom": 608.0,
+    "text": "No clear recommendation yet"
+  },
+  {
+    "page": 7,
+    "top": 615.0,
+    "bottom": 657.0,
+    "text": "The saved conclusion assessed $20,500, not the new $21,300 amount. Ven"
+  },
+  {
+    "page": 7,
+    "top": 688.0,
+    "bottom": 730.0,
+    "text": "Confirm the revised report and amount, then decide whether to request "
+  },
+  {
+    "page": 8,
+    "top": 121,
+    "bottom": 151,
+    "text": "Support after the first request"
+  },
+  {
+    "page": 8,
+    "top": 165,
+    "bottom": 195,
+    "text": "The customer remains in control of the insurer conversation and the de"
+  },
+  {
+    "page": 8,
+    "top": 215,
+    "bottom": 229,
+    "text": "After sending"
+  },
+  {
+    "page": 8,
+    "top": 215,
+    "bottom": 254,
+    "text": "Mark the request as sent in the case and keep a copy of what was sent."
+  },
+  {
+    "page": 8,
+    "top": 267,
+    "bottom": 281,
+    "text": "When the insurer replies"
+  },
+  {
+    "page": 8,
+    "top": 267,
+    "bottom": 293,
+    "text": "Paste the response or upload the original reply, and record any revise"
+  },
+  {
+    "page": 8,
+    "top": 306,
+    "bottom": 334,
+    "text": "If a follow-up is supported"
+  },
+  {
+    "page": 8,
+    "top": 306,
+    "bottom": 332,
+    "text": "Choose whether to continue, review the prepared follow-up and send it "
+  },
+  {
+    "page": 8,
+    "top": 345,
+    "bottom": 359,
+    "text": "When deciding to finish"
+  },
+  {
+    "page": 8,
+    "top": 345,
+    "bottom": 384,
+    "text": "The customer chooses the next step and confirms any acceptance with th"
+  },
+  {
+    "page": 8,
+    "top": 413,
+    "bottom": 430,
+    "text": "$199 / one-time full review"
+  },
+  {
+    "page": 8,
+    "top": 439,
+    "bottom": 465,
+    "text": "The package includes the review, downloadable report, supported recons"
+  },
+  {
+    "page": 8,
+    "top": 478,
+    "bottom": 491,
+    "text": "No supported dispute"
+  },
+  {
+    "page": 8,
+    "top": 494,
+    "bottom": 519.0,
+    "text": "If the completed review does not reasonably support a valuation disput"
+  },
+  {
+    "page": 8,
+    "top": 529.0,
+    "bottom": 542.0,
+    "text": "Supported dispute; final increase under $1,000"
+  },
+  {
+    "page": 8,
+    "top": 545.0,
+    "bottom": 582.5,
+    "text": "After following the Venfour-supported reconsideration process, the cus"
+  },
+  {
+    "page": 8,
+    "top": 635.5,
+    "bottom": 674.5,
+    "text": "For the referring attorney: this packet puts the vehicle-value baselin"
+  },
+  {
+    "page": 8,
+    "top": 686.5,
+    "bottom": 709.5,
+    "text": "Venfour is a self-service evidence review. It is not legal advice, an "
+  }
+]
