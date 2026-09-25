@@ -1,4 +1,4 @@
-import { act, screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "@supabase/supabase-js";
@@ -151,7 +151,7 @@ describe("/start appraisal intake", () => {
     [
       "diminished value",
       "/start?service=diminished-value",
-      "Diminished Value intake is currently paused",
+      "Diminished Value review",
       "Diminished Value",
       "2025 Hyundai Tucson SEL",
       "Accident history · repairs · mileage · local market",
@@ -189,7 +189,7 @@ describe("/start appraisal intake", () => {
       ).toHaveClass("appraisal-start-flow-panel");
       expect(
         document.querySelector('[data-appraisal-section-content="flow"]'),
-      ).toHaveClass("lg:py-12");
+      ).toHaveClass("appraisal-start-content");
     },
   );
 
@@ -242,52 +242,38 @@ describe("/start appraisal intake", () => {
     ).toBe(false);
   });
 
-  it("requires Continue before intake and returns to service selection", async () => {
+  it("requires Continue before Total Loss intake and returns to service selection", async () => {
     const user = userEvent.setup();
-    const { router } = renderTestApp([
-      "/start?service=diminished-value&campaign=spring",
-    ]);
-    const intro = document.querySelector<HTMLElement>(
-      "[data-appraisal-start-intro]",
-    );
-    const flow = document.querySelector<HTMLElement>(
-      "[data-appraisal-start-flow]",
-    );
+    const { router } = renderTestApp(["/start?service=total-loss&campaign=spring"]);
+    expect(screen.queryByRole("group", { name: "Do you have your insurance valuation report?" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByRole("group", { name: "Do you have your insurance valuation report?" })).toBeVisible();
+    expect(new URLSearchParams(router.state.location.search).get("view")).toBe("intake");
+    expect(new URLSearchParams(router.state.location.search).get("campaign")).toBe("spring");
+    await user.click(screen.getByRole("button", { name: "Back to services" }));
+    expect(screen.getByRole("radio", { name: "Total Loss" })).toBeChecked();
+    expect(new URLSearchParams(router.state.location.search).get("view")).toBeNull();
+    expect(new URLSearchParams(router.state.location.search).get("campaign")).toBe("spring");
+  });
 
-    expect(document.querySelector("[data-appraisal-start-intro]")).toBeVisible();
-    expect(screen.queryByRole("heading", { name: "Diminished Value intake is not open yet" })).not.toBeInTheDocument();
+  it("opens cookie preferences from a single control inside the right panel", async () => {
+    const user = userEvent.setup();
+    renderTestApp(["/start?service=total-loss"]);
+    const [button] = screen.getAllByRole("button", { name: "Cookie preferences" });
+    expect(screen.getAllByRole("button", { name: "Cookie preferences" })).toHaveLength(1);
+    expect(button.closest("[data-appraisal-start-flow]")).toBeInTheDocument();
+    await user.click(button);
+    expect(screen.getByRole("dialog", { name: "Cookie preferences" })).toBeVisible();
+  });
 
-    await user.click(
-      within(intro!).getByRole("button", { name: "Continue" }),
-    );
-
-    await waitFor(() =>
-      expect(
-        new URLSearchParams(router.state.location.search).get("view"),
-      ).toBe("intake"),
-    );
-    let searchParams = new URLSearchParams(router.state.location.search);
-    expect(router.state.historyAction).toBe("PUSH");
-    expect(searchParams.get("service")).toBe("diminished-value");
-    expect(searchParams.get("campaign")).toBe("spring");
-    expect(document.querySelector("[data-appraisal-start-intro]")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Diminished Value intake is not open yet" })).toBeVisible();
-
-    await user.click(
-      within(flow!).getByRole("button", { name: "Back to services" }),
-    );
-
-    await waitFor(() =>
-      expect(
-        new URLSearchParams(router.state.location.search).get("view"),
-      ).toBeNull(),
-    );
-    searchParams = new URLSearchParams(router.state.location.search);
-    expect(router.state.historyAction).toBe("REPLACE");
-    expect(searchParams.get("service")).toBe("diminished-value");
-    expect(searchParams.get("campaign")).toBe("spring");
-    expect(document.querySelector("[data-appraisal-start-intro]")).toBeVisible();
-    expect(screen.queryByRole("heading", { name: "Diminished Value intake is not open yet" })).not.toBeInTheDocument();
+  it("keeps Diminished Value available to explore without offering Continue", async () => {
+    const user = userEvent.setup();
+    renderTestApp(["/start?service=diminished-value"]);
+    expect(screen.getByText("In development")).toBeVisible();
+    expect(screen.getByRole("region", { name: "2025 Hyundai Tucson SEL" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "Total Loss" }));
+    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
   });
 
   it("keeps an identified total-loss appraisal in its workspace without the public service selector", async () => {
@@ -381,12 +367,8 @@ describe("/start appraisal intake", () => {
 
     await user.click(screen.getByRole("button", { name: "Back to services" }));
     await user.click(screen.getByRole("radio", { name: "Diminished Value" }));
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(
-      await screen.findByRole("heading", {
-        name: "Diminished Value intake is not open yet",
-      }),
-    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
+    expect(screen.getByText("In development")).toBeVisible();
     expect(screen.queryByLabelText("VIN")).not.toBeInTheDocument();
   });
 });

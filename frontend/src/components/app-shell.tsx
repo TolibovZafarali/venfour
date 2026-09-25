@@ -613,7 +613,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
           </div>
         </footer>
       ) : null}
-      {appVisualSystem && !adminRoute ? <div className="px-5 py-2 text-center"><button type="button" onClick={openPreferences} className="inline-flex min-h-11 items-center text-xs text-neutral-500 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4">Cookie preferences</button></div> : null}
+      {appVisualSystem && !adminRoute && !(startFlowRoute && !workspace) ? <div className="px-5 py-2 text-center"><button type="button" onClick={openPreferences} className="inline-flex min-h-11 items-center text-xs text-neutral-500 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4">Cookie preferences</button></div> : null}
       <CookieConsent showBanner={!appVisualSystem} />
     </div>
   );

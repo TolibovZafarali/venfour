@@ -137,6 +137,7 @@ export function AppraisalStartPage() {
       stage={stage}
       onServiceChange={handleServiceChange}
       onContinue={handleContinue}
+      continueAvailable={totalLossSelected || diminishedValueIntakeAvailable}
       onBack={handleBack}
       serviceSwitchDisabled={
         (totalLossSelected && totalLossBusy) ||
@@ -147,14 +148,14 @@ export function AppraisalStartPage() {
           ? correctingTotalLossIntake ? "Total Loss · Intake correction" : "Total Loss valuation"
           : diminishedValueIntakeAvailable
             ? "Manual diminished-value review"
-            : "Diminished Value · Intake paused"
+            : "In development"
       }
       title={
         totalLossSelected
           ? correctingTotalLossIntake ? "Review your saved Total Loss intake" : "Start with a free valuation."
           : diminishedValueIntakeAvailable
             ? "Submit a diminished-value review request"
-            : "Diminished Value intake is currently paused"
+            : "Diminished Value review"
       }
       priceNote={totalLossSelected && !correctingTotalLossIntake ? <>Free valuation · Full review and report: <strong className="font-medium text-ink">{fullReviewPriceLabel}</strong> one-time</> : undefined}
       description={
@@ -164,7 +165,7 @@ export function AppraisalStartPage() {
             : "Compare your insurer’s valuation with market evidence. Start with a report or your vehicle details."
           : diminishedValueIntakeAvailable
             ? "We’ll securely gather accident, repair, vehicle, and contact details for a future manual review. Submission does not create an automated appraisal or schedule an appointment."
-            : "Review potential value loss after repairs. Customer intake is currently paused."
+            : "We’re working on this feature. Customer intake isn’t open yet."
       }
     >
       {totalLossSelected ? (

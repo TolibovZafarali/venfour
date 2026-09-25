@@ -123,12 +123,13 @@ export function ChoiceStep({
   return (
     <FlowCard busy={busy}>
       <TotalLossProgress mode={selectedMode} step="choice" />
-      <fieldset className="mt-7">
+      <fieldset className="mt-7" data-intake-mode>
         <legend className="text-2xl font-semibold tracking-[-0.03em] text-ink sm:text-3xl">
           Do you have your insurance valuation report?
         </legend>
         <div
           className="mt-6 grid gap-4 sm:grid-cols-2"
+          data-intake-mode-options
           data-stable-selection-group
         >
           {choiceOptions.map((option) => {
@@ -179,7 +180,7 @@ export function ChoiceStep({
         </div>
       </fieldset>
       {error ? <InlineError message={error} /> : null}
-      <div className="mt-7 flex justify-end">
+      <div className="mt-7 flex justify-end" data-intake-actions>
         <button
           type="button"
           className={primaryFlowButtonClassName}
@@ -362,7 +363,7 @@ export function ClaimStep({
         <p className="mt-1 text-sm leading-6 text-copy">
           Add the facts that most directly affect the vehicle appraisal.
         </p>
-        <div className="mt-5 grid items-start gap-5 sm:grid-cols-3">
+        <div className="mt-5 grid items-start gap-5 sm:grid-cols-3" data-intake-loss-fields>
           <IntakeTextField
             id="total-loss-mileage"
             label="Mileage at time of loss"
@@ -571,7 +572,7 @@ export function ReportUploadStep({
         onChange={handleFiles}
       />
 
-      <div className="mt-7 overflow-hidden rounded-2xl border border-line bg-white">
+      <div className="mt-7 overflow-hidden rounded-2xl border border-line bg-white" data-intake-report-upload>
         <div className="flex min-w-0 flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6">
           <span
             className={cn(
@@ -650,7 +651,7 @@ export function ReportUploadStep({
       {uploadError ? <InlineError message={uploadError} /> : null}
       {error ? <InlineError message={error} /> : null}
 
-      <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between" data-intake-actions>
         {!hideBack ? (
           <button
             type="button"

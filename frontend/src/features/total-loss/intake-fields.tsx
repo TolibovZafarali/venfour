@@ -740,7 +740,7 @@ export function IntakeProgress({
   });
 
   return (
-    <div aria-label={ariaLabel}>
+    <div aria-label={ariaLabel} data-intake-progress>
       <ol
         className="relative h-[18px] overflow-hidden"
         aria-label={stepsAriaLabel}
@@ -819,7 +819,7 @@ export function StepHeading({
   className,
 }: StepHeadingProps) {
   return (
-    <div className={cn("mt-7 border-b border-line pb-6", className)}>
+    <div className={cn("mt-7 border-b border-line pb-6", className)} data-intake-step-heading>
       <h2
         className="text-2xl font-semibold tracking-[-0.03em] text-ink sm:text-3xl"
         tabIndex={-1}
@@ -856,6 +856,7 @@ export function StepActions({
 }: StepActionsProps) {
   return (
     <div
+      data-intake-actions
       className={cn(
         "mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center",
         onBack ? "sm:justify-between" : "sm:justify-end",
@@ -1109,7 +1110,7 @@ function formatDateLabel(value: string) {
 }
 
 export const primaryFlowButtonClassName =
-  "inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-brand px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none";
+  "intake-primary-action inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-brand px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none";
 
 export const secondaryFlowButtonClassName =
-  "inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-line bg-white px-5 text-sm font-semibold text-ink transition-colors hover:border-brand/35 hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none";
+  "intake-secondary-action inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-line bg-white px-5 text-sm font-semibold text-ink transition-colors hover:border-brand/35 hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none";

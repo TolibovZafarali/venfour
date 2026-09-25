@@ -379,8 +379,9 @@ describe("Venfour application", () => {
     ).toBeVisible();
   });
 
-  test("offers report and no-report intake after secure setup", async () => {
+  test("offers report and no-report intake after continuing from the service overview", async () => {
     renderTotalLossApp();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Continue" }));
 
     const noReportOption = await screen.findByRole("radio", {
       name: /I don’t have the report/i,
@@ -408,6 +409,7 @@ describe("Venfour application", () => {
     ).toBe(true);
 
     renderTotalLossApp();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Continue" }));
 
     expect(
       await screen.findByRole("heading", {
