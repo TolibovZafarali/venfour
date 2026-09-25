@@ -393,7 +393,7 @@ describe("shared appraisal intake controls", () => {
     expect(within(confirmedVehicle).getByText("Accord")).toBeVisible();
     expect(
       within(confirmedVehicle).getByRole("combobox", { name: "Trim" }),
-    ).toHaveValue("ex-v6");
+    ).toHaveTextContent("EX-V6");
     expect(
       within(confirmedVehicle).queryByRole("textbox", { name: "Year" }),
     ).not.toBeInTheDocument();
@@ -450,6 +450,7 @@ describe("shared appraisal intake controls", () => {
     );
 
     const select = screen.getByRole("combobox", { name: "Trim" });
+    await user.click(select);
     expect(
       screen.getByRole("option", { name: "Long Range — RWD" }),
     ).toBeVisible();
@@ -457,7 +458,7 @@ describe("shared appraisal intake controls", () => {
       screen.getByRole("option", { name: "Long Range — AWD" }),
     ).toBeVisible();
 
-    await user.selectOptions(select, longRangeAwd.id);
+    await user.click(screen.getByRole("option", { name: "Long Range — AWD" }));
 
     expect(onTrimSelectionChange).toHaveBeenCalledWith(longRangeAwd);
     expect(onChange).not.toHaveBeenCalled();
@@ -507,7 +508,8 @@ describe("shared appraisal intake controls", () => {
     );
 
     const select = screen.getByRole("combobox", { name: "Trim" });
-    expect(select).toHaveValue("__legacy-current-trim__");
+    await user.click(select);
+    expect(select).toHaveTextContent("Current selection: Long Range");
     expect(
       screen.getByRole("option", { name: "Current selection: Long Range" }),
     ).toBeVisible();
@@ -515,7 +517,7 @@ describe("shared appraisal intake controls", () => {
       1,
     );
 
-    await user.selectOptions(select, longRangeAwd.id);
+    await user.click(screen.getByRole("option", { name: "Long Range — AWD" }));
     expect(onChange).toHaveBeenCalledWith("trim", "Long Range");
 
     rerender(
@@ -531,9 +533,7 @@ describe("shared appraisal intake controls", () => {
         trimOptions={[longRangeRwd, longRangeAwd]}
       />,
     );
-    expect(
-      screen.getByRole("option", { name: "Legacy Performance" }),
-    ).toBeVisible();
+    expect(select).toHaveTextContent("Legacy Performance");
   });
 
   test("requires a stale provider identity to be explicitly reselected", async () => {
@@ -577,12 +577,13 @@ describe("shared appraisal intake controls", () => {
     );
 
     const select = screen.getByRole("combobox", { name: "Trim" });
-    expect(select).toHaveValue("__legacy-current-trim__");
+    await user.click(select);
+    expect(select).toHaveTextContent("Current selection: Long Range");
     expect(
       screen.getByRole("option", { name: "Current selection: Long Range" }),
     ).toBeVisible();
 
-    await user.selectOptions(select, longRange.id);
+    await user.click(screen.getByRole("option", { name: "Long Range" }));
     expect(onTrimSelectionChange).toHaveBeenCalledWith(longRange);
   });
 
@@ -618,9 +619,10 @@ describe("shared appraisal intake controls", () => {
     );
 
     const select = screen.getByRole("combobox", { name: "Trim" });
+    await user.click(select);
     expect(select).toBeEnabled();
     expect(screen.getByText(/Choose Other \/ Not sure/u)).toBeVisible();
-    await user.selectOptions(select, OTHER_VEHICLE_TRIM_OPTION.id);
+    await user.click(screen.getByRole("option", { name: "Other / Not sure" }));
     expect(onTrimSelectionChange).toHaveBeenCalledWith(
       OTHER_VEHICLE_TRIM_OPTION,
     );

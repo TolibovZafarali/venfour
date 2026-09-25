@@ -31,6 +31,15 @@ if (typeof window.matchMedia !== "function") {
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 
+if (!HTMLElement.prototype.hasPointerCapture) {
+  HTMLElement.prototype.hasPointerCapture = () => false;
+  HTMLElement.prototype.setPointerCapture = () => undefined;
+  HTMLElement.prototype.releasePointerCapture = () => undefined;
+}
+if (!HTMLElement.prototype.scrollIntoView) {
+  HTMLElement.prototype.scrollIntoView = () => undefined;
+}
+
 afterEach(() => {
   cleanup();
   server.resetHandlers();

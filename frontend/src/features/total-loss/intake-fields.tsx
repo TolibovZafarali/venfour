@@ -100,7 +100,7 @@ export function IntakeSelectField({
   const describedBy = [helpId, errorId].filter(Boolean).join(" ") || undefined;
 
   return (
-    <div>
+    <div data-intake-select-field data-filled={Boolean(value) || undefined}>
       <div className="flex items-baseline justify-between gap-3">
         <label htmlFor={id} className="text-sm font-semibold text-ink">
           {label}

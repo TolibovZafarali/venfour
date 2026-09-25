@@ -2214,7 +2214,7 @@ describe("/start?service=total-loss", () => {
         totalLossDependencies: harness.dependencies,
       });
 
-      await screen.findByRole("option", { name: "EX-L" });
+      await waitFor(() => expect(screen.getByLabelText("Trim")).toBeEnabled());
       expect(screen.getByLabelText("Trim")).toHaveValue(
         "marketcheck-trim-ex-l",
       );
@@ -2307,13 +2307,14 @@ describe("/start?service=total-loss", () => {
     await user.type(screen.getByLabelText("VIN"), "1hgcm82633a004352");
     await user.click(screen.getByRole("button", { name: "Find vehicle" }));
 
-    await screen.findByRole("option", { name: "EX" });
+    await waitFor(() => expect(screen.getByLabelText("Trim")).toBeEnabled());
     expect(harness.listTrims).toHaveBeenCalledWith({
       year: 2003,
       make: "Honda",
       model: "Accord",
     });
-    await user.selectOptions(screen.getByLabelText("Trim"), "openai-trim-ex");
+    await user.click(screen.getByLabelText("Trim"));
+    await user.click(screen.getByRole("option", { name: "EX" }));
     await confirmSubjectFacts(user);
     await user.click(
       screen.getByRole("button", { name: "Confirm vehicle & continue" }),
@@ -2358,20 +2359,27 @@ describe("/start?service=total-loss", () => {
     ).toHaveClass("vehicle-method-panel");
 
     await waitFor(() => expect(screen.getByLabelText("Make")).toBeEnabled());
-    await user.selectOptions(screen.getByLabelText("Year"), "2020");
-    await user.selectOptions(screen.getByLabelText("Make"), "Honda");
+    await user.click(screen.getByLabelText("Year"));
+    await user.click(screen.getByRole("option", { name: "2020" }));
+    await user.click(screen.getByLabelText("Make"));
+    await user.click(screen.getByRole("option", { name: "Honda" }));
     await waitFor(() => expect(screen.getByLabelText("Model")).toBeEnabled());
-    await user.selectOptions(screen.getByLabelText("Model"), "Accord");
+    await user.click(screen.getByLabelText("Model"));
+    await user.click(screen.getByRole("option", { name: "Accord" }));
     await waitFor(() => expect(screen.getByLabelText("Trim")).toBeEnabled());
-    await user.selectOptions(screen.getByLabelText("Trim"), "EX");
-    await user.selectOptions(screen.getByLabelText("Make"), "Toyota");
+    await user.click(screen.getByLabelText("Trim"));
+    await user.click(screen.getByRole("option", { name: "EX" }));
+    await user.click(screen.getByLabelText("Make"));
+    await user.click(screen.getByRole("option", { name: "Toyota" }));
     expect(screen.getByLabelText("Model")).toHaveValue("");
     expect(screen.getByLabelText("Trim")).toHaveValue("");
     expect(screen.getByLabelText("Trim")).toBeDisabled();
     await waitFor(() => expect(screen.getByLabelText("Model")).toBeEnabled());
-    await user.selectOptions(screen.getByLabelText("Model"), "Camry");
+    await user.click(screen.getByLabelText("Model"));
+    await user.click(screen.getByRole("option", { name: "Camry" }));
     await waitFor(() => expect(screen.getByLabelText("Trim")).toBeEnabled());
-    await user.selectOptions(screen.getByLabelText("Trim"), "XLE");
+    await user.click(screen.getByLabelText("Trim"));
+    await user.click(screen.getByRole("option", { name: "XLE" }));
     await confirmSubjectFacts(user);
     await user.click(
       withinIntakeFlow().getByRole("button", {
@@ -3954,13 +3962,17 @@ describe("/start?service=total-loss", () => {
       screen.getByRole("heading", { name: "Tell us about your vehicle" }),
     ).toBe(heading);
 
-    await user.selectOptions(screen.getByLabelText("Year"), "2020");
+    await user.click(screen.getByLabelText("Year"));
+    await user.click(screen.getByRole("option", { name: "2020" }));
     await waitFor(() => expect(screen.getByLabelText("Make")).toBeEnabled());
-    await user.selectOptions(screen.getByLabelText("Make"), "Honda");
+    await user.click(screen.getByLabelText("Make"));
+    await user.click(screen.getByRole("option", { name: "Honda" }));
     await waitFor(() => expect(screen.getByLabelText("Model")).toBeEnabled());
-    await user.selectOptions(screen.getByLabelText("Model"), "Accord");
+    await user.click(screen.getByLabelText("Model"));
+    await user.click(screen.getByRole("option", { name: "Accord" }));
     await waitFor(() => expect(screen.getByLabelText("Trim")).toBeEnabled());
-    await user.selectOptions(screen.getByLabelText("Trim"), "EX-L");
+    await user.click(screen.getByLabelText("Trim"));
+    await user.click(screen.getByRole("option", { name: "EX-L" }));
     await new Promise<void>((resolve) => {
       window.setTimeout(resolve, 700);
     });

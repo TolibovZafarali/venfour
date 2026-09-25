@@ -1,0 +1,283 @@
+{
+  "account": "994-857-1115",
+  "campaign_name": "Venfour | Total Loss Dispute | Search | US",
+  "production_campaign_id": "24294985882",
+  "purchase_conversion_action_id": "7793432568",
+  "purchase_conversion_name": "Venfour Purchase",
+  "purchase_destination": "AW-18473000475/SbutCPivmYQdEJu8zuhE",
+  "positive_exact": [
+    "total loss settlement negotiation service",
+    "help with total loss settlement",
+    "dispute total loss valuation",
+    "negotiate total loss settlement",
+    "insurance offer too low for totaled car",
+    "insurance undervalued my car",
+    "totaled car value too low",
+    "car actual cash value too low",
+    "total loss settlement counter offer",
+    "total loss valuation report review",
+    "ccc valuation dispute",
+    "mitchell total loss valuation dispute"
+  ],
+  "positive_phrase": [
+    "total loss offer too low",
+    "insurance lowball total loss"
+  ],
+  "negative_phrase": [
+    "salvage yard",
+    "salvage yards",
+    "junkyard",
+    "junkyards",
+    "cash for junk cars",
+    "buy totaled cars",
+    "sell my totaled car",
+    "totaled cars for sale",
+    "salvage cars for sale",
+    "salvage auction",
+    "salvage auctions",
+    "insurance jobs",
+    "insurance careers",
+    "adjuster jobs",
+    "appraiser jobs",
+    "adjuster salary",
+    "appraiser training",
+    "appraiser certification",
+    "valuation software",
+    "ccc one login",
+    "mitchell login",
+    "personal injury",
+    "class action",
+    "lawyer near me",
+    "attorney near me",
+    "law firm",
+    "body shop near me",
+    "salvage title application",
+    "rebuilt title inspection",
+    "free vin check",
+    "vin decoder"
+  ],
+  "negative_exact": [
+    "total loss lawyer",
+    "total loss attorney",
+    "total loss appraiser",
+    "total loss appraisers",
+    "total loss appraisal",
+    "total loss appraisals",
+    "independent car appraiser",
+    "independent auto appraiser",
+    "appraisal clause",
+    "car repair estimate",
+    "auto repair estimate",
+    "vehicle history report",
+    "carfax report",
+    "total loss meaning",
+    "what is a total loss",
+    "total loss definition",
+    "actual cash value definition",
+    "total loss calculator",
+    "totaled car value calculator",
+    "free total loss estimate",
+    "free car valuation",
+    "car value after accident",
+    "diminished value calculator",
+    "diminished value appraisal"
+  ],
+  "additional_vehicle_negative_phrase": [
+    "motorcycle",
+    "motorcycles",
+    "boat",
+    "boats",
+    "RV",
+    "RVs",
+    "motorhome",
+    "motorhomes"
+  ],
+  "status": "ENABLED",
+  "end_date": null,
+  "tests": "35 focused measurement tests passed",
+  "code_changes": [],
+  "notes": [
+    "Existing paused Performance Max and preexisting drafts left unchanged.",
+    "Existing Enhanced Conversions enabled before task; not changed or exercised.",
+    "Four sitelinks and six callouts verified eligible; new name/logo associations under review.",
+    "Unattached sitelink copies remain in asset library following earlier save/authentication retries; exactly four are attached to this campaign.",
+    "35 focused measurement tests passed with mocked Google transport; not proof of a Google-recorded sale.",
+    "No real purchase, customer-data upload, paid-provider call or ad spend performed.",
+    "Live frontend nationwide and measurement config verified; backend ready healthy; fresh Cloud Run CLI flag query unavailable due expired authorization.",
+    "Campaign enabled on subsequent user authorization. Recorded zero performance was the launch snapshot, not a future spending guarantee."
+  ],
+  "ad_group_name": "Low Offer & Dispute",
+  "ad_group_id": "202057631162",
+  "responsive_search_ad_id": "826088058923",
+  "start_date": "2026-09-25",
+  "budget_usd_per_day": 20,
+  "bidding_strategy": "Maximize Clicks",
+  "maximum_cpc_usd": 6,
+  "locations": [
+    "United States"
+  ],
+  "location_option": "Presence: People in or regularly in your targeted locations",
+  "networks": {
+    "google_search": true,
+    "search_partners": false,
+    "display": false
+  },
+  "language": "English",
+  "ad_schedule": "All day, all days",
+  "device_bid_adjustments": {},
+  "ai_max": false,
+  "broad_match_campaign_setting": false,
+  "automatically_created_assets": false,
+  "text_customization": false,
+  "final_url_expansion": false,
+  "final_url": "https://app.venfour.com/start?service=total-loss",
+  "display_paths": [
+    "total-loss",
+    "dispute"
+  ],
+  "final_url_suffix": "utm_source=google&utm_medium=cpc&utm_campaign=venfour_total_loss_search&utm_term={keyword}&utm_content={creative}&campaign_id={campaignid}&adgroup_id={adgroupid}&device={device}&matchtype={matchtype}",
+  "keyword_counts": {
+    "positive_exact": 12,
+    "positive_phrase": 2,
+    "negative_exact": 24,
+    "negative_phrase": 39
+  },
+  "campaign_asset_counts": {
+    "sitelinks": 4,
+    "callouts": 6,
+    "business_names": 1,
+    "business_logos": 1
+  },
+  "business_name": "Venfour",
+  "business_logo_asset_id": "424667340471",
+  "business_logo_asset_name": "Venfour LinkedIn Logo (1).png",
+  "business_asset_status": "Pending / Under review",
+  "advertiser_verification": "User submitted organization and optional-DUNS form; refreshed account pause cleared; business assets unlocked; disclosure Venfour LLC",
+  "purchase_primary": true,
+  "purchase_count": "Every",
+  "purchase_tracking_status": "Awaiting conversions",
+  "purchase_platform_verification": "NOT VERIFIED; no live transaction triggered",
+  "qa30": "DEFERRED until a genuine customer purchase; launch authorized with disclosed limitation; not passed.",
+  "secondary_free_estimate_created": false,
+  "recorded_cost_usd": 0,
+  "recorded_clicks": 0,
+  "recorded_impressions": 0,
+  "deployments": [],
+  "headlines": [
+    {
+      "text": "Total Loss Offer Too Low?",
+      "characters": 25,
+      "pin": "HEADLINE_1"
+    },
+    {
+      "text": "Dispute Your Total Loss Offer",
+      "characters": 29,
+      "pin": "HEADLINE_1"
+    },
+    {
+      "text": "Was Your Car Undervalued?",
+      "characters": 25,
+      "pin": null
+    },
+    {
+      "text": "Free Total Loss Estimate",
+      "characters": 24,
+      "pin": null
+    },
+    {
+      "text": "Check Before You Accept",
+      "characters": 23,
+      "pin": null
+    },
+    {
+      "text": "Guided Dispute Help for $199",
+      "characters": 28,
+      "pin": null
+    },
+    {
+      "text": "Evidence to Back Your Dispute",
+      "characters": 29,
+      "pin": null
+    },
+    {
+      "text": "Compare Similar Vehicles",
+      "characters": 24,
+      "pin": null
+    },
+    {
+      "text": "Review Your Valuation Report",
+      "characters": 28,
+      "pin": null
+    },
+    {
+      "text": "Prepare Your Counteroffer",
+      "characters": 25,
+      "pin": null
+    },
+    {
+      "text": "Know What to Say Next",
+      "characters": 21,
+      "pin": null
+    },
+    {
+      "text": "Review Your Insurer's Reply",
+      "characters": 27,
+      "pin": null
+    },
+    {
+      "text": "Support Beyond the First Offer",
+      "characters": 30,
+      "pin": null
+    },
+    {
+      "text": "Venfour Total Loss Help",
+      "characters": 23,
+      "pin": null
+    },
+    {
+      "text": "Start With a Free Value Check",
+      "characters": 29,
+      "pin": null
+    }
+  ],
+  "descriptions": [
+    {
+      "text": "Total loss offer too low? Get evidence-backed help challenging your insurer's valuation.",
+      "characters": 88,
+      "pin": null
+    },
+    {
+      "text": "We review your insurer's report, comparable vehicles, mileage, trim and value adjustments.",
+      "characters": 90,
+      "pin": null
+    },
+    {
+      "text": "Start with a free total loss estimate. See whether your offer deserves a closer look.",
+      "characters": 85,
+      "pin": null
+    },
+    {
+      "text": "For $199, build your dispute and get guidance on what to say when your insurer replies.",
+      "characters": 87,
+      "pin": null
+    }
+  ],
+  "prelaunch_status": "PAUSED",
+  "eligibility": "Eligible (Limited)",
+  "launch_timestamp_utc": "2026-09-25T17:26:00Z",
+  "launch_timestamp_precision": "approximate minute",
+  "launch_authorization": "User requested finishing Google Ads and removing pause after discussion of live purchase verification limitation.",
+  "launch_record": "2026-09-25-search-campaign-launch.md",
+  "launch_verification": {
+    "persisted_after_reload": true,
+    "account_diagnostics": "success",
+    "ads_diagnostics": "success",
+    "goals_diagnostics": "success",
+    "warnings": [
+      "Missing enough relevant keywords",
+      "New bid strategy is learning"
+    ],
+    "budget_rechecked_usd": 20,
+    "cpc_cap_rechecked_usd": 6
+  }
+}

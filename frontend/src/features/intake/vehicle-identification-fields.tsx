@@ -1,4 +1,5 @@
 import "./vehicle-identification-fields.css";
+import { VehicleSelectField } from "./vehicle-select-field";
 
 import {
   AlertCircle,
@@ -12,7 +13,6 @@ import {
 import { useState } from "react";
 
 import {
-  IntakeSelectField,
   IntakeTextField,
 } from "@/features/total-loss/intake-fields";
 import {
@@ -232,8 +232,8 @@ export function VehicleIdentificationFields({
             ) : null}
           </div>
         ) : (
-          <div className="grid gap-5 sm:grid-cols-2">
-            <IntakeSelectField
+          <div className="vehicle-details-fields grid grid-cols-2 gap-3 sm:gap-4">
+            <VehicleSelectField
               id={`${idPrefix}-year`}
               label="Year"
               value={values.vehicleYear}
@@ -241,13 +241,11 @@ export function VehicleIdentificationFields({
               placeholder="Select year"
               options={withCurrentOption(yearOptions, values.vehicleYear)}
               disabled={fieldsDisabled}
-              onChange={(event) =>
-                onChange("vehicleYear", event.target.value)
-              }
+              onChange={(value) => onChange("vehicleYear", value)}
               onBlur={() => onBlur?.("vehicleYear")}
             />
             <div>
-              <IntakeSelectField
+              <VehicleSelectField
                 id={`${idPrefix}-make`}
                 label="Make"
                 value={values.make}
@@ -256,7 +254,7 @@ export function VehicleIdentificationFields({
                 options={withCurrentOption(makeOptions, values.make)}
                 loading={makesState === "loading"}
                 disabled={fieldsDisabled || makesState === "error"}
-                onChange={(event) => onChange("make", event.target.value)}
+                onChange={(value) => onChange("make", value)}
                 onBlur={() => onBlur?.("make")}
               />
               {makesState === "error" ? (
@@ -265,23 +263,19 @@ export function VehicleIdentificationFields({
             </div>
             <div
               className={cn(
-                "grid gap-5 sm:col-span-2",
+                "grid gap-3 col-span-2 sm:gap-4",
                 trimRequired
-                  ? "grid-cols-1 sm:grid-cols-2"
+                  ? "grid-cols-2"
                   : "grid-cols-1",
               )}
             >
               <div>
-                <IntakeSelectField
+                <VehicleSelectField
                   id={`${idPrefix}-model`}
                   label="Model"
                   value={values.model}
                   error={errors.model}
-                  placeholder={
-                    values.vehicleYear && values.make
-                      ? "Select model"
-                      : "Choose year and make first"
-                  }
+                  placeholder="Select model"
                   options={withCurrentOption(modelOptions, values.model)}
                   loading={modelsState === "loading"}
                   disabled={
@@ -290,7 +284,7 @@ export function VehicleIdentificationFields({
                     !values.make ||
                     modelsState === "error"
                   }
-                  onChange={(event) => onChange("model", event.target.value)}
+                  onChange={(value) => onChange("model", value)}
                   onBlur={() => onBlur?.("model")}
                 />
                 {modelsState === "error" ? (
@@ -313,6 +307,9 @@ export function VehicleIdentificationFields({
                 />
               ) : null}
             </div>
+            <p className="vehicle-details-guidance col-span-2">
+              Choose a year and make, then {trimRequired ? "the model and trim" : "the model"}.
+            </p>
           </div>
         )}
 
@@ -601,26 +598,22 @@ function VehicleTrimSelect({
   );
   return (
     <div className={className}>
-      <IntakeSelectField
+      <VehicleSelectField
         id={id}
         label="Trim"
         value={selectedOption?.id ?? legacyValue ?? ""}
         error={error}
-        placeholder={
-          vehicleKnown
-            ? "Select trim"
-            : "Choose year, make, and model first"
-        }
+        placeholder="Select trim"
         options={selectOptions}
         loading={state === "loading"}
         disabled={disabled || !vehicleKnown}
-        onChange={(event) => {
-          if (!event.target.value) {
+        onChange={(value) => {
+          if (!value) {
             onChange("");
             return;
           }
           const option = options.find(
-            (candidate) => candidate.id === event.target.value,
+            (candidate) => candidate.id === value,
           );
           if (!option) return;
           if (onTrimSelectionChange) {

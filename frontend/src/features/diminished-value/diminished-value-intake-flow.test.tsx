@@ -61,16 +61,17 @@ describe("DiminishedValueIntakeFlow", () => {
     await user.click(
       screen.getByRole("radio", { name: "Select vehicle details" }),
     );
-    await screen.findByRole("option", { name: "Honda" });
-    await user.selectOptions(screen.getByLabelText("Year"), "2024");
-    await user.selectOptions(screen.getByLabelText("Make"), "Honda");
-    await screen.findByRole("option", { name: "Accord" });
-    await user.selectOptions(screen.getByLabelText("Model"), "Accord");
-    await screen.findByRole("option", { name: "EX" });
-    await user.selectOptions(
-      screen.getByLabelText("Trim"),
-      "marketcheck-trim-ex",
-    );
+    await waitFor(() => expect(screen.getByLabelText("Make")).toBeEnabled());
+    await user.click(screen.getByLabelText("Year"));
+    await user.click(screen.getByRole("option", { name: "2024" }));
+    await user.click(screen.getByLabelText("Make"));
+    await user.click(screen.getByRole("option", { name: "Honda" }));
+    await waitFor(() => expect(screen.getByLabelText("Model")).toBeEnabled());
+    await user.click(screen.getByLabelText("Model"));
+    await user.click(screen.getByRole("option", { name: "Accord" }));
+    await waitFor(() => expect(screen.getByLabelText("Trim")).toBeEnabled());
+    await user.click(screen.getByLabelText("Trim"));
+    await user.click(screen.getByRole("option", { name: "EX" }));
     await user.type(screen.getByLabelText("Mileage at the accident"), "48250");
     await user.type(screen.getByLabelText("Current mileage"), "49100");
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -224,7 +225,7 @@ describe("DiminishedValueIntakeFlow", () => {
       />,
     );
 
-    await screen.findByRole("option", { name: "EX" });
+    await waitFor(() => expect(screen.getByLabelText("Trim")).toBeEnabled());
     expect(screen.getByLabelText("Trim")).toHaveValue("marketcheck-trim-ex");
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
@@ -325,10 +326,8 @@ describe("DiminishedValueIntakeFlow", () => {
       screen.getByRole("heading", { name: "Tell us about the vehicle" }),
     ).toBeInTheDocument();
 
-    await user.selectOptions(
-      screen.getByLabelText("Trim"),
-      "venfour-trim-other-not-sure",
-    );
+    await user.click(screen.getByLabelText("Trim"));
+    await user.click(screen.getByRole("option", { name: "Other / Not sure" }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(
       await screen.findByRole("heading", {

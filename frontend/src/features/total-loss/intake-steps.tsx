@@ -258,14 +258,14 @@ export function VehicleStep({
 }: VehicleStepProps) {
   const findingVehicle = entryMethod === "vin" &&
     (!values.vehicleYear || !values.make || !values.model);
-  const vehicleValidation = validateTotalLossManualForm(values);
+  const selectedTrim = uniquelyMatchingVehicleTrimOption(trimOptions, values.trim, vehicleConfiguration);
+  const vehicleValidation = validateTotalLossManualForm({ ...values, trim: selectedTrim?.trim ?? values.trim });
   const vehicleIncomplete = findingVehicle
     ? Boolean(validateVin(values.vin))
     : Boolean(
       vehicleValidation.vin || vehicleValidation.vehicleYear || vehicleValidation.make ||
       vehicleValidation.model || vehicleValidation.trim ||
-      (trimsState !== "idle" && trimOptions.length > 0 &&
-        !uniquelyMatchingVehicleTrimOption(trimOptions, values.trim, vehicleConfiguration)),
+      (trimsState !== "idle" && trimOptions.length > 0 && !selectedTrim),
     );
   return (
     <FlowCard busy={busy}>
