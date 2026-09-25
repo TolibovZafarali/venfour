@@ -91,7 +91,7 @@ export function InsuranceCompanyField({
   const selectionErrorId = !customInsurer && error ? `${id}-error` : undefined;
 
   const options = useMemo<readonly InsurerOption[]>(() => {
-    const search = query.trim().toLocaleLowerCase();
+    const search = selection ? "" : query.trim().toLocaleLowerCase();
     const matchingCompanies = commonAutoInsuranceCompanies
       .filter((company) => company.toLocaleLowerCase().includes(search))
       .map((company) => ({ label: company, value: company }));
@@ -100,7 +100,7 @@ export function InsuranceCompanyField({
       ...matchingCompanies,
       { label: otherInsurerLabel, value: otherInsurerValue },
     ];
-  }, [query]);
+  }, [query, selection]);
 
   const chooseOption = (option: InsurerOption) => {
     setSelection(option.value);
@@ -216,7 +216,8 @@ export function InsuranceCompanyField({
                 setActiveIndex(0);
                 setOpen(true);
               }}
-              onClick={() => {
+              onClick={(event) => {
+                if (!open && selection) event.currentTarget.select();
                 setActiveIndex(0);
                 setOpen(true);
               }}

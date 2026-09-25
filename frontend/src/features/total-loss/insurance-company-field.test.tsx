@@ -100,6 +100,33 @@ describe("InsuranceCompanyField", () => {
     );
   });
 
+  it("shows every insurer when reopening a selection and lets the user replace it", async () => {
+    const user = userEvent.setup();
+    render(<InsuranceCompanyHarness initialValue="Allstate" />);
+    const combobox = screen.getByRole("combobox", { name: "Insurance company" });
+
+    await user.click(combobox);
+    expect(screen.getByRole("option", { name: "Allstate" })).toHaveAttribute("aria-selected", "true");
+    await user.click(screen.getByRole("option", { name: "GEICO" }));
+    expect(screen.getByTestId("insurer-value")).toHaveTextContent("GEICO");
+
+    await user.click(combobox);
+    await user.keyboard("prog");
+    expect(screen.queryByRole("option", { name: "GEICO" })).not.toBeInTheDocument();
+    await user.keyboard("{Enter}");
+    expect(screen.getByTestId("insurer-value")).toHaveTextContent("Progressive");
+  });
+
+  it("allows switching from an unlisted insurer back to a common insurer with the keyboard", async () => {
+    const user = userEvent.setup();
+    render(<InsuranceCompanyHarness initialValue="Regional Mutual" />);
+    await user.tab();
+    await user.keyboard("{Escape}{ArrowDown}{Enter}");
+
+    expect(screen.getByTestId("insurer-value")).toHaveTextContent("State Farm");
+    expect(screen.queryByLabelText("Insurance company name")).not.toBeInTheDocument();
+  });
+
   it("supports selecting a filtered insurer with the keyboard", async () => {
     const user = userEvent.setup();
     render(<InsuranceCompanyHarness />);
