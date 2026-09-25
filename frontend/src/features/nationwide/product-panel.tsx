@@ -6,11 +6,11 @@ export type SaveProductFacts = () => Promise<void>;
 const labels: Record<FactField, string> = { vehicle_registration: "Vehicle registration state", garaging_at_loss: "Vehicle home state at the time of loss", loss_location: "State where the loss occurred", policy_issued: "State where the policy was issued", claim_type: "Whose insurer is handling your claim?", policy_use: "Vehicle use" };
 const readable = (value: string) => value.toLowerCase().replaceAll("_", " ");
 
-type ProductFormProps = { caseId: string; accessToken: string; saveRef?: MutableRefObject<SaveProductFacts | null>; onSaved?: () => void };
+type ProductFormProps = { caseId: string; accessToken: string; saveRef?: MutableRefObject<SaveProductFacts | null>; onSaved?: () => void; onReadyChange?: (ready: boolean) => void };
 export function ProductFactsForm(props: ProductFormProps) {
   return <ProductFactsFormContent key={props.caseId} {...props} />;
 }
-function ProductFactsFormContent({ caseId, accessToken, saveRef, onSaved }: ProductFormProps) {
+function ProductFactsFormContent({ caseId, accessToken, saveRef, onSaved, onReadyChange }: ProductFormProps) {
   const id = useId();
   const [data, setData] = useState<ProductResponse | null>(null);
   const [values, setValues] = useState<Record<FactField, string>>(() => confirmedValues({ schema_version: "1", assertions: [] }));
@@ -20,6 +20,11 @@ function ProductFactsFormContent({ caseId, accessToken, saveRef, onSaved }: Prod
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const [saved, setSaved] = useState(false);
+  const ready = Boolean(data && confirmed && !busy);
+  useEffect(() => {
+    onReadyChange?.(ready);
+    return () => onReadyChange?.(false);
+  }, [onReadyChange, ready]);
   useEffect(() => {
     let current = true;
     void loadProduct(caseId, accessToken).then(value => {
@@ -57,7 +62,7 @@ function ProductFactsFormContent({ caseId, accessToken, saveRef, onSaved }: Prod
       </>}
     </select>
   </label>;
-  return <section className="my-6 grid gap-4 border-t border-border pt-5" aria-label="Location and claim details">
+  return <section className="my-6 grid gap-4 border-t border-border pt-5" aria-label="Location and claim details" data-intake-incomplete={!data || !confirmed || busy}>
     <div><h2 className="font-semibold">Location and claim details</h2><p className="mt-1 text-sm text-muted-foreground">Use the details at the time of loss. Your search ZIP locates comparable vehicles; it does not fill in these answers.</p></div>
     {select("vehicle_registration")}
     <label className="flex gap-3 text-sm"><input type="checkbox" checked={same} disabled={busy || !data || !values.vehicle_registration} onChange={event => {

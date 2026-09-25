@@ -26,6 +26,7 @@ import {
   secondaryFlowButtonClassName,
 } from "@/features/total-loss/intake-fields";
 import { VehicleIdentificationFields } from "@/features/intake";
+import { uniquelyMatchingVehicleTrimOption } from "@/features/intake/vehicle-lookup-types";
 import type {
   VehicleConfigurationIdentity,
   VehicleTrimOption,
@@ -44,6 +45,10 @@ import {
   getUsPhoneNumberDigits,
   getMaximumTotalLossVehicleYear,
   MIN_TOTAL_LOSS_VEHICLE_YEAR,
+  validateTotalLossManualForm,
+  validateTotalLossContactForm,
+  validateVin,
+  validateZipCode,
 } from "@/features/total-loss/validation";
 import { cn } from "@/lib/utils";
 
@@ -251,6 +256,17 @@ export function VehicleStep({
   fieldsDisabled,
   error,
 }: VehicleStepProps) {
+  const findingVehicle = entryMethod === "vin" &&
+    (!values.vehicleYear || !values.make || !values.model);
+  const vehicleValidation = validateTotalLossManualForm(values);
+  const vehicleIncomplete = findingVehicle
+    ? Boolean(validateVin(values.vin))
+    : Boolean(
+      vehicleValidation.vin || vehicleValidation.vehicleYear || vehicleValidation.make ||
+      vehicleValidation.model || vehicleValidation.trim ||
+      (trimsState !== "idle" && trimOptions.length > 0 &&
+        !uniquelyMatchingVehicleTrimOption(trimOptions, values.trim, vehicleConfiguration)),
+    );
   return (
     <FlowCard busy={busy}>
       <TotalLossProgress mode={mode} step="vehicle" />
@@ -288,14 +304,14 @@ export function VehicleStep({
       <StepActions
         onBack={onBack}
         onContinue={onContinue}
+        continueDisabled={vehicleIncomplete}
         busy={
           busy ||
           vinLookupState === "loading" ||
           trimsState === "loading"
         }
         continueLabel={
-          entryMethod === "vin" &&
-          (!values.vehicleYear || !values.make || !values.model)
+          findingVehicle
             ? "Find vehicle"
             : "Confirm vehicle & continue"
         }
@@ -435,6 +451,7 @@ export function ClaimStep({
         onContinue={onContinue}
         busy={busy}
         continueLabel="Continue"
+        continueDisabled={Object.keys(validateTotalLossManualForm(values)).length > 0}
       />
     </FlowCard>
   );
@@ -664,8 +681,9 @@ export function ReportUploadStep({
             <button
               type="button"
               className={primaryFlowButtonClassName}
-              disabled={disabled}
+              disabled={disabled || Boolean(validateZipCode(marketZipCode))}
               onClick={onContinue}
+              data-incomplete={Boolean(validateZipCode(marketZipCode)) || undefined}
             >
               Continue to contact
               <ArrowRight className="size-4" aria-hidden />
@@ -679,6 +697,7 @@ export function ReportUploadStep({
 
 interface ContactStepProps {
   readonly locationDetails?: ReactNode;
+  readonly locationDetailsReady?: boolean;
   readonly mode: TotalLossIntakeMode;
   readonly values: TotalLossContactFormValues;
   readonly errors: TotalLossContactFormErrors;
@@ -696,6 +715,7 @@ interface ContactStepProps {
 
 export function ContactStep({
   locationDetails,
+  locationDetailsReady = true,
   mode,
   values,
   errors,
@@ -904,6 +924,7 @@ export function ContactStep({
         onContinue={onContinue}
         busy={busy}
         continueLabel="Review & analyze"
+        continueDisabled={!locationDetailsReady || Object.keys(validateTotalLossContactForm(values)).length > 0}
       />
     </FlowCard>
   );

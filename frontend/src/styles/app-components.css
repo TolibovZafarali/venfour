@@ -92,7 +92,7 @@
   /* Primary actions deepen in color without changing size or position. */
   :is(button, a[href], [role="button"]):is(.bg-brand, .bg-primary, [data-slot="button"][data-variant="default"], .review-primary, .request-button-primary, .free-valuation-processing__retry) {
     &:is(:hover, :active):not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]) {
-      background-color: var(--brand-strong);
+      background-color: var(--intake-action-hover, var(--brand-strong));
     }
     &:is(:disabled, [aria-disabled="true"]) {
       background-color: var(--line);
@@ -104,6 +104,16 @@
   }
   :is(a[href], button):is(.text-brand, .text-primary, [data-slot="button"][data-variant="link"]):is(:hover, :active):not(:disabled):not([aria-disabled="true"]) {
     color: var(--link-hover);
+  }
+
+  .intake-primary-action[data-incomplete="true"],
+  [data-flow-card]:has([data-intake-incomplete="true"]) .intake-primary-action {
+    --intake-action-hover: var(--line);
+    &, &:is(:hover, :active, :focus-visible) {
+      background-color: var(--line);
+      color: var(--copy);
+      opacity: 1;
+    }
   }
 
   /* Selection uses a faint tint, while labels stay dark. */
@@ -140,7 +150,7 @@
       outline: 2px solid var(--ring) !important;
       outline-offset: -2px !important;
     }
-    [data-vehicle-method-switch] label.bg-brand:has(input:focus-visible) {
+    [data-vehicle-method-switch] label:has(input:checked:focus-visible) {
       outline-color: var(--primary-foreground) !important;
       outline-offset: -3px !important;
     }

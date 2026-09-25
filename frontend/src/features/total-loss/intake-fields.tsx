@@ -876,6 +876,7 @@ export function StepActions({
       <button
         type="button"
         className={primaryFlowButtonClassName}
+        data-incomplete={continueDisabled || undefined}
         disabled={busy || continueDisabled}
         onClick={onContinue}
       >

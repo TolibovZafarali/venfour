@@ -45,6 +45,48 @@ afterEach(() => {
 });
 
 describe("total-loss intake step presentation", () => {
+  it("blocks contact submission until required details, consent, and location are ready", async () => {
+    const user = userEvent.setup();
+    const onContinue = vi.fn();
+    const renderContact = (values: TotalLossContactFormValues, locationDetailsReady = true) => (
+      <MemoryRouter>
+        <ContactStep mode="manual" values={values} errors={{}} locationDetailsReady={locationDetailsReady}
+          onChange={vi.fn()} onBack={vi.fn()} onContinue={onContinue} />
+      </MemoryRouter>
+    );
+    const { rerender } = render(renderContact({ ...contactValues, firstName: "" }));
+    const button = screen.getByRole("button", { name: "Review & analyze" });
+    expect(button).toBeDisabled();
+    await user.click(button);
+    expect(onContinue).not.toHaveBeenCalled();
+    rerender(renderContact({ ...contactValues, privacyAccepted: false }));
+    expect(button).toBeDisabled();
+    rerender(renderContact(contactValues, false));
+    expect(button).toBeDisabled();
+    rerender(renderContact({ ...contactValues, phoneNumber: "" }));
+    expect(button).toBeEnabled();
+    await user.click(button);
+    expect(onContinue).toHaveBeenCalledOnce();
+  });
+
+  it("blocks claim continuation until required fields are complete without requiring optional fields", async () => {
+    const user = userEvent.setup();
+    const onContinue = vi.fn();
+    const renderClaim = (zipCode: string) => (
+      <ClaimStep mode="manual" values={{ ...manualValues, zipCode, insurerName: "", insurerVehicleValuation: "" }} errors={{}}
+        onChange={vi.fn()} onBlur={vi.fn()} onBack={vi.fn()} onContinue={onContinue} />
+    );
+    const { rerender } = render(renderClaim(""));
+    const button = screen.getByRole("button", { name: "Continue" });
+    expect(button).toBeDisabled();
+    await user.click(button);
+    expect(onContinue).not.toHaveBeenCalled();
+    rerender(renderClaim("60601"));
+    expect(button).toBeEnabled();
+    await user.click(button);
+    expect(onContinue).toHaveBeenCalledOnce();
+  });
+
   it("keeps the simplified contact fields aligned separately from consent", () => {
     render(
       <MemoryRouter>

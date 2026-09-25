@@ -151,7 +151,7 @@
 }
 
 .appraisal-start-content :is(input:not([type="radio"]):not([type="checkbox"]):not([type="file"]), select, textarea) { min-height: var(--start-control-height); font-size: 16px; border-radius: 7px; }
-.appraisal-start-content [data-vehicle-method-switch] { padding: 4px; border-radius: 8px; }
+.appraisal-start-content [data-vehicle-method-switch] { --vehicle-switch-inset: 4px; padding: 4px; border-radius: 8px; }
 .appraisal-start-content [data-vehicle-method-switch] > label { min-height: 48px; font-size: 15px; padding-inline: 10px; }
 .appraisal-start-content [data-intake-loss-fields] { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .appraisal-start-content [data-intake-loss-fields] > :last-child { grid-column: 1 / -1; }

@@ -1,3 +1,5 @@
+import "./vehicle-identification-fields.css";
+
 import {
   AlertCircle,
   CarFront,
@@ -122,6 +124,8 @@ export function VehicleIdentificationFields({
           className="mt-3 grid grid-cols-2 gap-1.5 rounded-xl bg-surface p-1.5"
           data-stable-selection-group
           data-vehicle-method-switch
+          data-active-method={entryMethod}
+          data-disabled={methodDisabled || undefined}
         >
           {(
             [
@@ -132,10 +136,10 @@ export function VehicleIdentificationFields({
             <label
               key={method}
               className={cn(
-                "flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border px-2 text-center text-sm font-semibold transition-colors duration-150 motion-reduce:transition-none sm:px-3",
+                "relative z-10 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg px-2 text-center text-sm font-semibold transition-colors duration-300 motion-reduce:transition-none sm:px-3",
                 entryMethod === method
-                  ? "border-brand bg-brand text-white"
-                  : "border-transparent text-copy hover:border-line hover:bg-white/60 hover:text-ink",
+                  ? "text-white"
+                  : "text-copy hover:text-ink",
                 methodDisabled && "cursor-not-allowed opacity-65",
               )}
             >
@@ -148,9 +152,10 @@ export function VehicleIdentificationFields({
                 disabled={methodDisabled}
                 onChange={() => onEntryMethodChange(method)}
               />
-              {entryMethod === method
-                ? <CheckCircle2 className="size-4 shrink-0" aria-hidden />
-                : <Icon className="size-4 shrink-0" aria-hidden />}
+              <span className="grid size-4 shrink-0" aria-hidden>
+                <CheckCircle2 className={cn("col-start-1 row-start-1 size-4 transition-opacity duration-300 motion-reduce:transition-none", entryMethod === method ? "opacity-100" : "opacity-0")} />
+                <Icon className={cn("col-start-1 row-start-1 size-4 transition-opacity duration-300 motion-reduce:transition-none", entryMethod === method ? "opacity-0" : "opacity-100")} />
+              </span>
               {label}
             </label>
           ))}

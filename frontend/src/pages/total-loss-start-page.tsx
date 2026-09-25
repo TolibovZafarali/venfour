@@ -637,6 +637,7 @@ function TotalLossIntakeFlowContent({
     {},
   );
   const saveProductFactsRef = useRef<SaveProductFacts | null>(null);
+  const [productFactsReady, setProductFactsReady] = useState(false);
   const productFactSaveInFlightRef = useRef(false);
   const [contactErrors, setContactErrors] =
     useState<TotalLossContactFormErrors>({});
@@ -2484,7 +2485,8 @@ function TotalLossIntakeFlowContent({
       case "contact":
         return (
           <ContactStep
-            locationDetails={environment.nationwideProductEnabled && confirmedCaseId && "session" in auth && auth.session ? <ProductFactsForm key={confirmedCaseId} caseId={confirmedCaseId} accessToken={auth.session.access_token} saveRef={saveProductFactsRef} /> : undefined}
+            locationDetails={environment.nationwideProductEnabled && confirmedCaseId && "session" in auth && auth.session ? <ProductFactsForm key={confirmedCaseId} caseId={confirmedCaseId} accessToken={auth.session.access_token} saveRef={saveProductFactsRef} onReadyChange={setProductFactsReady} /> : undefined}
+            locationDetailsReady={!environment.nationwideProductEnabled || productFactsReady}
             mode={draft.mode ?? "manual"}
             values={draft.contact}
             errors={contactErrors}
