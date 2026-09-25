@@ -7,7 +7,8 @@ import type { AppraisalCase } from "@/features/cases/types";
 import type { CustomerProfileService } from "@/features/customer-profile";
 import type { FullReviewState } from "@/features/full-review/api";
 import type { TotalLossDependencies } from "@/features/total-loss/dependencies";
-import type { TotalLossCaseDetails } from "@/features/total-loss/data-types";
+import type { TotalLossDetailsService } from "@/features/total-loss/service";
+import type { TotalLossCaseDetails, TotalLossDetailsScope, TotalLossDetailsChanges } from "@/features/total-loss/data-types";
 import { materialUndervalueAnalysis } from "@/test/fixtures/analysis-presentation";
 import { CASE_ID, OTHER_CASE_ID, USER_ID, REPORT_ID, RUN_ID, NOW, claimProjection, completedEducationSteps } from "./claim-fixtures";
 import { isMessageScenario, messagePreview, resetMessagePreview, messageCasePath } from "./message-flow";
@@ -49,6 +50,7 @@ export const scenarios = [
 export type Scenario = typeof scenarios[number][0];
 type Snapshot = { phase: Scenario; changed: number; transition: boolean; filename?: string; paymentFieldsEmpty?: boolean };
 const storageKey = "venfour-workspace-visual-preview-v1";
+const intakeDetailsKey = "venfour-workspace-preview-intake-details-v1";
 export const GUEST_USER_ID = "99999999-9999-4999-8999-999999999999";
 export function snapshot(): Snapshot {
   try {
@@ -61,6 +63,7 @@ export function snapshot(): Snapshot {
 function save(value: Snapshot) { localStorage.setItem(storageKey, JSON.stringify(value)); }
 function setPhase(phase: Scenario, transition = false, filename = snapshot().filename) { save({ ...snapshot(), phase, transition, filename, changed: Date.now() }); }
 export function resetScenario(phase: Scenario) {
+  localStorage.removeItem(intakeDetailsKey);
   if (isMessageScenario(phase)) resetMessagePreview(phase);
   save({ phase, transition: false, changed: Date.now(), paymentFieldsEmpty: phase === "payment-unverified" });
   localStorage.removeItem("venfour-workspace-preview-signed-out");
@@ -264,21 +267,44 @@ const savedDetails: TotalLossCaseDetails = {
   reportUploadRecoveryRequired: false, reportOriginalFilename: null,
   reportUploadedAt: null, intakeCompletedAt: null, createdAt: NOW, updatedAt: NOW,
 };
+function readPreviewDetails(scope: TotalLossDetailsScope): TotalLossCaseDetails | null {
+  const saved = JSON.parse(localStorage.getItem(intakeDetailsKey) ?? "{}");
+  const stored = saved[`${scope.userId}:${scope.caseId}`] as TotalLossCaseDetails | undefined;
+  if (stored) return stored;
+  const phase = snapshot().phase;
+  if (phase === "zero") return null;
+  if (phase === "intake") return { ...savedDetails, caseId: scope.caseId };
+  const reportAvailable = !["free", "listing", "insufficient", "upload"].includes(phase);
+  return { ...savedDetails, caseId: scope.caseId, intakeMode: reportAvailable ? "report" : "manual", insurerName: "Example Insurance", insurerVehicleValuation: 20000,
+    reportOriginalFilename: reportAvailable ? "Insurer_valuation_report.pdf" : null, reportUploadedAt: reportAvailable ? NOW : null,
+    intakeCompletedAt: NOW, analysisInputId: RUN_ID, analysisInputRevision: 3 };
+}
+
+function savePreviewDetails(scope: TotalLossDetailsScope, changes: TotalLossDetailsChanges | Partial<TotalLossCaseDetails>): TotalLossCaseDetails {
+  const current = readPreviewDetails(scope) ?? savedDetails;
+  const details = { ...current, ...changes, caseId: scope.caseId,
+    updatedAt: new Date(Math.max(Date.now(), Date.parse(current.updatedAt) + 1)).toISOString() };
+  const saved = JSON.parse(localStorage.getItem(intakeDetailsKey) ?? "{}");
+  saved[`${scope.userId}:${scope.caseId}`] = details;
+  localStorage.setItem(intakeDetailsKey, JSON.stringify(saved));
+  return details;
+}
+
+const previewIntakeDetailsService = {
+  getDetails: async scope => readPreviewDetails(scope),
+  createDetails: async input => savePreviewDetails(input, input.values),
+  saveDetails: async input => savePreviewDetails(input, input.values),
+  updateDetails: async input => savePreviewDetails(input, input.changes),
+  confirmIntake: async input => {
+    const details = savePreviewDetails(input, { intakeCompletedAt: new Date().toISOString(), analysisInputId: RUN_ID, analysisInputRevision: 4 });
+    setPhase("processing");
+    return details;
+  },
+} satisfies Pick<TotalLossDetailsService, "getDetails" | "createDetails" | "saveDetails" | "updateDetails" | "confirmIntake">;
+
 export const previewDetails = {
   appraisalCaseService: previewCaseService,
-  totalLossDetailsService: {
-    getDetails: async () => {
-      const phase = snapshot().phase;
-      if (phase === "zero") return null;
-      if (phase === "intake") return savedDetails;
-      const reportAvailable = !["free", "listing", "insufficient", "upload"].includes(phase);
-      return { ...savedDetails, intakeMode: reportAvailable ? "report" : "manual", insurerName: "Example Insurance", insurerVehicleValuation: 20000,
-        reportOriginalFilename: reportAvailable ? "Insurer_valuation_report.pdf" : null, reportUploadedAt: reportAvailable ? NOW : null,
-        intakeCompletedAt: NOW, analysisInputId: RUN_ID, analysisInputRevision: 3 };
-    },
-    updateDetails: async () => ({ ...savedDetails, analysisInputId: RUN_ID, analysisInputRevision: 4 }),
-    confirmIntake: async () => { setPhase("processing"); return { ...savedDetails, analysisInputId: RUN_ID, analysisInputRevision: 4 }; },
-  },
+  totalLossDetailsService: previewIntakeDetailsService,
   totalLossIdentityService: { getContact: async () => null },
   totalLossReportStorageService: {},
   vehicleLookupService: {

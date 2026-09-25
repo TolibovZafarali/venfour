@@ -49,6 +49,7 @@ import {
 import { cn } from "@/lib/utils";
 
 interface ChoiceStepProps {
+  onBack?: () => void;
   selectedMode: TotalLossIntakeMode | null;
   onSelect: (mode: TotalLossIntakeMode) => void;
   onContinue: () => void;
@@ -114,6 +115,7 @@ function TotalLossProgress({
 }
 
 export function ChoiceStep({
+  onBack,
   selectedMode,
   onSelect,
   onContinue,
@@ -180,23 +182,12 @@ export function ChoiceStep({
         </div>
       </fieldset>
       {error ? <InlineError message={error} /> : null}
-      <div className="mt-7 flex justify-end" data-intake-actions>
-        <button
-          type="button"
-          className={primaryFlowButtonClassName}
-          disabled={!selectedMode || busy}
-          onClick={onContinue}
-        >
-          {busy ? (
-            <LoaderCircle
-              className="size-4 animate-spin motion-reduce:animate-none"
-              aria-hidden
-            />
-          ) : null}
-          Continue
-          {!busy ? <ArrowRight className="size-4" aria-hidden /> : null}
-        </button>
-      </div>
+      <StepActions
+        onBack={onBack}
+        onContinue={onContinue}
+        busy={busy}
+        continueDisabled={!selectedMode}
+      />
     </FlowCard>
   );
 }

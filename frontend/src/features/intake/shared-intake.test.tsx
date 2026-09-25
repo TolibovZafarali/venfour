@@ -153,8 +153,6 @@ describe("shared appraisal intake controls", () => {
     const totalLoss = screen.getByRole("radio", { name: "Total Loss" });
     expect(totalLoss).toBeChecked();
     expect(totalLoss.closest("label")).toHaveClass(
-      "border-transparent",
-      "bg-brand",
       "text-white",
     );
 

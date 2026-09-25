@@ -6,6 +6,14 @@
 .workspace-preview-note :is(a, button) { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; color: #155eef; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .workspace-preview-note[data-message-demo] { position: static; width: fit-content; margin: 16px 12px 12px auto; }
 .workspace-preview-note[data-message-demo] :is(a, button) { min-height: 44px; }
+@media (min-width: 64rem) {
+  html:has(.appraisal-start-gradient) .workspace-preview-note { left: 12px; right: auto; }
+  html:has(.appraisal-start-gradient) .appraisal-start-visual__footer { bottom: 64px; }
+}
+@media (max-width: 63.999rem) {
+  html:has(.appraisal-start-gradient) .workspace-preview-note { bottom: 0; padding: 0 6px; border: 0; border-radius: 0; font-size: 9px; line-height: 16px; }
+  html:has(.appraisal-start-gradient) .workspace-preview-note :is(a, button) { min-height: 18px; }
+}
 .entry-preview-controls { position: fixed; z-index: 80; bottom: 54px; left: 50%; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 16px; width: max-content; max-width: calc(100% - 24px); padding: 6px 16px; border: 1px solid var(--line); border-radius: 12px; background: white; color: var(--copy); box-shadow: 0 4px 24px #00000008; font-size: 12px; }
 .entry-preview-controls :is(a, button) { display: inline-flex; align-items: center; min-height: 44px; color: var(--brand); text-underline-offset: 4px; cursor: pointer; }
 .entry-preview-controls :is(a, button):hover { text-decoration: underline; }

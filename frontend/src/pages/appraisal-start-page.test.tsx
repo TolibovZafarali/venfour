@@ -94,7 +94,7 @@ function expectSelectedService(selectedLabel: ServiceLabel) {
 
   expect(selected).toBeChecked();
   expect(selected.closest("label")).toHaveAttribute("aria-current", "true");
-  expect(selected.closest("label")).toHaveClass("border-transparent");
+  expect(selected.closest("label")).toHaveClass("text-white");
   expect(selected.closest("label")).not.toHaveClass("focus-within:ring-2");
   expect(other).not.toBeChecked();
   expect(other.closest("label")).not.toHaveAttribute("aria-current");
@@ -106,9 +106,11 @@ afterEach(() => {
 });
 
 describe("/start appraisal intake", () => {
-  it("returns to the public homepage when the start-page logo is clicked", () => {
+  it("integrates the logo and account into the start panels and keeps the homepage link", () => {
     renderTestApp(["/start?service=total-loss"]);
 
+    expect(document.querySelector("[data-start-split-shell]")).toBeInTheDocument();
+    expect(screen.getByRole("banner").parentElement).toHaveClass("absolute");
     expect(screen.getByRole("banner").querySelector("a[aria-label='Venfour home']"))
       .toHaveAttribute("href", "/");
   });
@@ -250,18 +252,35 @@ describe("/start appraisal intake", () => {
     expect(await screen.findByRole("group", { name: "Do you have your insurance valuation report?" })).toBeVisible();
     expect(new URLSearchParams(router.state.location.search).get("view")).toBe("intake");
     expect(new URLSearchParams(router.state.location.search).get("campaign")).toBe("spring");
-    await user.click(screen.getByRole("button", { name: "Back to services" }));
+    expect(screen.queryByRole("button", { name: "Back to services" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Back" })).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Back" }));
     expect(screen.getByRole("radio", { name: "Total Loss" })).toBeChecked();
     expect(new URLSearchParams(router.state.location.search).get("view")).toBeNull();
     expect(new URLSearchParams(router.state.location.search).get("campaign")).toBe("spring");
   });
 
+  it("uses one Back button to return through intake before service selection", async () => {
+    const user = userEvent.setup();
+    renderTestApp(["/start?service=total-loss&view=intake"]);
+    await user.click(await screen.findByRole("radio", { name: /I have my valuation report/i }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByRole("heading", { name: "Upload your valuation report" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Back to services" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Back" })).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    expect(await screen.findByRole("group", { name: "Do you have your insurance valuation report?" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByRole("radio", { name: "Total Loss" })).toBeChecked();
+  });
+
   it("opens cookie preferences from a single control inside the right panel", async () => {
     const user = userEvent.setup();
     renderTestApp(["/start?service=total-loss"]);
-    const [button] = screen.getAllByRole("button", { name: "Cookie preferences" });
-    expect(screen.getAllByRole("button", { name: "Cookie preferences" })).toHaveLength(1);
+    const [button] = screen.getAllByRole("button", { name: "Your Privacy Choices" });
+    expect(screen.getAllByRole("button", { name: "Your Privacy Choices" })).toHaveLength(1);
     expect(button.closest("[data-appraisal-start-flow]")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "support@venfour.com" })).toHaveAttribute("href", "mailto:support@venfour.com");
     await user.click(button);
     expect(screen.getByRole("dialog", { name: "Cookie preferences" })).toBeVisible();
   });
@@ -285,6 +304,7 @@ describe("/start appraisal intake", () => {
     expect(await screen.findByRole("heading", { name: "Your appraisal details" })).toBeVisible();
     expect(screen.queryByRole("radio", { name: "Diminished Value" })).not.toBeInTheDocument();
     expect(document.querySelector(".customer-workspace")).toBeInTheDocument();
+    expect(document.querySelector("[data-start-split-shell]")).not.toBeInTheDocument();
     const searchParams = new URLSearchParams(router.state.location.search);
     expect(searchParams.get("service")).toBe("total-loss");
     expect(searchParams.get("caseId")).toBe(caseId);
@@ -343,7 +363,7 @@ describe("/start appraisal intake", () => {
       `/start?service=diminished-value&view=intake&caseId=${caseId}`,
     ]);
 
-    await user.click(screen.getByRole("button", { name: "Back to services" }));
+    await user.click(screen.getByRole("button", { name: "Back" }));
     await user.click(screen.getByRole("radio", { name: "Total Loss" }));
     await waitFor(() =>
       expect(
@@ -365,7 +385,7 @@ describe("/start appraisal intake", () => {
       }),
     ).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Back to services" }));
+    await user.click(screen.getByRole("button", { name: "Back" }));
     await user.click(screen.getByRole("radio", { name: "Diminished Value" }));
     expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
     expect(screen.getByText("In development")).toBeVisible();

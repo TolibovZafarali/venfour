@@ -237,7 +237,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
     : "duration-[360ms] ease-[cubic-bezier(0.4,0,0.2,1)]";
 
   return (
-    <div className="relative flex min-h-svh flex-col bg-background" data-customer-workspace={workspace || undefined} data-completed-review={completedReviewRoute || undefined}>
+    <div className="relative flex min-h-svh flex-col bg-background" data-customer-workspace={workspace || undefined} data-completed-review={completedReviewRoute || undefined} data-start-split-shell={startFlowRoute && !workspace || undefined}>
       <span
         ref={headerSentinelRef}
         className="pointer-events-none absolute top-0 left-0 h-px w-px"
@@ -249,7 +249,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
       >
         Skip to content
       </a>
-      <div className="sticky top-0 z-40 h-16 shrink-0">
+      <div className={cn("top-0 z-40 h-16 shrink-0", startFlowRoute && !workspace ? "absolute inset-x-0" : "sticky")}>
         <header
           data-site-header
           data-header-state={visibleHeaderDetached ? "detached" : "integrated"}

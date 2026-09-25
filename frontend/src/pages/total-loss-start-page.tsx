@@ -168,6 +168,7 @@ interface IntakeCorrectionSnapshot {
 }
 
 interface TotalLossIntakeFlowProps {
+  onBackToServices?: () => void;
   onBusyChange?: (busy: boolean) => void;
 }
 
@@ -177,12 +178,14 @@ interface StartupChoice {
 }
 
 export function TotalLossIntakeFlow({
+  onBackToServices,
   onBusyChange,
 }: TotalLossIntakeFlowProps) {
-  return <TotalLossDraftBootstrapGate onBusyChange={onBusyChange} />;
+  return <TotalLossDraftBootstrapGate onBusyChange={onBusyChange} onBackToServices={onBackToServices} />;
 }
 
 function TotalLossDraftBootstrapGate({
+  onBackToServices,
   onBusyChange,
 }: TotalLossIntakeFlowProps) {
   const { auth, ensureGuestSession } = useAuth();
@@ -362,6 +365,7 @@ function TotalLossDraftBootstrapGate({
   const pendingContent = showStartupChoice ? (
     <IntakeStepTransition transitionKey="choice" direction="forward">
       <ChoiceStep
+        onBack={onBackToServices}
         selectedMode={startupChoice.mode}
         busy={startupChoice.continued}
         onSelect={(mode) => setStartupChoice({ mode, continued: false })}
@@ -574,6 +578,7 @@ function TotalLossDraftBootstrapGate({
       }
       startupChoice={startupDetailsQuery.data === null ? startupChoice : null}
       startNewCase={Boolean(newCaseId)}
+      onBackToServices={onBackToServices}
       onBusyChange={onBusyChange}
     />
   );
@@ -587,6 +592,7 @@ interface TotalLossIntakeFlowContentProps extends TotalLossIntakeFlowProps {
 }
 
 function TotalLossIntakeFlowContent({
+  onBackToServices,
   bootstrapCase,
   correction,
   onBusyChange,
@@ -2520,6 +2526,7 @@ function TotalLossIntakeFlowContent({
       default:
         return (
           <ChoiceStep
+            onBack={onBackToServices}
             selectedMode={draft.mode}
             busy={modeBusy || createCaseMutation.isPending}
             error={flowError}

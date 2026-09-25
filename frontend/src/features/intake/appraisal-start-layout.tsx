@@ -1,8 +1,10 @@
 import "./appraisal-start-layout.css";
 
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { publicHref } from "@/app/site-boundary";
+import { supportEmail } from "@/config/support";
 import { ExampleAnalysisPreview } from "@/features/intake/example-analysis-preview";
 import type { AppraisalServiceSlug } from "@/features/intake/types";
 import { useCookieConsent } from "@/features/privacy/cookie-consent-context";
@@ -34,9 +36,10 @@ export function ServiceSelector({
       className={cn("mb-7", className)}
       disabled={disabled}
       data-service-selector
+      data-active-service={value}
     >
       <legend className="sr-only">Choose an appraisal service</legend>
-      <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-line bg-surface/85 p-1.5 shadow-sm">
+      <div className="appraisal-service-track grid grid-cols-2 gap-1.5 rounded-xl border border-line bg-surface/85 p-1">
         {appraisalServiceOptions.map((option) => {
           const selected = option.value === value;
           const inputId = `appraisal-service-${option.value}`;
@@ -45,10 +48,10 @@ export function ServiceSelector({
               key={option.value}
               htmlFor={inputId}
               className={cn(
-                "flex min-h-12 cursor-pointer items-center justify-center rounded-lg border border-transparent px-3 text-center text-sm font-semibold transition-[background-color,box-shadow,color,filter,transform] duration-300 ease-out active:scale-[0.99] motion-reduce:transition-none",
+                "flex min-h-12 cursor-pointer items-center justify-center rounded-lg px-3 text-center text-sm font-semibold relative z-10 transition-colors duration-300 ease-out motion-reduce:transition-none",
                 selected
-                  ? "bg-brand text-white shadow-sm hover:bg-brand-strong"
-                  : "text-copy hover:bg-white/60 hover:text-ink",
+                  ? "text-white"
+                  : "text-copy hover:text-ink",
                 disabled && "cursor-not-allowed opacity-65",
               )}
               aria-current={selected ? "true" : undefined}
@@ -79,7 +82,6 @@ export interface AppraisalStartLayoutProps {
   stage: "overview" | "intake";
   onServiceChange: (service: AppraisalServiceSlug) => void;
   onContinue: () => void;
-  onBack: () => void;
   continueLabel?: ReactNode;
   continueAvailable?: boolean;
   serviceSwitchDisabled?: boolean;
@@ -97,7 +99,6 @@ export function AppraisalStartLayout({
   stage,
   onServiceChange,
   onContinue,
-  onBack,
   continueLabel = "Continue",
   continueAvailable = true,
   serviceSwitchDisabled,
@@ -118,14 +119,14 @@ export function AppraisalStartLayout({
   return (
     <div
       className={cn(
-        "appraisal-start-gradient min-h-[calc(100svh-4rem)] w-full",
+        "appraisal-start-gradient min-h-svh w-full",
         className,
       )}
       data-appraisal-start-page
       data-appraisal-service={service}
     >
       <div
-        className="grid min-h-[calc(100svh-4rem)] w-full lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-stretch"
+        className="grid min-h-svh w-full lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-stretch"
         data-appraisal-start-layout
         data-total-loss-layout
       >
@@ -133,7 +134,7 @@ export function AppraisalStartLayout({
           <div className="appraisal-start-visual__frame">
             <div className="appraisal-start-visual__copy">
               <p className="appraisal-start-visual__eyebrow">A fresh perspective</p>
-              <p className="appraisal-start-visual__heading">A clearer picture.<br />A confident<br />next step.</p>
+              <p className="appraisal-start-visual__heading"><span>A clearer picture.</span><span>A confident next step.</span></p>
               <p className="appraisal-start-visual__caption">Understand your vehicle’s value,<br />with evidence you can use.</p>
             </div>
             <div className="appraisal-start-visual__footer">
@@ -171,23 +172,17 @@ export function AppraisalStartLayout({
                 </button> : null}
               </div>
             ) : (
-              <>
-                <button
-                  type="button"
-                  className="appraisal-start-back mb-4 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-copy transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand motion-reduce:transition-none disabled:opacity-50"
-                  disabled={serviceSwitchDisabled}
-                  onClick={onBack}
-                >
-                  <ArrowLeft className="size-4" aria-hidden />Back to services
-                </button>
-                {children}
-              </>
+              children
             )}
-          </div>
-          <div className="appraisal-start-preferences">
-            <button type="button" onClick={openPreferences}>
-              Cookie preferences
-            </button>
+            <div className="appraisal-start-preferences">
+              <span className="appraisal-start-help">
+                Need help? {supportEmail ? <a href={`mailto:${supportEmail}`}>{supportEmail}</a> : <a href={publicHref("/contact")}>Contact us</a>}
+              </span>
+              <span aria-hidden="true">·</span>
+              <button type="button" onClick={openPreferences}>
+                Your Privacy Choices
+              </button>
+            </div>
           </div>
         </section>
       </div>

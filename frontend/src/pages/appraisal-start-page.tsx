@@ -1,3 +1,4 @@
+import { ArrowLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
@@ -11,6 +12,7 @@ import {
   AppraisalStartLayout,
   type AppraisalServiceSlug,
 } from "@/features/intake";
+import { secondaryFlowButtonClassName } from "@/features/total-loss/intake-fields";
 import { NEW_TOTAL_LOSS_CASE_QUERY_PARAMETER } from "@/features/total-loss/new-appraisal";
 import {
   readTotalLossIntakeCorrectionIntent,
@@ -129,16 +131,16 @@ export function AppraisalStartPage() {
   };
 
   const totalLossSelected = service === "total-loss";
+  const caseWorkspace = totalLossSelected && Boolean(new URLSearchParams(location.search).get("caseId"));
 
   return (
     <AppraisalStartLayout
-      caseWorkspace={totalLossSelected && Boolean(new URLSearchParams(location.search).get("caseId"))}
+      caseWorkspace={caseWorkspace}
       service={service}
       stage={stage}
       onServiceChange={handleServiceChange}
       onContinue={handleContinue}
       continueAvailable={totalLossSelected || diminishedValueIntakeAvailable}
-      onBack={handleBack}
       serviceSwitchDisabled={
         (totalLossSelected && totalLossBusy) ||
         (!totalLossSelected && diminishedValueBusy)
@@ -162,18 +164,25 @@ export function AppraisalStartPage() {
         totalLossSelected
           ? correctingTotalLossIntake
             ? "Review and correct the saved information for this same case, then resubmit when you’re ready."
-            : "Compare your insurer’s valuation with market evidence. Start with a report or your vehicle details."
+            : <>Compare your insurer’s valuation with market evidence.<span className="appraisal-start-description-detail"> Start with a report or your vehicle details.</span></>
           : diminishedValueIntakeAvailable
             ? "We’ll securely gather accident, repair, vehicle, and contact details for a future manual review. Submission does not create an automated appraisal or schedule an appointment."
             : "We’re working on this feature. Customer intake isn’t open yet."
       }
     >
       {totalLossSelected ? (
-        <TotalLossIntakeFlow onBusyChange={setTotalLossBusy} />
+        <TotalLossIntakeFlow onBusyChange={setTotalLossBusy} onBackToServices={caseWorkspace ? undefined : handleBack} />
       ) : diminishedValueIntakeAvailable ? (
         <DiminishedValueStartFlow onBusyChange={setDiminishedValueBusy} />
       ) : (
-        <DiminishedValuePausedState />
+        <>
+          <DiminishedValuePausedState />
+          <div className="mt-6" data-intake-actions>
+            <button type="button" className={secondaryFlowButtonClassName} onClick={handleBack}>
+              <ArrowLeft className="size-4" aria-hidden />Back
+            </button>
+          </div>
+        </>
       )}
     </AppraisalStartLayout>
   );

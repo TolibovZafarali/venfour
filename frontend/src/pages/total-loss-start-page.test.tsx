@@ -3871,7 +3871,7 @@ describe("/start?service=total-loss", () => {
     });
 
     expect(
-      screen.getByRole("button", { name: "Back to services" }),
+      screen.getByRole("button", { name: "Back" }),
     ).toBeEnabled();
     expect(document.querySelector(".appraisal-start-visual")).toBe(visual);
     expect(document.querySelector("[data-appraisal-start-flow]")).toBe(flow);
@@ -3934,7 +3934,7 @@ describe("/start?service=total-loss", () => {
     });
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Back to services" }),
+        screen.getByRole("button", { name: "Back" }),
       ).toBeEnabled(),
     );
     expect(screen.getByRole("radio", { name: "Use my VIN" })).toBeEnabled();
