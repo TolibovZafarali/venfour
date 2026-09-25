@@ -32,6 +32,7 @@ import { usePublicSessionHint } from "@/features/auth/public-session-hint";
 import { CookieConsent } from "@/features/privacy/cookie-consent";
 import { useCookieConsent } from "@/features/privacy/cookie-consent-context";
 import { cn } from "@/lib/utils";
+import { BrandLink } from "@/components/brand-link";
 import { useHomeSmoothScroll } from "@/pages/use-home-smooth-scroll";
 import { FreeValuationProcessingProvider } from "@/features/analyses/components/free-valuation-processing";
 import { CustomerWorkspace, CustomerWorkspaceIdentity } from "@/components/customer-workspace";
@@ -249,7 +250,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
       >
         Skip to content
       </a>
-      <div className={cn("top-0 z-40 h-16 shrink-0", startFlowRoute && !workspace ? "absolute inset-x-0" : "sticky")}>
+      <div className={cn("top-0 z-40 h-16 shrink-0", startFlowRoute && !workspace ? "absolute inset-x-0 pointer-events-none" : "sticky")}>
         <header
           data-site-header
           data-header-state={visibleHeaderDetached ? "detached" : "integrated"}
@@ -293,27 +294,8 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
                   : "max-w-7xl",
               )}
             >
-              <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-                <Link
-                  to={brandHref}
-                  className="notranslate inline-flex min-h-11 select-none items-center gap-[0.5625rem] rounded-md text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-                  aria-label="Venfour home"
-                  translate="no"
-                >
-                  <img
-                    src={venfourMark}
-                    className="size-7"
-                    alt=""
-                    aria-hidden
-                    data-brand-logo="venfour"
-                  />
-                  <span
-                    className="font-brand text-[1.25rem] leading-none font-semibold tracking-[-0.035em] antialiased [font-kerning:normal] [text-rendering:geometricPrecision]"
-                    data-brand-wordmark="venfour"
-                  >
-                    Venfour
-                  </span>
-                </Link>
+              <div className="flex min-w-0 items-center gap-3 sm:gap-4" data-header-brand-slot>
+                <BrandLink to={brandHref} />
                 {adminRoute ? (
                   <span className="hidden border-l border-ink/10 pl-4 text-[0.6875rem] font-semibold tracking-[0.12em] text-copy/80 uppercase sm:block">
                     Staff review
@@ -329,14 +311,16 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
                   <AccountControl className="shrink-0" onStaffNavigationRequest={requestStaffNavigation} staffReviewHref={staffReviewHref} />
                 </div>
               ) : productFlowRoute ? null : startFlowRoute || adminRoute || appVisualSystem ? (
-                <AccountControl
-                  className="shrink-0"
-                  onStaffNavigationRequest={requestStaffNavigation}
-                  signedOutHint={
-                    startFlowRoute ? "Already have an account?" : undefined
-                  }
-                  staffReviewHref={staffReviewHref}
-                />
+                <div className={startFlowRoute && !workspace ? "appraisal-start-account-slot" : "contents"}>
+                  <AccountControl
+                    className="shrink-0"
+                    onStaffNavigationRequest={requestStaffNavigation}
+                    signedOutHint={
+                      startFlowRoute ? "Already have an account?" : undefined
+                    }
+                    staffReviewHref={staffReviewHref}
+                  />
+                </div>
               ) : (
                 <>
                   <nav

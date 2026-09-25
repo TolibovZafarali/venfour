@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { publicHref } from "@/app/site-boundary";
+import { BrandLink } from "@/components/brand-link";
 import { supportEmail } from "@/config/support";
 import { ExampleAnalysisPreview } from "@/features/intake/example-analysis-preview";
 import type { AppraisalServiceSlug } from "@/features/intake/types";
@@ -132,6 +133,7 @@ export function AppraisalStartLayout({
       >
         <aside className="appraisal-start-visual" aria-label="Valuation review">
           <div className="appraisal-start-visual__frame">
+            <BrandLink to={publicHref()} className="appraisal-start-visual__brand" />
             <div className="appraisal-start-visual__copy">
               <p className="appraisal-start-visual__eyebrow">A fresh perspective</p>
               <p className="appraisal-start-visual__heading"><span>A clearer picture.</span><span>A confident next step.</span></p>

@@ -26,6 +26,15 @@
   inset: calc(64px + clamp(40px, 7vh, 76px)) clamp(32px, 4.2vw, 68px) auto;
 }
 
+.appraisal-start-visual__brand {
+  position: absolute;
+  top: 22px;
+  left: clamp(32px, 4.2vw, 68px);
+  color: #fff;
+}
+
+.appraisal-start-visual__brand [data-brand-logo] { filter: invert(1); }
+
 .appraisal-start-visual__eyebrow {
   margin: 0 0 22px;
   color: #d4d4d4;
@@ -125,16 +134,21 @@
 .appraisal-start-content [data-intake-mode-options] { grid-template-columns: 1fr; gap: 12px; margin-top: 24px; }
 .appraisal-start-content [data-intake-mode-options] > label {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) 44px;
-  gap: 0 14px;
+  grid-template-columns: minmax(0, 1fr) 22px;
+  gap: 20px;
   min-height: 116px;
-  padding: 18px;
+  padding: 20px;
   border-radius: 8px;
 }
-.appraisal-start-content [data-intake-mode-options] > label > span:first-of-type { grid-row: 1 / 3; width: 36px; height: 36px; border-radius: 6px; }
-.appraisal-start-content [data-intake-mode-options] > label > span:nth-of-type(2) { grid-column: 2; margin: 0; font-size: 17px; line-height: 1.45; }
-.appraisal-start-content [data-intake-mode-options] > label > span:nth-of-type(3) { grid-column: 2; margin-top: 5px; font-size: 15px; line-height: 1.55; }
-.appraisal-start-content [data-intake-mode-options] > label > span:last-of-type { grid-column: 3; grid-row: 1 / 3; align-self: center; margin: 0; padding: 0; font-size: 10px; text-align: right; }
+.appraisal-start-content .intake-mode-choice__description { font-size: 15px; line-height: 1.55; }
+.intake-mode-choice:has(input:focus-visible) { outline: 2px solid var(--brand); outline-offset: 3px; }
+
+@media (max-width: 39.999rem) and (max-height: 620px) {
+  .appraisal-start-content [data-intake-mode] { margin-top: 16px; }
+  .appraisal-start-content [data-intake-mode] > legend { font-size: 24px; }
+  .appraisal-start-content [data-intake-mode-options] { margin-top: 16px; }
+  .appraisal-start-content [data-intake-mode-options] > label { min-height: 104px; padding-block: 14px; }
+}
 
 .appraisal-start-content :is(input:not([type="radio"]):not([type="checkbox"]):not([type="file"]), select, textarea) { min-height: var(--start-control-height); font-size: 16px; border-radius: 7px; }
 .appraisal-start-content [data-vehicle-method-switch] { padding: 4px; border-radius: 8px; }
@@ -167,9 +181,8 @@
 }
 
 @container (max-width: 440px) {
-  .appraisal-start-content [data-intake-mode-options] > label { grid-template-columns: 30px minmax(0, 1fr); gap: 0 12px; padding: 16px; }
-  .appraisal-start-content [data-intake-mode-options] > label > span:first-of-type { width: 30px; height: 30px; }
-  .appraisal-start-content [data-intake-mode-options] > label > span:last-of-type { display: none; }
+  .appraisal-start-content [data-intake-mode-options] > label { gap: 12px; padding: 16px; }
+  .appraisal-start-content .intake-mode-choice__description { font-size: 14px; }
   .appraisal-start-content [data-intake-loss-fields] { grid-template-columns: 1fr; }
   .appraisal-start-content [data-intake-report-upload] > div:first-child { gap: 12px; padding: 16px; }
   .appraisal-start-content [data-example-analysis] dd { font-size: 21px; }
@@ -392,16 +405,24 @@
   .appraisal-start-content [data-example-comparison] { display: none; }
 }
 
+:root [data-start-split-shell] [data-header-brand-slot],
+.appraisal-start-account-slot { pointer-events: auto; }
+
 :root [data-start-split-shell] [data-site-header] .header-glass {
   border: 0;
   background: transparent;
   box-shadow: none;
   backdrop-filter: none;
 }
-:root [data-start-split-shell] [data-site-header] .header-glass > div { max-width: none; }
-:root [data-start-split-shell] [data-site-header] [aria-label="Venfour home"] { position: relative; top: 12px; }
+:root [data-start-split-shell] [data-site-header] .header-glass > div { max-width: none; padding-top: 22px; padding-bottom: 0; }
+.appraisal-start-account-slot { display: flex; align-items: center; justify-content: flex-end; min-height: 44px; }
 @media (min-width: 64rem) {
-  :root [data-start-split-shell] [data-site-header] .header-glass > div { padding-left: clamp(32px, 4.2vw, 68px); }
-  :root [data-start-split-shell] [data-site-header] [aria-label="Venfour home"] { color: #fff; }
-  :root [data-start-split-shell] [data-site-header] [data-brand-logo] { filter: invert(1); }
+  :root [data-start-split-shell] [data-site-header] .header-glass > div {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 0;
+    padding-inline: 0;
+  }
+  :root [data-start-split-shell] [data-header-brand-slot] { visibility: hidden; }
+  .appraisal-start-account-slot { width: calc(100% - 80px); max-width: 624px; margin-inline: auto; }
 }

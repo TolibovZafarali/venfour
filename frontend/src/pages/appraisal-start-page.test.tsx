@@ -111,6 +111,7 @@ describe("/start appraisal intake", () => {
 
     expect(document.querySelector("[data-start-split-shell]")).toBeInTheDocument();
     expect(screen.getByRole("banner").parentElement).toHaveClass("absolute");
+    expect(screen.getByRole("banner").parentElement).not.toHaveClass("fixed", "sticky");
     expect(screen.getByRole("banner").querySelector("a[aria-label='Venfour home']"))
       .toHaveAttribute("href", "/");
   });

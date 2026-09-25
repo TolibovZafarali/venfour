@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   FileText,
   LoaderCircle,
-  PenLine,
   RefreshCw,
   ShieldCheck,
   Upload,
@@ -62,15 +61,13 @@ const choiceOptions = [
     mode: "report" as const,
     title: "I have my valuation report",
     description:
-      "Upload the valuation report your insurance company used, regardless of provider.",
-    icon: FileText,
+      "Upload the valuation report your insurer used.",
   },
   {
     mode: "manual" as const,
     title: "I don’t have the report",
     description:
-      "Start a preliminary estimate with your vehicle and claim details. Your insurer’s report is required before the paid report.",
-    icon: PenLine,
+      "Get a preliminary estimate. Your insurer’s report is required for the paid review.",
   },
 ] as const;
 
@@ -136,17 +133,16 @@ export function ChoiceStep({
         >
           {choiceOptions.map((option) => {
             const selected = selectedMode === option.mode;
-            const Icon = option.icon;
             return (
               <label
                 key={option.mode}
                 className={cn(
-                  "relative flex min-h-44 cursor-pointer flex-col rounded-xl border bg-white p-5 transition-colors focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2 hover:bg-brand-soft/35 motion-reduce:transition-none",
+                  "intake-mode-choice relative grid min-h-28 cursor-pointer grid-cols-[minmax(0,1fr)_22px] items-center gap-5 rounded-lg border p-5 transition-colors duration-200 focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2 motion-reduce:transition-none",
                   selected
-                    ? "border-line bg-brand-soft/55"
-                    : "border-line",
+                    ? "border-brand bg-brand text-white hover:bg-brand-strong"
+                    : "border-line bg-white text-ink hover:border-ink/30 hover:bg-surface",
                   busy &&
-                    "cursor-not-allowed bg-surface/70 opacity-70 hover:border-line hover:bg-surface/70",
+                    "pointer-events-none cursor-not-allowed opacity-65",
                 )}
               >
                 <input
@@ -158,23 +154,19 @@ export function ChoiceStep({
                   disabled={busy}
                   onChange={() => onSelect(option.mode)}
                 />
-                <span className="flex size-11 items-center justify-center rounded-lg bg-brand-soft text-brand">
-                  <Icon className="size-5" aria-hidden />
-                </span>
-                <span className="mt-5 text-lg font-semibold tracking-[-0.02em] text-ink">
-                  {option.title}
-                </span>
-                <span className="mt-2 text-sm leading-6 text-copy">
-                  {option.description}
+                <span className="min-w-0">
+                  <span className="intake-mode-choice__title block text-[17px] leading-snug font-semibold tracking-[-0.02em]">
+                    {option.title}
+                  </span>
+                  <span className={cn("intake-mode-choice__description mt-2 block text-[14px] leading-relaxed", selected ? "text-white/90" : "text-copy")}>
+                    {option.description}
+                  </span>
                 </span>
                 <span
-                  className={cn(
-                    "mt-auto pt-5 text-xs font-semibold",
-                    selected ? "text-brand" : "text-copy",
-                  )}
-                  aria-hidden
+                  className={cn("intake-mode-choice__indicator flex size-[22px] items-center justify-center rounded-full border transition-colors motion-reduce:transition-none", selected ? "border-white bg-white" : "border-neutral-300 bg-white")}
+                  aria-hidden="true"
                 >
-                  {selected ? "Selected" : "Select"}
+                  <span className={cn("size-2 rounded-full bg-brand transition-opacity motion-reduce:transition-none", selected ? "opacity-100" : "opacity-0")} />
                 </span>
               </label>
             );
