@@ -27,6 +27,8 @@ import { CookiePolicyPage } from "@/pages/cookie-policy-page";
 import { AppEntryPage } from "@/pages/app-entry-page";
 import { AppraisalResumePage } from "@/pages/appraisal-resume-page";
 import { HomePage } from "@/pages/home-page";
+import { StatePage } from "@/pages/state-page";
+import { findState, stateMetadata } from "@/features/states/states";
 import { AboutPage, UnderstandingReportPage, ValuationChecklistPage } from "@/pages/public-resources";
 import { MethodologyPage } from "@/pages/methodology-page";
 import { NotFoundPage } from "@/pages/not-found-page";
@@ -100,6 +102,14 @@ const combinedRoutes: RouteObject[] = [
           "Start a Total Loss Review | Venfour",
           "Start a Total Loss market valuation with or without an insurer report, or view the current Diminished Value service update.",
         ),
+      },
+      {
+        path: "states/:stateSlug",
+        element: <StatePage />,
+        handle: ({ params }: { params: Record<string, string | undefined> }) => {
+          const state = findState(params.stateSlug);
+          return state ? stateMetadata(state) : metadata("Page Not Found | Venfour", "The requested Venfour page could not be found.");
+        },
       },
       {
         path: "total-loss/start",
@@ -468,7 +478,7 @@ export const publicRoutes: RouteObject[] = combinedRoutes.flatMap((route): Route
   if (route.path !== "/" || route.index) return [];
   return [{
     ...route,
-    children: route.children?.filter(child => child.index || child.path === "*" ||
+    children: route.children?.filter(child => child.index || child.path === "*" || child.path === "states/:stateSlug" ||
       (child.path !== undefined && routeAudience(`/${child.path}`) === "public")),
   }];
 });

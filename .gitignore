@@ -4,6 +4,7 @@ data/analyzed/
 data/analysis-runs/
 output/pdf/venfour-local-*.pdf
 output/local-market/
+output/playwright/states/
 .env
 .env.*
 !.env.example

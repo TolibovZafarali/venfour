@@ -7,6 +7,7 @@ import { applicationHref, hostAudience } from "@/app/site-boundary";
 import { Navigate } from "react-router";
 import { useHomeEntranceMotion } from "@/pages/use-home-entrance-motion";
 import { publicIntakeClosed } from "@/config/public-site";
+import { StatesSection } from "@/features/states/states-section";
 
 const reviewLabel = publicIntakeClosed ? "Contact Venfour" : "Start Total Loss review";
 
@@ -159,6 +160,8 @@ export function PublicHomePage() {
             <ValuationComparisonVisual />
           </div>
         </section>
+
+        <StatesSection />
 
         <section id="faq" className="section-anchor scroll-mt-24" aria-labelledby="faq-title" tabIndex={-1}>
           <div className="home-section">

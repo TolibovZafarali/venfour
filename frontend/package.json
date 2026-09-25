@@ -21,7 +21,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:worker": "vitest run worker/index.test.ts scripts/staging-environment.test.mjs scripts/production-environment.test.mjs",
+    "test:states-browser": "playwright test --config playwright.states.config.ts",
+    "test:worker": "vitest run worker/index.test.ts worker/state-pages.test.ts scripts/staging-environment.test.mjs scripts/production-environment.test.mjs",
     "worker:dry-run": "wrangler deploy --env staging --dry-run",
     "worker:production-dry-run": "wrangler deploy --env production --dry-run",
     "deploy:staging": "wrangler deploy --env staging",
@@ -48,6 +49,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260822.1",
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/vite": "4.3.3",
     "@testing-library/dom": "10.4.1",
     "@testing-library/jest-dom": "7.0.1",

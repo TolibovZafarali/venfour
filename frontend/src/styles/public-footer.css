@@ -14,7 +14,7 @@
 
   .public-footer__main {
     display: grid;
-    grid-template-columns: 0.85fr 1.5fr;
+    grid-template-columns: 0.85fr 2fr;
     gap: 4rem;
     padding-bottom: 3.5rem;
   }
@@ -39,7 +39,7 @@
 
   .public-footer__navigation {
     display: grid;
-    grid-template-columns: 1fr 1.4fr 1fr;
+    grid-template-columns: 1fr 1.4fr 1fr 1fr;
     align-content: start;
     gap: 1.5rem;
     padding-top: 0.875rem;
@@ -101,6 +101,8 @@
     border-top: 1px solid var(--line);
     padding-top: 1.25rem;
   }
+
+  .public-footer__states > a { gap: 0.5rem; color: var(--ink); font-weight: 500; }
 
   .public-footer__copyright,
   .public-footer__legal .public-footer__link {

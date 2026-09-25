@@ -34,6 +34,7 @@ import { useCookieConsent } from "@/features/privacy/cookie-consent-context";
 import { cn } from "@/lib/utils";
 import { BrandLink } from "@/components/brand-link";
 import { useHomeSmoothScroll } from "@/pages/use-home-smooth-scroll";
+import { footerStates, statePath } from "@/features/states/states";
 import { FreeValuationProcessingProvider } from "@/features/analyses/components/free-valuation-processing";
 import { CustomerWorkspace, CustomerWorkspaceIdentity } from "@/components/customer-workspace";
 import venfourMark from "../../../assets/brand/venfour-mark.svg";
@@ -113,7 +114,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
   const clearingSectionHashRef = useRef(false);
   const metadata = [...matches]
     .reverse()
-    .map((match) => match.handle)
+    .map((match) => typeof match.handle === "function" ? match.handle(match) : match.handle)
     .find(isPageMetadata) ?? {
       title: "Vehicle Valuation Reviews After an Accident | Venfour",
       description:
@@ -572,6 +573,11 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
                     <li><Link to="/referral-partners" className={footerLinkClassName}>Referral partners</Link></li>
                   </ul>
                 </section>
+                <nav aria-label="Footer states" className="public-footer__states">
+                  <h2 className="public-footer__heading">States</h2>
+                  <ul>{footerStates.map(state => <li key={state.code}><Link to={publicHref(statePath(state))} className={footerLinkClassName}>{state.name}</Link></li>)}</ul>
+                  <Link to={publicHref("/#states")} className={footerLinkClassName}>All states <span aria-hidden>→</span></Link>
+                </nav>
               </nav>
             </div>
             <div className="public-footer__bottom">

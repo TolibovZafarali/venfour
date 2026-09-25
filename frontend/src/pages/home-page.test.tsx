@@ -188,6 +188,7 @@ describe("homepage structure", () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe("/start"));
     expect(router.state.location.search).toBe("?service=diminished-value");
-    expect(screen.getByRole("heading", { name: "Diminished Value intake is currently paused" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Diminished Value review" })).toBeVisible();
+    expect(screen.getByText("We’re working on this feature. Customer intake isn’t open yet.")).toBeVisible();
   });
 });

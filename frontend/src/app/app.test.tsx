@@ -146,7 +146,7 @@ describe("Venfour application", () => {
     const footerNavigation = screen.getByRole("navigation", {
       name: "Footer navigation",
     });
-    expect(within(footerNavigation).getAllByRole("link")).toHaveLength(8);
+    expect(within(footerNavigation).getAllByRole("link")).toHaveLength(19);
     expect(within(footerNavigation).getByRole("link", { name: "About Venfour" })).toHaveAttribute("href", "/about");
     expect(within(footerNavigation).getByRole("link", { name: "Understanding your report" })).toHaveAttribute("href", "/resources/understanding-your-report");
     expect(within(footerNavigation).getByRole("link", { name: "Valuation checklist" })).toHaveAttribute("href", "/resources/valuation-review-checklist");
@@ -853,6 +853,7 @@ describe("Venfour application", () => {
     ["diminished-value", "A few things you might be wondering."],
     ["how-it-works", "Start online in a few steps"],
     ["example", "Two numbers. A clearer picture."],
+    ["states", "Nationwide support. Local clarity."],
     ["faq", "A few things you might be wondering."],
   ])("honors the homepage #%s anchor after cross-page navigation", async (id, heading) => {
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
