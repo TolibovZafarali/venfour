@@ -35,6 +35,7 @@ export default defineConfig({
   define: {
     "import.meta.env.VITE_WORKSPACE_STRIPE_SANDBOX": JSON.stringify(Boolean(checkout)),
     "import.meta.env.VITE_ENABLE_POST_CONTINUE_FLOW": '"true"',
+    "import.meta.env.VITE_NATIONWIDE_PRODUCT": '"true"',
     "import.meta.env.VITE_API_BASE_URL": '""',
     "import.meta.env.VITE_SUPABASE_URL": '""',
     "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": '""',

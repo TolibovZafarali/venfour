@@ -1,4 +1,6 @@
 import { AUTH_RETURN_LOCATION_STORAGE_KEY } from "@/features/auth/return-location";
+import { productPreview, resetProductPreview } from "./product-preview";
+import { clearTotalLossDraft, createEmptyTotalLossDraft, writeTotalLossDraft } from "@/features/total-loss/draft";
 import type { Session } from "@supabase/supabase-js";
 import type { AuthService } from "@/features/auth";
 import type { AuthStateChangeListener } from "@/features/auth/auth-service";
@@ -45,6 +47,7 @@ export const scenarios = [
   ["waiting", "Waiting for insurer · Interactive", "Start with a fictional sent message, open the sample report, and try the response form."],
   ["processing", "Free valuation processing", "Current star animation while the free valuation is prepared."],
   ["intake", "Saved appraisal details", "Existing-case intake within the same shell."],
+  ["contact-details", "Contact details", "Current intake contact form and consent acknowledgements."],
   ["zero", "Zero-case customer", "Passive start without creating a case."],
 ] as const;
 export type Scenario = typeof scenarios[number][0];
@@ -64,6 +67,17 @@ function save(value: Snapshot) { localStorage.setItem(storageKey, JSON.stringify
 function setPhase(phase: Scenario, transition = false, filename = snapshot().filename) { save({ ...snapshot(), phase, transition, filename, changed: Date.now() }); }
 export function resetScenario(phase: Scenario) {
   localStorage.removeItem(intakeDetailsKey);
+  resetProductPreview();
+  if (phase === "contact-details") {
+    const draft = createEmptyTotalLossDraft();
+    writeTotalLossDraft({
+      ...draft, mode: "manual", step: "contact", ownerUserId: USER_ID,
+      confirmedCaseId: CASE_ID, reservedCaseId: CASE_ID,
+      manual: { ...draft.manual, vehicleYear: "2026", make: "Hyundai", model: "Kona", trim: "SE", mileageAtLoss: "30000", zipCode: "60601", dateOfLoss: "2026-09-01" },
+    });
+  } else if (snapshot().phase === "contact-details") {
+    clearTotalLossDraft();
+  }
   if (isMessageScenario(phase)) resetMessagePreview(phase);
   save({ phase, transition: false, changed: Date.now(), paymentFieldsEmpty: phase === "payment-unverified" });
   localStorage.removeItem("venfour-workspace-preview-signed-out");
@@ -73,6 +87,7 @@ export function resetScenario(phase: Scenario) {
 }
 export function scenarioPath(phase: Scenario) {
   const base = `/total-loss/cases/${CASE_ID}`;
+  if (phase === "contact-details") return "/start?service=total-loss&view=intake";
   if (isResponseScenario(phase)) return `${base}/claim/review/${phase === "acceptance" ? "resolution" : phase}`;
   if (isMessageScenario(phase)) return `${base}/claim/review/${phase === "waiting" ? "waiting" : "request"}`;
   return phase === "zero" ? "/app" : phase === "intake" ? `/start?service=total-loss&caseId=${CASE_ID}` : phase === "upload" ? `${base}/analysis?upload=report` : ["free", "listing", "insufficient", "saved-report", "missing-detail", "processing"].includes(phase) ? `${base}/analysis`
@@ -185,6 +200,10 @@ export function installPreviewFetch() {
       if (reply) return Response.json(reply.data, { status: reply.status });
     }
     const caseId = url.pathname.match(/appraisal-cases\/([^/]+)/)?.[1] ?? CASE_ID;
+    if (url.pathname === `/api/v1/appraisal-cases/${caseId}/product` && (method === "GET" || method === "POST")) {
+      const body = method === "POST" ? JSON.parse(typeof init?.body === "string" ? init.body : input instanceof Request ? await input.clone().text() : "{}") : undefined;
+      return productPreview(caseId, method, body);
+    }
     if (url.pathname.endsWith("/full-review/report") && method === "POST") {
       const file = (init?.body as FormData).get("report") as File;
       setPhase("extracting", true, file.name);
@@ -249,7 +268,7 @@ export function previewCases(): AppraisalCase[] {
   const phase = snapshot().phase;
   if (phase === "zero") return [];
   const base: AppraisalCase = { id: CASE_ID, userId: phase === "payment-unverified" ? GUEST_USER_ID : USER_ID, serviceType: "total_loss", status: "check_complete", createdAt: NOW, updatedAt: NOW, lastActivityAt: NOW, caseStage: "analysis_complete", analysisStatus: "completed", vehicleLabel: "2026 Hyundai Kona SE", hasFullReviewReport: !["free", "upload", "listing", "insufficient", "saved-report", "missing-detail", "processing"].includes(phase), hasTotalLossClaimWorkflow: isResponseScenario(phase) || ["payment-unverified", "payment", "confirming", "paid", "completed", "no-dispute", "message", "message-details", "send", "waiting"].includes(phase), workspaceStatus: isResponseScenario(phase) && savedResponseClaim(phase).resolution ? "case_closed" : phase === "waiting" ? "awaiting_insurer_response" : ["completed", "no-dispute"].includes(phase) ? "report_ready" : undefined };
-  return [{ ...base, ...(phase === "intake" ? { status: "draft" as const, hasFullReviewReport: false, analysisStatus: null, caseStage: undefined } : {}) }, { ...base, id: OTHER_CASE_ID, vehicleLabel: "2024 Hyundai Elantra Limited", lastActivityAt: "2026-09-12T12:00:00Z", hasFullReviewReport: true, hasTotalLossClaimWorkflow: false, workspaceStatus: "review_prepared" }];
+  return [{ ...base, ...(["intake", "contact-details"].includes(phase) ? { status: "draft" as const, hasFullReviewReport: false, analysisStatus: null, caseStage: undefined } : {}) }, { ...base, id: OTHER_CASE_ID, vehicleLabel: "2024 Hyundai Elantra Limited", lastActivityAt: "2026-09-12T12:00:00Z", hasFullReviewReport: true, hasTotalLossClaimWorkflow: false, workspaceStatus: "review_prepared" }];
 }
 const previewDraft = (userId: string): AppraisalCase => ({ id: CASE_ID, userId, serviceType: "total_loss", status: "draft", createdAt: NOW, updatedAt: NOW, lastActivityAt: NOW });
 const unexpectedWrite = async () => { record("BLOCKED", "case-write"); throw new Error("Case writes are disabled in this preview."); };
@@ -273,7 +292,7 @@ function readPreviewDetails(scope: TotalLossDetailsScope): TotalLossCaseDetails 
   if (stored) return stored;
   const phase = snapshot().phase;
   if (phase === "zero") return null;
-  if (phase === "intake") return { ...savedDetails, caseId: scope.caseId };
+  if (phase === "intake" || phase === "contact-details") return { ...savedDetails, caseId: scope.caseId };
   const reportAvailable = !["free", "listing", "insufficient", "upload"].includes(phase);
   return { ...savedDetails, caseId: scope.caseId, intakeMode: reportAvailable ? "report" : "manual", insurerName: "Example Insurance", insurerVehicleValuation: 20000,
     reportOriginalFilename: reportAvailable ? "Insurer_valuation_report.pdf" : null, reportUploadedAt: reportAvailable ? NOW : null,

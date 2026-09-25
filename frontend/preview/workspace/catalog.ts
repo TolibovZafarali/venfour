@@ -35,7 +35,7 @@ export const categories: Category[] = [
   { id: "intake", title: "Intake & free valuation", description: "Starting a case and reviewing the initial market result.", screens: [
     screen("start", "Start a review", "/start?service=total-loss", "Report and no-report starting choices.", "zero"),
     screen("diminished", "Diminished value", "/start?service=diminished-value", "Current service availability screen."),
-    ...states("intake", "processing", "free", "listing", "insufficient", "saved-report", "missing-detail"),
+    ...states("contact-details", "intake", "processing", "free", "listing", "insufficient", "saved-report", "missing-detail"),
     screen("analysis", "Saved analysis", `/analyses/${RUN_ID}`, "The saved analysis presentation.", "free"),
     screen("loading", "Free valuation loading", "/_local/valuation-processing", "Full-screen loading animation and transition to the result."),
   ] },
