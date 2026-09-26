@@ -25,10 +25,8 @@ RULE = colors.HexColor('#d4d4d4')
 PALE = colors.HexColor('#f5f5f5')
 BLUE = colors.HexColor('#1d4ed8')
 PAGE_TITLES = [
-    'Review at a glance', 'Case and review scope', 'Insurer valuation review',
-    'Comparable market evidence', 'Conclusion and dispute strategy',
-    'Customer reconsideration request', 'Example insurer response review',
-    'Next steps and service scope',
+    'What the client receives', 'Insurer report findings', 'Comparable evidence and comparison',
+    'Initial customer request', 'Insurer reply and prepared follow-up', 'Attorney handoff and fee protection',
 ]
 
 
@@ -161,7 +159,7 @@ class Packet:
         self.text('venfour.com', 758, size=8.2, font='Bold')
         self.c.linkURL('https://venfour.com', (LEFT, 21, LEFT + 65, 37), relative=0)
         self.text('SAMPLE-TL-2026-01  /  NOT A REAL CLAIM', 758, x=176, size=7.4, color=COPY)
-        self.text(f'{self.page:02d} / 08', 758, RIGHT, 8.2, 'Body', COPY, 'right')
+        self.text(f'{self.page:02d} / 06', 758, RIGHT, 8.2, 'Body', COPY, 'right')
         self.label(eyebrow, 101)
         y = self.paragraph(title, 121, size=25.5, leading=30) + 14
         if intro:
@@ -204,142 +202,169 @@ class Packet:
                                size=body_size, leading=leading) + gap
         return y
 
-    def cover(self):
-        d, section = self.d, self.d['cover']
-        self.start(section['eyebrow'], 'Sample Venfour\nTotal-Loss Review')
-        y = self.paragraph(section['intro'], 198, width=475, size=11, leading=16, color=COPY)
-        self.line(y + 19)
-        y += 34
-        self.label('SUBJECT VEHICLE', y)
-        self.paragraph(d['vehicle'], y + 17, size=14, leading=18, font='Bold')
-        self.text(f"{d['mileage']:,} miles  /  Loss: {d['loss_date']}", y + 43, size=9.5, color=COPY)
-        self.text(f"Review issued {d['review_date']}", y + 61, size=9.5, color=COPY)
-        y += 97
-        self.label('INSURER VEHICLE VALUE', y)
-        self.text(cash(d['insurer_value']), y + 18, size=27)
-        self.label('SELECTED ASKING-PRICE RANGE', y, x=300)
-        prices = [r['price'] for r in d['market']]
-        self.text(f'{cash(min(prices))} - {cash(max(prices))}', y + 21, x=300, size=21)
-        self.text(f'Median {cash(statistics.median(prices))} / 5 sample records', y + 53, x=300, size=9, color=COPY)
-        self.text('Before separate settlement items', y + 53, size=9, color=COPY)
-        y += 88
-        y = self.heading(section['conclusion_title'], y, 13)
-        y = self.paragraph(section['conclusion'], y, size=10.5, leading=15) + 17
-        self.box(y, 82)
-        self.label(section['gap_label'].upper(), y + 12, LEFT + 15)
-        self.text(cash(statistics.median(prices) - d['insurer_value']), y + 32, LEFT + 15, 27)
-        self.paragraph(section['gap_note'], y + 15, x=LEFT + 147, width=WIDTH - 163, size=9.6, leading=13)
-        y += 100
-        self.paragraph(section['sample_note'], y, size=8.7, leading=12, color=COPY)
+    def workflow(self, top):
+        labels = self.d['cover']['workflow']
+        step_width = 96
+        for i, label in enumerate(labels):
+            x = LEFT + i * 103
+            self.label(f'{i + 1:02d}', top, x)
+            self.paragraph(label, top + 20, x=x, width=step_width, size=10, leading=13, font='Bold')
+            if i < 4:
+                self.c.setStrokeColor(RULE)
+                self.c.setLineWidth(0.8)
+                ax = x + 69
+                self.c.line(ax, H-top-5, ax+21, H-top-5)
+                self.c.line(ax+17, H-top-8, ax+21, H-top-5)
+                self.c.line(ax+17, H-top-2, ax+21, H-top-5)
+        return top + 72
 
-    def scope(self):
-        s = self.d['scope']
-        y = self.start('01 / CASE AND MATERIALS', 'What this review covers', s['intro'])
-        y = self.heading('Case and vehicle summary', y)
-        for label, value in s['vehicle_facts']:
-            self.paragraph(label, y, width=130, size=9.3, leading=13, color=COPY)
-            bottom = self.paragraph(value, y, x=197, width=361, size=10, leading=13)
-            y = bottom + 6
-        self.line(y + 1)
-        y = self.heading('Illustrative review file', y + 14)
-        for ref, label, body in s['records']:
-            self.text(ref, y + 1, size=9, font='Bold', color=COPY)
-            y = self.paragraph(label, y, x=105, width=453, size=10, leading=13, font='Bold') + 3
-            y = self.paragraph(body, y, x=105, width=453, size=9.5, leading=13) + 8
-        y = self.paragraph(s['scope_note'], y + 1, size=8.6, leading=11.5, color=COPY) + 10
-        self.callout('Vehicle value and settlement payment are separate', s['boundary'], y, 9.3, 13)
+    def cover(self):
+        s = self.d['cover']
+        y = self.start('TOTAL-LOSS VALUATION / SAMPLE CUSTOMER PACKET', 'Sample Venfour\nTotal-Loss Review')
+        y = self.paragraph(s['benefit'], y, size=11, leading=16) + 25
+        y = self.workflow(y)
+        y = self.paragraph(s['workflow_note'], y, size=10, leading=14, color=COPY) + 23
+        self.line(y)
+        y += 19
+        y = self.paragraph(self.d['vehicle'], y, size=15, leading=20, font='Bold') + 7
+        y = self.paragraph(s['case_line'], y, size=10.5, leading=15, color=COPY) + 4
+        y = self.paragraph(s['case_meta'], y, size=10, leading=14, color=COPY) + 24
+        prices = [r['price'] for r in self.d['market']]
+        values = [('INSURER VEHICLE VALUE', cash(self.d['insurer_value'])),
+                  ('MEDIAN ASKING PRICE', cash(statistics.median(prices))),
+                  ('ASKING-PRICE GAP', cash(statistics.median(prices)-self.d['insurer_value']))]
+        for i, (label, value) in enumerate(values):
+            x = LEFT + i*176
+            self.label(label, y, x)
+            self.text(value, y+21, x, size=26)
+        for i, caption in enumerate(['Vehicle value only', '$22,400 - $23,400 range', 'Not a recovery estimate']):
+            self.text(caption, y+53, LEFT+i*176, size=10, color=COPY)
+        y += 84
+        y = self.paragraph(s['conclusion'], y, size=11, leading=16) + 15
+        y = self.paragraph(s['gap_note'], y, size=10.5, leading=15, color=COPY) + 22
+        self.line(y)
+        self.paragraph(s['sample_note'], y+14, size=10, leading=14, color=COPY)
 
     def insurer(self):
         s = self.d['insurer_review']
-        y = self.start('02 / INSURER VALUATION', 'Where the report needs clarity', s['intro'])
+        y = self.start('01 / REVIEW FINDINGS', 'What the insurer report leaves open', s['intro'])
+        y = self.paragraph(s['scope'], y, size=10.5, leading=15) + 20
         rows = [[r['id'], f"{r['mileage']:,}", cash(r['price']), signed_cash(r['mileage_adjustment']),
                  signed_cash(r['condition_adjustment']), cash(r['adjusted'])] for r in self.d['insurer_comps']]
         y = self.row_table(['Record', 'Mileage', 'Asking\nprice', 'Mileage\nadjustment', 'Condition\nadjustment', 'Insurer-\nadjusted'],
-                           rows, [43, 68, 87, 105, 107, 94], y, numeric=(1,2,3,4,5), body_size=9.6)
-        y = self.paragraph(s['table_note'], y + 10, size=8.6, leading=12, color=COPY) + 16
-        self.line(y)
-        self.label('REPORTED VEHICLE VALUE', y + 12)
-        self.text('($20,500 + $20,900 + $20,100) / 3 = $20,500', y + 28, size=10.7, font='Bold')
-        y += 66
-        y = self.numbered(s['findings'], y, body_size=10, leading=14, gap=17)
-        self.paragraph(s['priority'], y + 1, size=9.2, leading=13, font='Bold')
+                           rows, [43, 68, 87, 105, 107, 94], y, numeric=(1,2,3,4,5), body_size=10)
+        y = self.paragraph(s['table_note'], y+10, size=10, leading=14, color=COPY)+13
+        y = self.paragraph('Equal-weight mean: ($20,500 + $20,900 + $20,100) / 3 = $20,500.', y, size=10.5, leading=15, font='Bold')+22
+        y = self.numbered(s['findings'], y, body_size=10.5, leading=15, gap=14)
+        self.paragraph(s['action'], y, size=10.5, leading=15, color=COPY)
+
+    def comparison_chart(self, top):
+        lo, hi = 20000, 24000
+        x0, x1 = LEFT+22, RIGHT-22
+        def position(value):
+            return x0+(value-lo)*(x1-x0)/(hi-lo)
+        prices = [r['price'] for r in self.d['market']]
+        insurer = self.d['insurer_value']
+        low, median, high = min(prices), statistics.median(prices), max(prices)
+        self.label('VEHICLE VALUE AND SELECTED ASKING PRICES / USD', top)
+        self.paragraph('Insurer value\n$20,500', top+25, x=position(insurer)-33, width=95, size=10.5, leading=14, font='Bold')
+        self.paragraph('Asking-price range\n$22,400 - $23,400', top+25, x=position(low)-3, width=178, size=10.5, leading=14, font='Bold')
+        axis = top+82
+        self.line(axis, x=x0, width=x1-x0)
+        self.c.setFillColor(colors.HexColor('#bdbdbd'))
+        self.c.rect(position(low), H-axis-5, position(high)-position(low), 10, fill=1, stroke=0)
+        self.c.setFillColor(INK)
+        self.c.circle(position(insurer), H-axis, 4, fill=1, stroke=0)
+        self.c.setStrokeColor(INK)
+        self.c.setLineWidth(1.2)
+        self.c.line(position(median), H-axis-8, position(median), H-axis+8)
+        for tick in range(lo, hi+1, 1000):
+            x=position(tick)
+            self.c.setLineWidth(0.5)
+            self.c.setStrokeColor(RULE)
+            self.c.line(x, H-axis-10, x, H-axis-14)
+            label=cash(tick)
+            self.text(label, axis+19, x-pdfmetrics.stringWidth(label,'Body',9)/2, size=9, color=COPY)
+        y=axis+53
+        self.c.setStrokeColor(INK)
+        self.c.line(position(insurer), H-y, position(median), H-y)
+        for x in [position(insurer),position(median)]:
+            self.c.line(x,H-y-3,x,H-y+3)
+        self.paragraph('$2,400 to the $22,900 median', y+9, x=position(insurer), width=position(median)-position(insurer), size=10, leading=14)
+        self.chart_geometry={'axis_min':lo,'axis_max':hi,'axis_left':x0,'axis_right':x1,
+            'insurer_x':position(insurer),'range_low_x':position(low),'median_x':position(median),'range_high_x':position(high)}
+        return y+35
 
     def market(self):
         s = self.d['market_review']
-        y = self.start('03 / COMPARABLE EVIDENCE', 'The market records behind the gap', s['intro'])
+        y = self.start('02 / MARKET EVIDENCE', 'Comparable vehicles, clearly compared', s['intro'])
         rows = [[r['id'], r['dealer'], f"{r['mileage']:,}", f"{r['distance']} mi", cash(r['price'])] for r in self.d['market']]
-        y = self.row_table(['Record', 'Fictional listing source', 'Mileage', 'Distance', 'Asking price'], rows,
-                           [49, 187, 85, 80, 103], y, numeric=(2,3,4), body_size=10, padding=8)
-        y = self.paragraph(s['table_note'], y + 10, size=8.7, leading=12, color=COPY) + 16
-        self.box(y, 61)
-        for x, label, value in [(70, 'LOW', '$22,400'), (238, 'MEDIAN', '$22,900'), (406, 'HIGH', '$23,400')]:
-            self.label(label, y + 11, x)
-            self.text(value, y + 27, x, 20)
-        y += 80
-        for title, body in [('How the set is used', s['selection']), ('Loss-date context', s['timing']), ('Material limitations', s['limits'])]:
-            y = self.heading(title, y, 11)
-            y = self.paragraph(body, y, size=10, leading=14) + 13
-
-    def reasoning(self):
-        s = self.d['reasoning']
-        y = self.start('04 / CONCLUSION AND ACTION', 'What the evidence supports', s['intro'])
-        for title, body in s['steps']:
-            y = self.heading(title, y, 11.2)
-            y = self.paragraph(body, y, size=10.2, leading=14.2) + 12
-        self.line(y)
-        y = self.heading('A practical reconsideration plan', y + 19, 14)
-        y = self.numbered(s['strategy'], y, body_size=10, leading=14, gap=10)
-        self.paragraph(s['closing'], y, size=9.2, leading=13, color=COPY)
+        y = self.row_table(['Record','Fictional listing source','Mileage','Distance','Asking price'], rows,
+                           [49,187,85,80,103], y, numeric=(2,3,4), body_size=10.5,padding=8)
+        y = self.paragraph(s['table_note'], y+10, size=10, leading=14, color=COPY)+19
+        y = self.comparison_chart(y)
+        y = self.paragraph(s['chart_note'], y, size=10.5, leading=15)+15
+        y = self.paragraph(s['selection'], y, size=10.5, leading=15)+12
+        self.paragraph(s['limits'],y,size=10,leading=14,color=COPY)
 
     def request(self):
         s = self.d['request']
-        y = self.start('05 / READY-TO-SEND EXAMPLE', 'A clear request to the adjuster', s['intro'])
-        self.label('SUBJECT', y)
-        y = self.paragraph(s['subject'], y + 18, size=10.3, leading=14, font='Bold') + 16
+        y = self.start('03 / CUSTOMER RECONSIDERATION REQUEST', 'A specific request, ready to send', s['intro'])
+        self.label('SUBJECT',y)
+        y=self.paragraph(s['subject'],y+18,size=10.5,leading=15,font='Bold')+17
         self.line(y)
-        y += 22
+        y+=23
         for text in s['paragraphs']:
-            y = self.paragraph(text, y, x=LEFT + 15, width=WIDTH - 30, size=11, leading=15.5) + 10
-        self.line(y + 3)
-        y = self.heading('Attachments and final check', y + 22, 11)
-        y = self.paragraph(s['attachments'], y, size=9.5, leading=13.5) + 13
-        self.paragraph(s['send_note'], y, size=9.5, leading=13.5, color=COPY)
+            y=self.paragraph(text,y,x=LEFT+15,width=WIDTH-30,size=11,leading=16)+12
+        self.line(y+3)
+        y=self.heading('After the client sends it',y+22,size=12)
+        y=self.paragraph(s['after'],y,size=10.5,leading=15)+14
+        self.paragraph(s['sample_note'],y,size=10,leading=14,color=COPY)
 
     def response(self):
         s = self.d['response']
-        y = self.start('06 / FOLLOW-UP EXAMPLE', 'The insurer revises its valuation', s['intro'])
-        self.label(f"HYPOTHETICAL INSURER REPLY / {self.d['response_date'].upper()}", y)
-        y = self.callout('R2 / Sample Insurer', s['reply'], y + 21, size=10.2, leading=14.5) + 21
-        for title, body in s['analysis']:
-            y = self.heading(title, y, 11)
-            y = self.paragraph(body, y, size=10, leading=14) + 16
-        y = self.callout(s['recommendation_title'], s['recommendation'], y, size=10, leading=14) + 17
-        self.paragraph(s['next'], y, size=10, leading=14)
+        y = self.start('04 / INSURER RESPONSE AND SUPPORTED FOLLOW-UP', 'A revised offer. A focused next question.', s['intro'])
+        self.label('SEPTEMBER 23 / HYPOTHETICAL INSURER REPLY',y)
+        y=self.paragraph(s['reply'],y+18,size=10.5,leading=15,font='Bold')+12
+        y=self.paragraph(s['report_note'],y,size=10.5,leading=15)+12
+        y=self.paragraph(s['addressed'],y,size=10.5,leading=15)+12
+        y=self.paragraph(s['action'],y,size=10.5,leading=15)+19
+        self.line(y)
+        self.label('PREPARED FOLLOW-UP / CUSTOMER-REVIEWED EXAMPLE',y+15)
+        y=self.paragraph(s['subject'],y+33,size=10.5,leading=15,font='Bold')+16
+        for text in s['paragraphs']:
+            y=self.paragraph(text,y,x=LEFT+15,width=WIDTH-30,size=11,leading=15.5)+9
+        self.paragraph(s['send_note'],y+3,size=10,leading=14,color=COPY)
 
-    def continuation(self):
-        s = self.d['continuation']
-        y = self.start('07 / CONTINUING THE CASE', 'Support after the first request', s['intro'])
-        for title, body in s['steps']:
-            self.paragraph(title, y, width=120, size=10, leading=14, font='Bold')
-            y = self.paragraph(body, y, x=190, width=368, size=9.5, leading=13) + 13
+    def link(self,label,url,top,size=10.5,font='Body'):
+        self.text(label,top,size=size,font=font,color=BLUE)
+        width=pdfmetrics.stringWidth(label,font,size)
+        self.c.linkURL(url,(LEFT,H-top-size-3,LEFT+width,H-top+2),relative=0)
+        return top+size+5
+
+    def handoff(self):
+        s = self.d['handoff']
+        y=self.start('05 / FOR THE REFERRING ATTORNEY','A simple handoff for your client',s['intro'])
+        y=self.paragraph(s['benefit'],y,size=10.5,leading=15)+15
+        y=self.paragraph(s['steps'][2][1],y,size=10.5,leading=15)+19
         self.line(y)
-        y = self.heading(s['fee_title'], y + 16, 13)
-        y = self.paragraph(s['fee_intro'], y, size=9.5, leading=13) + 13
-        for title, body in s['refunds']:
-            y = self.paragraph(title, y, size=9.5, leading=13, font='Bold') + 3
-            y = self.paragraph(body, y, size=9.2, leading=12.5) + 10
-        self.text('Full eligibility: venfour.com/refund-policy', y, size=9, color=BLUE)
-        self.c.linkURL('https://venfour.com/refund-policy', (LEFT, H-y-13, LEFT+250, H-y+2), relative=0)
-        y += 29
-        self.line(y)
-        y = self.paragraph(s['attorney_note'], y + 14, size=9.5, leading=13) + 12
-        y = self.paragraph(s['limits'], y, size=8.5, leading=11.5, color=COPY) + 9
-        self.text('Service terms: venfour.com/terms', y, size=8.5, color=BLUE)
-        self.c.linkURL('https://venfour.com/terms', (LEFT, H-y-12, LEFT+220, H-y+2), relative=0)
+        y=self.heading(s['price'],y+16,size=14)
+        y=self.paragraph(s['price_note'],y,size=10.5,leading=15)+15
+        for title,body in s['refunds']:
+            y=self.paragraph(title,y,size=10.5,leading=15,font='Bold')+5
+            y=self.paragraph(body,y,size=10.5,leading=15)+14
+        y=self.paragraph(s['refund_note'],y,size=10,leading=14,color=COPY)+10
+        y=self.link('Complete refund policy: venfour.com/refund-policy',self.d['links']['refund'],y,size=10)+19
+        self.box(y,66)
+        self.paragraph(s['cta'],y+12,x=LEFT+15,width=WIDTH-30,size=12,leading=16,font='Bold')
+        label=self.d['links']['start'].removeprefix('https://')
+        self.text(label,y+37,LEFT+15,size=10.5,color=BLUE)
+        self.c.linkURL(self.d['links']['start'],(LEFT+15,H-y-54,RIGHT-15,H-y-32),relative=0)
+        y+=77
+        self.paragraph(s['limits'],y,size=10,leading=14,color=COPY)
 
     def build(self):
-        for section in [self.cover, self.scope, self.insurer, self.market,
-                        self.reasoning, self.request, self.response, self.continuation]:
+        for section in [self.cover,self.insurer,self.market,self.request,self.response,self.handoff]:
             section()
         self.c.save()
         return self.extents
@@ -362,18 +387,20 @@ def validate(data):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--content', type=Path, default=ROOT / 'sample-review.json')
-    parser.add_argument('--output', type=Path, default=ROOT.parent / 'Sample-Venfour-Total-Loss-Review.pdf')
+    parser.add_argument('--output', type=Path, default=ROOT.parent / 'Venfour-Sample-Total-Loss-Review.pdf')
     parser.add_argument('--fonts-dir', type=Path, help='Folder containing regular.ttf, bold.ttf, italic.ttf and wordmark.ttf')
     args = parser.parse_args()
     data = json.loads(args.content.read_text())
     validate(data)
     register_fonts(args.fonts_dir)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    extents = Packet(data, args.output).build()
+    packet = Packet(data, args.output)
+    extents = packet.build()
     (args.output.parent / 'qa' / 'text-extents.json').parent.mkdir(exist_ok=True)
     (args.output.parent / 'qa' / 'text-extents.json').write_text(json.dumps(extents, indent=2) + '\n')
     print(f'Created {args.output}')
-    print(f'8 pages; {len(extents)} text blocks; sample calculations verified')
+    (args.output.parent / 'qa' / 'chart-geometry.json').write_text(json.dumps(packet.chart_geometry, indent=2) + '\n')
+    print(f'6 pages; {len(extents)} text blocks; sample calculations verified')
 
 
 if __name__ == '__main__':

@@ -1,61 +1,100 @@
-# Product statement verification
+# Product and sample verification
 
-Inspected local source: September 25, 2026.
-Repository revision: `755d5d15f7549b72d2a29d027b006b163f64a7cb`.
-Repository root: `/Users/zafaralitolibov/Documents/venfour`.
+Reviewed September 25, 2026 against local source revision
+`cfba4325758520edbc84dbfbadd86063e1a64bb7` in
+`/Users/zafaralitolibov/Documents/venfour`.
 
-Paths below are relative to the repository root. Line references identify the
-source inspected for this document and can move in later revisions.
+## Current product references
 
-| Statement in the sample | Current implementation reference |
+Paths below are relative to the repository root. Line numbers describe the
+reviewed version and may move as the codebase changes.
+
+| Sample claim | Implementation inspected |
 | --- | --- |
-| A self-service total-loss evidence review; not legal advice, an independent appraisal or a guaranteed settlement | `frontend/src/pages/terms-page.tsx:42-64`; `venfour/valuation_review.py:474` |
-| Insurer vehicle details, comparables and adjustments are reviewed; the customer receives a PDF, a supported request and response guidance | `frontend/src/features/total-loss-claim/components/checkout-experience.tsx:115-133` |
-| The standard package is $199, one time, with no subscription | `venfour/commerce.py:31`; `frontend/src/config/review-price.ts:2`; `frontend/src/features/total-loss-claim/components/checkout-experience.tsx:81` |
-| Automatic full refund if the completed review does not support a dispute; report access retained | `frontend/src/pages/refund-policy-page.tsx:23-35` |
-| Separate manual refund path for a final verified vehicle-value increase under $1,000, following the process and applying with documentation within 30 days of the final written response | `frontend/src/pages/refund-policy-page.tsx:38-126` |
-| Selected advertised-price range and median, compared with the insurer's vehicle value; asking prices are not sale prices or independently adjusted value | `venfour/valuation_review.py:369-384`; `frontend/src/features/total-loss-claim/components/completed-analysis.tsx:68-121` |
-| Insurer adjustment figures can be displayed without being independently endorsed | `venfour/valuation_review.py:440-454` |
-| Vehicle similarity guides ranking; price is not a selection criterion | `venfour/discrepancy.py:1-7`; `venfour/valuation_review.py:104-108` |
-| Loss-date historical evidence is distinguished from current evidence | `venfour/valuation_review.py:418-419`; `venfour/presentation.py:299-315` |
-| No independent dollar adjustments for mileage, condition, equipment, location, certification or warranty; no physical inspection | `venfour/valuation_review.py:474` |
-| Customer-reported condition remains qualified | `venfour/valuation_review.py:403-409` |
-| Taxes and fees remain outside the vehicle comparison when not verified | `venfour/valuation_review.py:487-503` |
-| Review, prepare request, send, wait, response review, follow-up and case completion are workflow stages | `frontend/src/features/total-loss-claim/case-journey.ts:1-99` |
-| Customer controls sending; Venfour does not directly negotiate with the insurer | `frontend/src/pages/refund-policy-page.tsx:136-144`; `frontend/src/features/total-loss-claim/components/insurer-response.tsx:863-872` |
-| Customers can paste a reply, upload the original or enter a revised offer | `frontend/src/features/total-loss-claim/components/insurer-response.tsx:275`; same file, `:407-433` |
-| Reply analysis explains insurer reasoning and unresolved points against saved evidence; it does not recalculate the valuation or rewrite the report | `venfour/insurer_response_analysis.py:245-259` |
-| A different revised vehicle value can produce no clear recommendation; the old asking-price range is not an acceptance target | `venfour/insurer_response_recommendation.py:59-62`; same file, `:372` |
-| Supported, customer-selected follow-ups can be prepared using the response and saved evidence | `venfour/insurer_response_followup.py:212-372` |
-| Original responses and prior corrections remain in case history | `frontend/src/features/total-loss-claim/components/insurer-response.tsx:532-550`; same file, `:605-606` |
-| The mark, mixed-case wordmark, sans-serif typography and grayscale palette reflect the product | `assets/brand/venfour-mark.svg`; `frontend/src/components/brand-link.tsx`; `frontend/src/styles/brand-foundations.css`; `frontend/src/styles/app-tokens.css` |
+| Review vehicle details, insurer comparables and adjustments; downloadable report; supported customer request; response guidance | `frontend/src/features/total-loss-claim/components/checkout-experience.tsx:115-139` |
+| $199 advertised full review, one time, no subscription | `frontend/src/config/review-price.ts:2`; `venfour/commerce.py:31`; checkout component `:81` |
+| Start with a free valuation, with report or vehicle details | `frontend/src/pages/appraisal-start-page.tsx:150-167` |
+| Public customer-start URL | `frontend/src/pages/home-page.tsx:73`; `frontend/src/app/site-boundary.ts:3-5,24-26`; `frontend/src/app/router.tsx:99-105` |
+| Automatic refund for a completed review without reasonable support for a dispute; report retained; no final response required | `frontend/src/pages/refund-policy-page.tsx:23-35` |
+| Supported-dispute manual refund, under $1,000 final verified vehicle-value increase, process/documentation requirements and 30-day deadline | Refund policy `:38-126` |
+| No direct carrier negotiation; customer sends | Refund policy `:136-144`; `frontend/src/features/total-loss-claim/components/follow-up-preparation.tsx:61-139` |
+| Asking-price range and median are evidence comparisons, not an independently adjusted appraisal or settlement entitlement | `venfour/valuation_review.py:369-384,474-479` |
+| Similarity ranking; price is not a selection criterion | `venfour/valuation_review.py:104-108`; `venfour/discrepancy.py:1-7` |
+| Loss-date historical evidence versus current listings | `venfour/valuation_review.py:418-419` |
+| Insurer adjustment display without independent endorsement; no invented mileage/condition adjustments | `venfour/valuation_review.py:440-454,474` |
+| Customer can save response text, an original file and revised offer | `frontend/src/features/total-loss-claim/components/insurer-response.tsx:275,407-433` |
+| Response analysis uses saved evidence without replacing the original valuation or calculating a new one | `venfour/insurer_response_analysis.py:245-259` |
+| New amount or unresolved reasoning can prevent an accept-or-reject recommendation | `venfour/insurer_response_recommendation.py:330-375` |
+| Customer may choose to continue independently of the recommendation state | `frontend/src/features/total-loss-claim/components/insurer-response.tsx:809-817,875-892` |
+| Follow-up uses exact saved sources and requires the customer's continue decision | `venfour/customer_delivery.py:1873-1927`; `venfour/insurer_response_followup.py:212-372` |
+| Prepared follow-up can ask how deductions were determined | `venfour/insurer_response_followup.py:346-365` |
+| Follow-up can be edited and must be sent and marked sent by the customer | `frontend/src/features/total-loss-claim/components/follow-up-preparation.tsx:108-139` |
+| Brand mark, mixed-case wordmark and restrained palette | `assets/brand/venfour-mark.svg`; `frontend/src/components/brand-link.tsx`; `frontend/src/styles/brand-foundations.css`; `frontend/src/styles/app-tokens.css` |
 
-## Editorial decisions and limitations
+## Why the revised-offer example can prepare a follow-up
 
-The sample's dollar amounts and findings are an internally consistent fictional
-scenario, not an output claimed to have passed the application's assessment or
-report-release pipeline. No live market data, actual insurer report, customer
-record or paid service was accessed to construct the scenario.
+The recommendation policy and the follow-up preparation gate are separate.
+The policy can return `NO_CLEAR_RECOMMENDATION` for a changed offer or unresolved
+reasoning. The follow-up builder does not require a recommendation to reject the
+offer. It does require an explicit `CONTINUE_CHALLENGING` customer decision, a
+current recommendation, exact saved source identities and an eligible original
+assessment.
 
-The original review supports reconsideration of the hypothetical $20,500
-vehicle value. It does not assert that $22,900 is the vehicle's actual cash value
-or that the insurer owes another $2,400. The $1,100 condition question is not
-added to that gap. These distinctions reflect the current evidence model.
+Specifically, the existing builder verifies the saved assessment supports
+continuation with moderate or strong evidence, no validation issues or unresolved
+assessment assumptions, primary market evidence, the original sent request,
+usable sending details, and an interpretable response with a remaining issue.
+It blocks when those sources are missing, stale, insufficient or unclear.
 
-The insurer's hypothetical $21,300 reply is shown separately from the original
-review. No fresh appraisal, revised market ranking or automatically selected
-customer decision is implied. The response example deliberately states that
-the saved conclusion did not assess the revised amount.
+The hypothetical packet supplies a readable written reply, revised-report extract,
+consistent $21,300 amount, saved original request/evidence and a customer choice
+to continue. It stipulates a qualified original review supporting continuation;
+its fictional historical records are a scenario premise, not verified archives.
+The remaining adjustment question supports clarification, not rejection of the
+revised offer. No fresh appraisal or automatic recalculation is implied.
 
-The customer request is an editorial sample of supported customer-controlled
-correspondence, not a promise of identical wording in every generated message.
-The packet combines the report, customer request and later response guidance
-for attorney review; the cover explicitly states it is not an exact application
-export. The note about reducing a referring firm's organization work describes
-the packet's intended utility, not measured time savings or an additional
-professional service.
+The follow-up wording is a concise, customer-reviewed editorial example of the
+existing adjustment-question template. The product permits editing before the
+customer sends it. The packet does not claim that this exact prose is produced
+unchanged for every case or that the illustrative case was run through the
+production release pipeline.
 
-The fee and refund summary is intentionally brief and links to the full policy.
-It does not turn an interim increase into a final refund-eligibility finding.
-No claim of hosted readiness, jurisdiction approval, formal appraisal,
-insurer representation, guaranteed results or automatic insurer sending appears.
+## Focused offline checks
+
+These existing tests passed with credentials cleared and zero unexpected
+network attempts:
+
+- `test_insurer_response_followup.InsurerResponseFollowupTests.test_offer_inside_advertised_range_does_not_become_settlement_target`
+- `test_insurer_response_followup.InsurerResponseFollowupTests.test_known_adjustment_question_reuses_descriptive_assessment_finding`
+- `test_insurer_response_followup.InsurerResponseFollowupTests.test_only_explicit_continue_allows_generation`
+
+An initial invocation used an incorrect test-class name and failed during test
+selection. The corrected invocation above ran all three tests successfully.
+No application files were edited. These are focused local code checks, not proof
+of the complete hypothetical case or of hosted delivery.
+
+## Public link verification
+
+Both destinations were opened in the browser and their visible content checked:
+
+- `https://app.venfour.com/start?service=total-loss`: selected Total Loss,
+  "Start with a free valuation", insurer-report or vehicle-details entry,
+  and $199 one-time full-review pricing.
+- `https://venfour.com/refund-policy`: Fair-Result Refund Policy, effective
+  September 15, 2026, with both protections and the stated key conditions.
+
+These links are embedded as actual PDF URI annotations, not just printed text.
+No intake, payment or email was submitted during verification.
+
+## Evidence boundaries
+
+All claim data, listings, correspondence and outcomes are hypothetical. Source
+IDs R1/R2 and I1-I3/H1-H5 identify only the illustrative records reproduced in the
+packet. There are no fabricated live listing links, customer testimonials or
+measured savings claims. The $2,400 gap is a median asking-price comparison and
+is never added to the $1,100 deduction. The revised insurer figures reconcile,
+but do not replace the original Venfour report or establish a recoverable amount.
+
+The six-page edition consolidates the explanation without reducing main body
+text. Legal advice, appraisal, direct negotiation, jurisdiction-specific rights,
+taxes/fees and other settlement components remain outside its stated scope.

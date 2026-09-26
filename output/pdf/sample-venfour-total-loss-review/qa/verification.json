@@ -1,14 +1,31 @@
 {
-  "pages": 8,
+  "filename": "Venfour-Sample-Total-Loss-Review.pdf",
+  "pages": 6,
+  "page_word_counts": [
+    219,
+    279,
+    232,
+    288,
+    306,
+    305
+  ],
   "sample_labels": "all pages",
-  "bookmarks": 8,
-  "embedded_fonts": [
+  "bookmarks": 6,
+  "fonts": [
     "/AAAAAA+AvenirNext-DemiBold-2",
     "/AAAAAA+HelveticaNeue-0",
     "/AAAAAA+HelveticaNeue-Bold-1"
   ],
-  "content_bounds": "passed",
-  "arithmetic": "builder assertions passed",
-  "pdf_sha256": "369d5e5a6778fec545cdf4de3b92a19a47084d18321ae723627018d7046e04ec",
-  "page_visual_review": "all eight rendered pages inspected"
+  "chart_linear_scale": "passed",
+  "arithmetic": "original and revised figures passed builder assertions",
+  "links": [
+    "https://app.venfour.com/start?service=total-loss",
+    "https://venfour.com",
+    "https://venfour.com/refund-policy"
+  ],
+  "links_browser_verified": true,
+  "page_bounds": "passed",
+  "visual_review": "all six rendered pages reviewed",
+  "product_checks": "3 focused offline tests passed, zero unexpected network attempts",
+  "pdf_sha256": "25bf26b3b35457d951af43754917024e5a8ff82a6c6bf00fafc3a28b2d80753b"
 }
