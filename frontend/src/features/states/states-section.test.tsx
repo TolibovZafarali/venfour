@@ -1,4 +1,4 @@
-import { act, screen, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { renderTestApp } from "@/test/render";
@@ -37,8 +37,8 @@ describe("nationwide section", () => {
     expect(caption).toHaveTextContent("Washington, D.C.");
     // SVG anchor keyboard activation is covered in the real-browser suite.
     await user.click(missouri);
-    expect(router.state.location.pathname).toBe("/states/missouri");
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("in Missouri");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/states/missouri"));
+    expect(await screen.findByRole("heading", { level: 1, name: /in Missouri/ })).toBeVisible();
   });
 
   it("omits the selector and inset hint while keeping a direct D.C. link", async () => {
@@ -51,14 +51,14 @@ describe("nationwide section", () => {
     expect(within(section).queryByText("Find your state")).not.toBeInTheDocument();
     expect(within(section).queryByText("Select a state on the map.")).not.toBeInTheDocument();
     await user.click(within(section).getByRole("link", { name: "Washington, D.C." }));
-    expect(router.state.location.pathname).toBe("/states/district-of-columbia");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/states/district-of-columbia"));
   });
 
   it.each(["/", "/states/missouri"])("links the compact footer back to the map from %s", async path => {
     const user = userEvent.setup();
     const scroll = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
     const { router } = renderTestApp([path], { authService: null });
-    const footer = screen.getByRole("navigation", { name: "Footer states" });
+    const footer = await screen.findByRole("navigation", { name: "Footer states" });
     expect(screen.getByRole("navigation", { name: "Footer navigation" })).toContainElement(footer);
     expect(within(footer).getAllByRole("link")).toHaveLength(11);
     for (const state of footerStates) expect(within(footer).getByRole("link", { name: state.name })).toHaveAttribute("href", statePath(state));
