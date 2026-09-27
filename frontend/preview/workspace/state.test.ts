@@ -29,13 +29,9 @@ describe("customer preview contracts", () => {
     resetScenario("contact-details");
     renderTestApp([scenarioPath("contact-details")], { authService: previewAuth, totalLossDependencies: previewDetails });
     expect(await screen.findByRole("heading", { name: "Contact details" })).toBeVisible();
-    const registration = await screen.findByLabelText("Vehicle registration state");
-    await waitFor(() => expect(registration).toBeEnabled());
-    expect(screen.getByLabelText("State where the loss occurred")).toBeVisible();
-    const user = userEvent.setup();
-    await user.selectOptions(registration, "US-IL");
-    await user.click(screen.getByLabelText(/The vehicle’s home, loss location/));
+    expect(screen.queryByLabelText("Vehicle registration state")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("State where the loss occurred")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Policy issued state")).not.toBeInTheDocument();
     expect(screen.getByLabelText("First name")).toHaveValue("");
     expect(screen.getByRole("button", { name: "Review & analyze" })).toBeDisabled();
     expect(document.querySelector("[data-start-split-shell]")).toBeInTheDocument();
