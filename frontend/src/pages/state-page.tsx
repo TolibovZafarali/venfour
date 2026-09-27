@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 import { applicationHref, publicHref } from "@/app/site-boundary";
 import { publicIntakeClosed } from "@/config/public-site";
 import { fullReviewPriceLabel } from "@/config/review-price";
+import { MissouriStateGuide } from "@/features/states/missouri-state-guide";
 import { findState } from "@/features/states/states";
 import { NotFoundPage } from "@/pages/not-found-page";
 import { publicTextLinkClassName } from "@/pages/public-page";
@@ -16,6 +17,8 @@ export function StatePage() {
   const action = <Link className="state-page__action" to={publicIntakeClosed ? "/contact" : applicationHref("/start?service=total-loss")}>
     {publicIntakeClosed ? "Contact Venfour" : "Start my free valuation"}<ArrowRight size={16} aria-hidden />
   </Link>;
+
+  if (state.code === "MO") return <MissouriStateGuide action={action} />;
 
   return <article className="state-page">
     <div className="state-page__inner">

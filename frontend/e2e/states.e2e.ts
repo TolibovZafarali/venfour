@@ -62,7 +62,7 @@ test("map supports native keyboard and pointer navigation with visible feedback"
   await page.screenshot({ path: testInfo.outputPath("hover-map.png") });
   await missouri.click();
   await expect(page).toHaveURL(/\/states\/missouri$/);
-  await expect(page).toHaveTitle("Missouri Total-Loss Valuation Review | Venfour");
+  await expect(page).toHaveTitle("Missouri Total-Loss Guide & Valuation Review | Venfour");
 });
 
 test("map elements follow the shared scroll entrance and reduced-motion behavior", async ({ page }) => {
@@ -114,13 +114,52 @@ test("footer returns cleanly to the map, including repeated homepage use", async
   await expect.poll(async () => Math.round((await page.locator("#states").boundingBox())!.y)).toBeLessThan(150);
 });
 
-test("direct state load and CTA preserve the current intake entry", async ({ page }) => {
+test("Missouri guide remains readable across viewport sizes and motion preferences", async ({ page }, testInfo) => {
   await page.goto("/states/missouri");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("in Missouri");
+  const article = page.getByRole("article");
+  await expect(article.getByRole("heading", { level: 1 })).toHaveText("Understand your total-loss offer in Missouri.");
+  await expect(page).toHaveTitle("Missouri Total-Loss Guide & Valuation Review | Venfour");
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", "Understand Missouri total-loss valuations, deductions, replacement-vehicle tax allowances, and your options. Start with Venfour’s free preliminary valuation.");
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://venfour.com/states/missouri");
-  await page.getByRole("article").getByRole("link", { name: "Start my free valuation" }).first().click();
+  for (const name of ["How is your vehicle’s value determined?", "Missouri rules worth understanding", "What to do if the offer seems low", "How Venfour helps", "Common questions"]) {
+    await expect(article.getByRole("heading", { level: 2, name, exact: true })).toBeVisible();
+  }
+  const table = article.getByRole("table");
+  await expect(table.getByRole("columnheader")).toHaveCount(2);
+  await expect(table.getByRole("row")).toHaveCount(5);
+  for (const detail of ["Vehicle details", "Mileage and condition", "Comparable vehicles", "Adjustments"]) {
+    await expect(table.getByText(detail, { exact: true })).toBeVisible();
+  }
+  await expect(article.getByText(/If your policy includes an appraisal clause/)).toBeVisible();
+  await expect(article.locator("details:not([open])")).toHaveCount(0);
+  await expect(article.locator("blockquote")).toContainText("Could you review this and explain whether it changes the vehicle value?");
+  await expect(article.getByRole("link", { name: "Start my free valuation" })).toHaveCount(2);
+  await expect(article.locator('a[href="https://dor.mo.gov/faq/motor-vehicle/titling-registration.html#q13"]')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(await table.locator("th, td").evaluateAll(cells => cells.every(cell => {
+    const box = cell.getBoundingClientRect();
+    return box.left >= 0 && box.right <= window.innerWidth && cell.scrollWidth <= cell.clientWidth;
+  }))).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("missouri-hero.png") });
+  await page.screenshot({ path: testInfo.outputPath("missouri-guide.png"), fullPage: true });
+  await table.screenshot({ path: testInfo.outputPath("missouri-checklist.png") });
+});
+
+test("Missouri’s CTA supports keyboard access and preserves the current intake entry", async ({ page }) => {
+  await page.goto("/states/missouri");
+  const article = page.getByRole("article");
+  const actions = article.getByRole("link", { name: "Start my free valuation" });
+  await expect(actions).toHaveCount(2);
+  for (const action of await actions.all()) await expect(action).toHaveAttribute("href", "/start?service=total-loss");
+  await article.getByRole("link", { name: "All states", exact: true }).focus();
+  await page.keyboard.press("Tab");
+  await expect(actions.first()).toBeFocused();
+  await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/start\?service=total-loss$/);
   await expect(page.getByRole("heading", { name: "Start with a free valuation." })).toBeVisible();
   await expect(page.getByText("Vehicle registration state", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Policy issued state", { exact: true })).toHaveCount(0);
+  await page.goto("/states/missouri");
+  await actions.last().click();
+  await expect(page).toHaveURL(/\/start\?service=total-loss$/);
 });

@@ -62,11 +62,16 @@ describe("public state routes", () => {
     const env = publicEnv(vi.fn(async () => new Response('<html><head><title>Venfour</title><meta name="description" content="Home"></head></html>', { headers: { "Content-Type": "text/html", "ETag": "old", "Content-Length": "100" } })));
     const response = await handleRequest(new Request("https://venfour.com/states/missouri/?source=link"), env);
     const metadata = stateMetadata(states.find(state => state.code === "MO")!);
+    expect(metadata).toEqual({
+      title: "Missouri Total-Loss Guide & Valuation Review | Venfour",
+      description: "Understand Missouri total-loss valuations, deductions, replacement-vehicle tax allowances, and your options. Start with Venfour’s free preliminary valuation.",
+      canonical: "https://venfour.com/states/missouri",
+    });
     expect(rewritten.title.text).toBe(metadata.title);
     expect(rewritten['meta[name="description"]'].attributes?.content).toBe(metadata.description);
     expect(rewritten.head.html).toContain(`rel="canonical" href="${metadata.canonical}"`);
-    expect(rewritten.head.html).toContain('property="og:title"');
-    expect(rewritten.head.html).toContain('property="og:description"');
+    expect(rewritten.head.html).toContain('property="og:title" content="Missouri Total-Loss Guide &amp; Valuation Review | Venfour"');
+    expect(rewritten.head.html).toContain(`property="og:description" content="${metadata.description}"`);
     expect(rewritten.head.html).not.toContain("source=link");
     expect(response.headers.get("ETag")).toBeNull();
     expect(response.headers.get("Content-Length")).toBeNull();
