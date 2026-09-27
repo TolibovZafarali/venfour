@@ -24,7 +24,6 @@ export const categories: Category[] = [
   { id: "account", title: "Account & access", description: "Entry, sign-in, saved cases, and recovery.", screens: [
     screen("entry", "Entering the app", entryPreviewHref("slow"), "Try fast, slow, held loading, and new visitor entry."),
     { ...screen("sign-in", "Sign in", "/find-review?previewSignIn=1", "Open the shared sign-in dialog with a fictional account."), signedOut: true },
-    { ...screen("public-sign-in", "Account sign-in page", "/auth/sign-in", "Dedicated sign-in page with simulated authentication."), signedOut: true },
     screen("workspace", "Customer workspace", "/app", "Resume the saved appraisal and switch cases.", "free"),
     ...states("zero"),
     screen("find-review", "Find your review", "/find-review", "Saved-review recovery form."),

@@ -1,6 +1,7 @@
 import { APPLICATION_ORIGIN } from "@/app/site-boundary";
 
-export const PUBLIC_SIGN_IN_PATH = "/auth/sign-in";
+export const PUBLIC_SIGN_IN_FRAME_PATH = "/auth/embed";
+export const PUBLIC_OAUTH_START_PATH = "/auth/oauth";
 export const PUBLIC_SIGN_IN_MESSAGE = "venfour:public-sign-in";
 export const PUBLIC_SIGN_IN_PARENTS = ["https://venfour.com", "https://www.venfour.com"];
 

@@ -24,7 +24,7 @@ describe("current screen catalog", () => {
   });
 
   it("resets customer examples while preserving dedicated preview runtimes", () => {
-    for (const id of ["home", "find-review", "public-sign-in", "start", "workspace"]) {
+    for (const id of ["home", "find-review", "sign-in", "start", "workspace"]) {
       expect(screenHref(screens.find(screen => screen.id === id)!)).toBe(`/_local/workspace?screen=${id}`);
     }
     for (const id of ["entry", "admin-emails", "business-earnings"]) {

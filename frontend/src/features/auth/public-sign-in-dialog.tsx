@@ -3,7 +3,7 @@ import { Dialog } from "radix-ui";
 import { X } from "lucide-react";
 
 import { APPLICATION_ORIGIN } from "@/app/site-boundary";
-import { PUBLIC_SIGN_IN_PATH, publicSignInAction } from "./public-sign-in";
+import { PUBLIC_OAUTH_START_PATH, PUBLIC_SIGN_IN_FRAME_PATH, publicSignInAction } from "./public-sign-in";
 
 export function PublicSignInDialog({ open, onOpenChange, restoreFocusElement }: {
   open: boolean;
@@ -12,7 +12,7 @@ export function PublicSignInDialog({ open, onOpenChange, restoreFocusElement }: 
 }) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
-  const signInUrl = `${APPLICATION_ORIGIN}${PUBLIC_SIGN_IN_PATH}`;
+  const signInUrl = `${APPLICATION_ORIGIN}${PUBLIC_SIGN_IN_FRAME_PATH}`;
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -20,11 +20,11 @@ export function PublicSignInDialog({ open, onOpenChange, restoreFocusElement }: 
       if (action === "ready") setReady(true);
       if (action === "close") onOpenChange(false);
       if (action === "complete") window.location.assign(`${APPLICATION_ORIGIN}/app`);
-      if (action === "google" || action === "apple") window.location.assign(`${signInUrl}?provider=${action}`);
+      if (action === "google" || action === "apple") window.location.assign(`${APPLICATION_ORIGIN}${PUBLIC_OAUTH_START_PATH}?provider=${action}`);
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [onOpenChange, signInUrl]);
+  }, [onOpenChange]);
 
   return <Dialog.Root open={open} onOpenChange={onOpenChange}>
     <Dialog.Portal>
@@ -44,9 +44,6 @@ export function PublicSignInDialog({ open, onOpenChange, restoreFocusElement }: 
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
           className="block h-[640px] max-h-[calc(100svh-7rem)] w-full border-0"
           style={{ visibility: ready ? "visible" : "hidden" }} />
-        <div className="border-t border-line px-5 py-3 text-center text-xs text-copy">
-          <a href={signInUrl} className="report-action-focus rounded-sm underline underline-offset-4">Open sign-in in a full page</a>
-        </div>
       </Dialog.Content>
     </Dialog.Portal>
   </Dialog.Root>;

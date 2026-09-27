@@ -27,9 +27,9 @@ describe("public-only website sign-in", () => {
       await user.click(trigger);
       expect(screen.getByRole("dialog", { name: "Sign in to Venfour" })).toBeVisible();
       const frame = screen.getByTitle<HTMLIFrameElement>("Secure sign-in form");
-      expect(frame).toHaveAttribute("src", "https://app.venfour.com/auth/sign-in?parentOrigin=https%3A%2F%2Fvenfour.com");
+      expect(frame).toHaveAttribute("src", "https://app.venfour.com/auth/embed?parentOrigin=https%3A%2F%2Fvenfour.com");
       expect(window.location.origin).toBe("https://venfour.com");
-      expect(screen.getByRole("link", { name: "Open sign-in in a full page" })).toHaveAttribute("href", "https://app.venfour.com/auth/sign-in");
+      expect(screen.queryByRole("link", { name: /full page/i })).not.toBeInTheDocument();
       act(() => window.dispatchEvent(new MessageEvent("message", {
         origin: "https://attacker.test", source: frame.contentWindow,
         data: { type: PUBLIC_SIGN_IN_MESSAGE, action: "close" },
