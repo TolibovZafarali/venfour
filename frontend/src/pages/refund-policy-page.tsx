@@ -1,13 +1,12 @@
 import { publicHref } from "@/app/site-boundary";
 import { refundRequestSubject, supportEmail } from "@/config/support";
-
-const policyLinkClassName = "font-medium text-neutral-900 underline decoration-neutral-400 underline-offset-4 hover:decoration-current focus-visible:outline-2 focus-visible:outline-offset-4";
+import { publicTextLinkClassName } from "@/pages/public-page";
 
 export function RefundPolicyPage() {
   return (
     <article className="w-full bg-white text-neutral-900">
-      <div className="mx-auto max-w-3xl px-5 py-12 sm:px-8 sm:py-16">
-        <header>
+      <div className="public-page-container py-12 sm:py-16 lg:py-20">
+        <header className="max-w-3xl">
           <p className="text-sm text-neutral-600">Total-Loss Review Package</p>
           <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">Fair-Result Refund Policy</h1>
           <p className="mt-5 text-base leading-7 text-neutral-600">
@@ -19,7 +18,7 @@ export function RefundPolicyPage() {
           <p className="mt-5 text-sm text-neutral-600">Effective September 15, 2026</p>
         </header>
 
-        <div className="mt-9 space-y-9 text-base leading-7 text-neutral-600 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:leading-snug [&_h2]:tracking-tight [&_h2]:text-neutral-900 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-neutral-900 [&_p]:mt-3 [&_section]:border-t [&_section]:border-neutral-200 [&_section]:pt-8">
+        <div className="mt-12 max-w-3xl space-y-8 text-base leading-7 text-neutral-600 sm:space-y-10 [&_h2]:text-xl sm:[&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:leading-snug [&_h2]:tracking-tight [&_h2]:text-neutral-900 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-neutral-900 [&_p]:mt-3 [&_section]:border-t [&_section]:border-neutral-200 [&_section]:pt-8 sm:[&_section]:pt-10">
           <section aria-labelledby="automatic-refund-heading">
             <h2 id="automatic-refund-heading">1. No supported dispute — automatic refund</h2>
             <p>
@@ -81,7 +80,7 @@ export function RefundPolicyPage() {
               <h3>How to request a refund</h3>
               <p>
                 For a manual refund when your final increase is under $1,000,{" "}
-                {supportEmail ? <a href={`mailto:${supportEmail}?subject=${encodeURIComponent(refundRequestSubject)}`} className={policyLinkClassName}>email {supportEmail}</a> : <a href={publicHref("/contact?topic=fair-result-refund")} className={policyLinkClassName}>contact Venfour</a>}
+                {supportEmail ? <a href={`mailto:${supportEmail}?subject=${encodeURIComponent(refundRequestSubject)}`} className={publicTextLinkClassName}>email {supportEmail}</a> : <a href={publicHref("/contact?topic=fair-result-refund")} className={publicTextLinkClassName}>contact Venfour</a>}
                 {" "}within the 30-day deadline. Include:
               </p>
               <ul className="mt-3 list-disc space-y-2 pl-5 marker:text-neutral-900">
@@ -142,8 +141,8 @@ export function RefundPolicyPage() {
             </p>
             <p>
               For questions about either protection, use the{" "}
-              <a href={publicHref("/contact?topic=fair-result-refund")} className={policyLinkClassName}>refund support contact</a>.
-              The <a href={publicHref("/terms")} className={policyLinkClassName}>Terms of Use</a> also describe the service and its limits.
+              <a href={publicHref("/contact?topic=fair-result-refund")} className={publicTextLinkClassName}>refund support contact</a>.
+              The <a href={publicHref("/terms")} className={publicTextLinkClassName}>Terms of Use</a> also describe the service and its limits.
             </p>
           </section>
         </div>

@@ -1,0 +1,38 @@
+@layer components {
+  .public-page-container {
+    width: 100%;
+    max-width: 72rem;
+    min-width: 0;
+    margin-inline: auto;
+    padding-inline: 1.25rem;
+    overflow-wrap: anywhere;
+  }
+
+  .public-page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .public-page-actions > p { flex-basis: 100%; }
+  .public-page-button > span { min-width: 0; }
+  .public-page-action-link { display: inline-flex; min-height: 2.75rem; align-items: center; }
+
+  .public-page-container :is(a[href], button, input):focus-visible {
+    outline: 2px solid var(--brand) !important;
+    outline-offset: 4px;
+  }
+
+  @media (min-width: 40rem) {
+    .public-page-container { padding-inline: 2rem; }
+  }
+
+  @media (max-width: 39.999rem) {
+    .public-page-button { width: 100%; }
+    .public-page-actions { align-items: stretch; flex-direction: column; }
+    .public-page-action-link { justify-content: center; }
+    .public-page-actions > p { flex-basis: auto; }
+  }
+}

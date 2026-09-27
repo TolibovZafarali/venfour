@@ -2,8 +2,6 @@
   .resource-reading-width { max-width: 48rem; }
   .resource-bullets { list-style: disc; padding-left: 1.25rem; }
   .resource-bullets li + li { margin-top: 0.65rem; }
-  .resource-content a:focus-visible, .resource-content button:focus-visible,
-  .review-checklist input:focus-visible { outline: 2px solid var(--brand) !important; outline-offset: 4px; }
   .resource-note { border-left: 2px solid var(--line-strong); padding: 0.25rem 0 0.25rem 1.25rem; color: var(--copy); font-size: 0.875rem; line-height: 1.8; }
   .resource-note strong { color: var(--ink); font-weight: 600; }
   .resource-note p { margin-top: 0.25rem; }
@@ -15,21 +13,23 @@
   .report-guide__excerpt dl > div { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 0.85rem 0; border-top: 1px solid var(--line); font-size: 0.8125rem; line-height: 1.6; }
   .report-guide__excerpt dt { color: var(--copy); }
   .report-guide__excerpt dd { color: var(--ink); font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
-  .report-guide h2, .resource-next-step h2, .resource-related h2 { color: var(--ink); font-size: 1.4rem; font-weight: 600; letter-spacing: -0.025em; line-height: 1.3; }
+  .report-guide h2, .resource-next-step h2, .resource-related h2 { color: var(--ink); font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.3; }
   .report-guide h2 { margin-top: 0.65rem; }
   .report-guide__annotation > p, .resource-next-step > p { margin: 1rem 0; color: var(--copy); line-height: 1.8; font-size: 0.9375rem; }
   .report-guide__question { border-left: 2px solid var(--line); padding-left: 1rem; margin-top: 1.5rem; color: var(--ink); font-size: 0.875rem; line-height: 1.7; }
   .report-guide__question strong { font-size: 0.75rem; font-weight: 600; }
   .report-guide__question p { margin-top: 0.35rem; }
-  .resource-next-step { border-top: 1px solid var(--line); padding: 2.5rem 0; margin-top: 1rem; }
+  .resource-next-step { border-top: 1px solid var(--line); padding: 2rem 0; margin-top: 1rem; }
   .resource-related { margin-top: 1rem; border-top: 1px solid var(--line); padding-top: 2rem; }
   .resource-related h2 { font-size: 0.875rem; margin-bottom: 1rem; }
-  .resource-related a { display: grid; grid-template-columns: 1fr auto; gap: 0.35rem 1rem; padding: 1.25rem 0; border-bottom: 1px solid var(--line); color: var(--ink); }
+  .resource-related a { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.35rem 1rem; padding: 1.25rem 0; border-bottom: 1px solid var(--line); color: var(--ink); }
   .resource-related a > span:first-child { font-weight: 500; }
   .resource-related a > span:nth-child(2) { grid-column: 1; color: var(--copy); font-size: 0.875rem; }
-  .resource-related a > span:last-child { grid-column: 2; grid-row: 1 / 3; align-self: center; }
+  .resource-related a > svg { grid-column: 2; grid-row: 1 / 3; align-self: center; }
   .resource-related a:hover > span:first-child { text-decoration: underline; text-underline-offset: 0.25em; }
   .checklist-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.25rem; border-block: 1px solid var(--line); padding: 1.25rem 0; margin-bottom: 2.5rem; }
+  .checklist-tools > div:first-child { flex: 1 1 18rem; }
+  .checklist-tools .checklist-tools__actions { margin-top: 0; gap: 0.75rem; }
   .checklist-tools [role="status"] { color: var(--ink); font-weight: 600; font-size: 0.9375rem; }
   .checklist-tools p + p { margin-top: 0.35rem; color: var(--copy); font-size: 0.75rem; }
   .review-checklist fieldset { min-width: 0; margin: 0 0 2.5rem; }
@@ -40,6 +40,13 @@
   .review-checklist label strong { display: block; color: var(--ink); font-size: 0.9375rem; font-weight: 500; }
   .review-checklist label span > span { display: block; margin-top: 0.4rem; color: var(--copy); font-size: 0.875rem; line-height: 1.7; }
   .resource-print-notes { display: none; }
+  @media (min-width: 40rem) {
+    .report-guide h2, .resource-next-step h2 { font-size: 1.5rem; }
+    .resource-next-step { padding-block: 2.5rem; }
+  }
+  @media (max-width: 39.999rem) {
+    .checklist-tools__actions { width: 100%; }
+  }
   @media (max-width: 47.999rem) {
     .report-guide > li { grid-template-columns: 1fr; gap: 1.5rem; }
     .report-guide__excerpt { padding: 1.25rem; }

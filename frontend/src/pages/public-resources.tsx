@@ -1,17 +1,14 @@
 import { useState } from "react";
+import { ArrowRight } from "lucide-react";
 import { Link } from "react-router";
-import { applicationHref } from "@/app/site-boundary";
-import { Button } from "@/components/ui/button";
-import { publicIntakeClosed } from "@/config/public-site";
 import { PublicPage, PublicPageSection, publicTextLinkClassName } from "@/pages/public-page";
+import { PublicButton, PublicPageActions, PublicReviewAction } from "@/pages/public-page-actions";
 
 function ReviewEntry() {
   return <div className="resource-next-step">
     <h2>Get a clearer view of your valuation.</h2>
     <p>Venfour independently reviews your insurer’s report and available market evidence, with clear explanations of the findings and any gaps.</p>
-    <Button asChild size="lg"><Link to={publicIntakeClosed ? "/contact" : applicationHref("/start?service=total-loss")}>
-      {publicIntakeClosed ? "Contact Venfour" : "Start a Total Loss review"}
-    </Link></Button>
+    <PublicPageActions><PublicReviewAction /></PublicPageActions>
   </div>;
 }
 
@@ -24,7 +21,7 @@ function RelatedResources({ current }: { current: string }) {
   return <nav className="resource-related" aria-label="Related resources">
     <h2>Explore our resources</h2>
     {resources.filter(([path]) => path !== current).map(([path, title, description]) =>
-      <Link key={path} to={path}><span>{title}</span><span>{description}</span><span aria-hidden>↗</span></Link>,
+      <Link key={path} to={path}><span>{title}</span><span>{description}</span><ArrowRight size={16} aria-hidden /></Link>,
     )}
   </nav>;
 }
@@ -159,10 +156,10 @@ export function ValuationChecklistPage() {
       tone="methodology" className="resource-content">
       <div className="checklist-tools">
         <div><p role="status">{checked.length} of {total} checked</p><p>Progress is not saved when you leave this page. Print a copy for your records.</p></div>
-        <div className="flex flex-wrap gap-3">
-          <Button variant="outline" onClick={() => setChecked([])} disabled={checked.length === 0}>Reset checklist</Button>
-          <Button onClick={() => window.print()}>Print checklist</Button>
-        </div>
+        <PublicPageActions className="checklist-tools__actions">
+          <PublicButton variant="outline" onClick={() => setChecked([])} disabled={checked.length === 0}>Reset checklist</PublicButton>
+          <PublicButton onClick={() => window.print()}>Print checklist</PublicButton>
+        </PublicPageActions>
       </div>
       <div className="review-checklist">
         {checklistGroups.map((group, index) => <fieldset key={group.title}>

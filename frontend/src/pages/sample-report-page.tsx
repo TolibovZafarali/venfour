@@ -1,7 +1,7 @@
 import { Link } from "react-router";
-import { Button } from "@/components/ui/button";
+import { PublicButton, PublicPageActions } from "@/pages/public-page-actions";
 import { sampleReportPdfPath } from "@/config/public-review";
-import { PublicPage, PublicPageSection, publicTextLinkClassName } from "@/pages/public-page";
+import { PublicPage, PublicPageSection, publicActionLinkClassName, publicTextLinkClassName } from "@/pages/public-page";
 
 export function SampleReportPage() {
   return <PublicPage eyebrow="Sample report" title="See a sample Total-Loss review"
@@ -12,13 +12,13 @@ export function SampleReportPage() {
       <p className="mt-2">All case details, listings, correspondence, and outcomes in this packet are fictional. They do not represent a real customer result.</p>
       <p className="mt-3">This illustrative packet combines a review with follow-up and attorney-handoff examples. It is not an exact application export. Your review’s contents and next steps depend on the available evidence.</p>
     </section>
-    <div className="mt-7 mb-10 flex flex-wrap items-center gap-x-6 gap-y-3">
-      <Button asChild size="lg"><a href={sampleReportPdfPath} target="_blank" rel="noopener noreferrer" aria-label="Open sample PDF (6 pages) (opens in a new tab)">
+    <PublicPageActions className="mb-8 sm:mb-10">
+      <PublicButton asChild><a href={sampleReportPdfPath} target="_blank" rel="noopener noreferrer" aria-label="Open sample PDF (6 pages) (opens in a new tab)">
         Open sample PDF (6 pages)
-      </a></Button>
-      <a href={sampleReportPdfPath} download="Venfour-Sample-Total-Loss-Review.pdf" className={`inline-flex min-h-11 items-center ${publicTextLinkClassName}`}>Download sample PDF</a>
+      </a></PublicButton>
+      <a href={sampleReportPdfPath} download="Venfour-Sample-Total-Loss-Review.pdf" className={publicActionLinkClassName}>Download sample PDF</a>
       <p className="w-full text-sm text-neutral-500">The sample opens in a new tab. You can also download it to read or share.</p>
-    </div>
+    </PublicPageActions>
     <PublicPageSection title="Inside the sample">
       <ul className="list-disc space-y-3 pl-5">
         <li><strong className="font-medium text-neutral-950">Insurer valuation:</strong> vehicle details, comparable vehicles, disclosed adjustments, and questions raised by the report.</li>

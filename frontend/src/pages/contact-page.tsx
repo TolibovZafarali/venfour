@@ -2,7 +2,7 @@ import { applicationHref, publicHref } from "@/app/site-boundary";
 import { publicIntakeClosed } from "@/config/public-site";
 import { Link, useSearchParams } from "react-router";
 
-import { Button } from "@/components/ui/button";
+import { PublicButton, PublicPageActions } from "@/pages/public-page-actions";
 import { refundRequestSubject, supportEmail } from "@/config/support";
 import {
   PublicPage,
@@ -102,13 +102,15 @@ export function ContactPage() {
                 </a>.
               </p>
             )}
-            <Button asChild className="mt-2" size="lg">
-              <a
-                href={`mailto:${supportEmail}?subject=${encodeURIComponent(content.emailSubject)}`}
-              >
-                Email {supportEmail}
-              </a>
-            </Button>
+            <PublicPageActions>
+              <PublicButton asChild>
+                <a
+                  href={`mailto:${supportEmail}?subject=${encodeURIComponent(content.emailSubject)}`}
+                >
+                  Email {supportEmail}
+                </a>
+              </PublicButton>
+            </PublicPageActions>
           </>
         ) : (
           <div className="border-l-2 border-neutral-300 pl-5">

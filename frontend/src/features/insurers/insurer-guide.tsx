@@ -44,7 +44,7 @@ export function InsurerGuide({ insurer, content, action }: {
   const checkedDate = new Intl.DateTimeFormat("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }).format(new Date(`${content.checkedOn}T00:00:00Z`));
 
   return <article className="state-page state-page--guide insurer-page insurer-guide">
-    <div className="state-page__inner">
+    <div className="public-page-container state-page__inner">
       <nav className="state-guide__breadcrumb" aria-label="Breadcrumb">
         <Link to={publicHref("/insurers")}><ArrowLeft size={14} aria-hidden />All insurer guides</Link>
         <span aria-hidden>/</span><span>{insurer.name}</span>

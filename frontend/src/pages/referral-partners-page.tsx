@@ -5,6 +5,7 @@ import { Link } from "react-router";
 import {
   PublicPage,
   PublicPageSection,
+  publicActionLinkClassName,
   publicTextLinkClassName,
 } from "@/pages/public-page";
 
@@ -62,7 +63,7 @@ export function ReferralPartnersPage() {
           status. A referral appears in your workspace after the customer submits
           their review details.
         </p>
-        <p><Link to={publicSiteOnly ? `${PARTNER_ORIGIN}/sign-in` : partnerSignInHref()} className={publicTextLinkClassName}>Partner sign in</Link></p>
+        <p><Link to={publicSiteOnly ? `${PARTNER_ORIGIN}/sign-in` : partnerSignInHref()} className={publicActionLinkClassName}>Partner sign in</Link></p>
       </PublicPageSection>
 
       <PublicPageSection title="Your agreement and information">

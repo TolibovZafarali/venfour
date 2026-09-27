@@ -33,7 +33,7 @@ export function PublicPage({
       )}
       data-public-page-tone={tone}
     >
-      <div className="mx-auto w-full max-w-6xl px-5 py-12 sm:px-8 sm:py-16 lg:py-20">
+      <div className="public-page-container py-12 sm:py-16 lg:py-20">
         <header className="max-w-3xl">
           <p className="flex items-center gap-3 text-xs font-semibold tracking-[0.14em] text-neutral-500 uppercase">
             <span className="h-px w-8 bg-neutral-400" aria-hidden />
@@ -89,3 +89,5 @@ export function PublicPageSection({
 
 export const publicTextLinkClassName =
   "font-medium text-brand underline decoration-brand/35 underline-offset-4 transition-colors hover:text-brand-strong hover:decoration-brand focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none";
+
+export const publicActionLinkClassName = `public-page-action-link ${publicTextLinkClassName}`;

@@ -86,8 +86,8 @@ describe("public review information", () => {
     expect(footer.getByRole("link", { name: "View a sample report" })).toHaveAttribute("href", "/sample-report");
     expect(footer.getByRole("link", { name: "Frequently asked questions" })).toHaveAttribute("href", "/#faq");
     const main = within(screen.getByRole("main"));
-    expect(main.getByRole("link", { name: closed ? "Contact Venfour" : "Start a Total Loss review" })).toHaveAttribute("href", closed ? "/contact" : `${appOrigin}/start?service=total-loss`);
-    if (closed) expect(main.queryByRole("link", { name: "Start a Total Loss review" })).not.toBeInTheDocument();
+    expect(main.getByRole("link", { name: closed ? "Contact Venfour" : "Start my free valuation" })).toHaveAttribute("href", closed ? "/contact" : `${appOrigin}/start?service=total-loss`);
+    if (closed) expect(main.queryByRole("link", { name: "Start my free valuation" })).not.toBeInTheDocument();
   });
 
   it("takes a visitor from pricing to the sample and then focuses the homepage FAQ", async () => {

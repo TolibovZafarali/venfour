@@ -1,10 +1,8 @@
 import { Link } from "react-router";
-import { applicationHref } from "@/app/site-boundary";
-import { Button } from "@/components/ui/button";
-import { publicIntakeClosed } from "@/config/public-site";
 import { fullReviewPriceLabel } from "@/config/review-price";
 import { RefundProtectionDetails } from "@/features/full-review/refund-protection";
-import { PublicPage, PublicPageSection, publicTextLinkClassName } from "@/pages/public-page";
+import { PublicPage, PublicPageSection, publicActionLinkClassName, publicTextLinkClassName } from "@/pages/public-page";
+import { PublicPageActions, PublicReviewAction } from "@/pages/public-page-actions";
 
 const inclusions = [
   ["Your insurer’s valuation, reviewed", "Review of the vehicle details, comparable vehicles, and adjustments in your insurer’s report."],
@@ -21,12 +19,10 @@ export function PricingPage() {
       <h2 className="text-xl font-semibold tracking-tight text-neutral-950">Total-Loss Valuation Report</h2>
       <p className="mt-4 text-4xl font-semibold tracking-tight text-neutral-950">{fullReviewPriceLabel} <span className="text-base font-normal tracking-normal text-neutral-600">USD</span></p>
       <p className="mt-2 text-sm leading-6 text-neutral-600">One-time payment · No subscription</p>
-      <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
-        <Button asChild size="lg"><Link to={publicIntakeClosed ? "/contact" : applicationHref("/start?service=total-loss")}>
-          {publicIntakeClosed ? "Contact Venfour" : "Start a Total Loss review"}
-        </Link></Button>
-        <Link to="/sample-report" className={`inline-flex min-h-11 items-center ${publicTextLinkClassName}`}>View a sample report</Link>
-      </div>
+      <PublicPageActions>
+        <PublicReviewAction />
+        <Link to="/sample-report" className={publicActionLinkClassName}>View a sample report</Link>
+      </PublicPageActions>
     </section>
     <PublicPageSection title="What’s included">
       <dl className="grid gap-6 sm:grid-cols-2 sm:gap-8">

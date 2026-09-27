@@ -12,6 +12,7 @@
 @import "../features/states/states.css";
 @import "../features/insurers/insurers.css";
 @import "../pages/public-resources.css";
+@import "../pages/public-page.css";
 
 @custom-variant dark (&:is(.dark *));
 

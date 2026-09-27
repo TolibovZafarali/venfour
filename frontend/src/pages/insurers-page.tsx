@@ -6,7 +6,7 @@ import { publicTextLinkClassName } from "@/pages/public-page";
 
 export function InsurersPage() {
   return <article className="state-page state-page--guide insurers-directory">
-    <div className="state-page__inner">
+    <div className="public-page-container state-page__inner">
       <nav className="state-guide__breadcrumb" aria-label="Breadcrumb"><Link to={publicHref("/")}>Home</Link><span aria-hidden>/</span><span>Insurance companies</span></nav>
       <header className="state-page__header insurers-directory__header">
         <span className="states-eyebrow">Insurance companies</span>

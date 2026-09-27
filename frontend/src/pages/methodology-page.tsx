@@ -1,8 +1,4 @@
-import { applicationHref } from "@/app/site-boundary";
-import { publicIntakeClosed } from "@/config/public-site";
-import { Link } from "react-router";
-
-import { Button } from "@/components/ui/button";
+import { PublicPageActions, PublicReviewAction } from "@/pages/public-page-actions";
 import { PublicPage, PublicPageSection } from "@/pages/public-page";
 
 const methodologySteps = [
@@ -112,9 +108,7 @@ export function MethodologyPage() {
           guarantee a settlement change, determine legal rights, or replace
           advice from a qualified appraiser or attorney when one is needed.
         </p>
-        <Button asChild className="mt-2" size="lg">
-          <Link to={publicIntakeClosed ? "/contact" : applicationHref("/start?service=total-loss")}>{publicIntakeClosed ? "Contact Venfour" : "Start a Total Loss review"}</Link>
-        </Button>
+        <PublicPageActions><PublicReviewAction /></PublicPageActions>
       </PublicPageSection>
     </PublicPage>
   );
