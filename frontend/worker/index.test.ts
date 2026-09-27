@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { publicReviewMetadata, sampleReportPdfPath } from "../src/config/public-review";
 
 import { type Env, handleRequest, type WorkerDependencies } from "./index";
 
@@ -41,8 +42,65 @@ function dependencies(fetchImplementation: WorkerDependencies["fetch"]) {
 }
 
 describe("public website boundary", () => {
+  afterEach(() => vi.unstubAllGlobals());
   const publicEnv = (fetch: Fetcher["fetch"]): Env => ({
     DEPLOYMENT_ENVIRONMENT: "public-site", ASSETS: { fetch } as Fetcher,
+  });
+
+  it("includes both review information pages exactly once in the sitemap", async () => {
+    const assets = vi.fn();
+    const transport = vi.fn();
+    const response = await handleRequest(new Request("https://venfour.com/sitemap.xml"), publicEnv(assets), dependencies(transport));
+    const sitemap = await response.text();
+    for (const { canonical } of Object.values(publicReviewMetadata)) {
+      expect(sitemap.split(`<loc>${canonical}</loc>`)).toHaveLength(2);
+    }
+    expect(sitemap).not.toContain(sampleReportPdfPath);
+    expect(assets).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it.each(["/pricing", "/sample-report"] as const)("serves %s with canonical metadata and without backend access", async path => {
+    const rewritten: Record<string, { text?: string; content?: string; html?: string }> = {};
+    vi.stubGlobal("HTMLRewriter", class {
+      on(selector: string, handler: { element: (element: unknown) => void }) {
+        rewritten[selector] = {};
+        handler.element({
+          setInnerContent: (text: string) => { rewritten[selector].text = text; },
+          setAttribute: (_name: string, value: string) => { rewritten[selector].content = value; },
+          append: (html: string) => { rewritten[selector].html = html; },
+        });
+        return this;
+      }
+      transform(response: Response) { return response; }
+    });
+    const assets = vi.fn(async () => new Response('<html><head><title>Venfour</title><meta name="description" content="Home"></head></html>', { headers: { "Content-Type": "text/html", "ETag": "old" } }));
+    const transport = vi.fn();
+    const response = await handleRequest(new Request(`https://venfour.com${path}/?source=footer`), publicEnv(assets), dependencies(transport));
+    const metadata = publicReviewMetadata[path];
+    expect(response.status).toBe(200);
+    expect(rewritten.title.text).toBe(metadata.title);
+    expect(rewritten['meta[name="description"]'].content).toBe(metadata.description);
+    expect(rewritten.head.html).toContain(`rel="canonical" href="${metadata.canonical}"`);
+    expect(rewritten.head.html).not.toContain("source=footer");
+    expect(response.headers.get("x-robots-tag")).toBeNull();
+    expect(response.headers.get("ETag")).toBeNull();
+    expect(response.headers.get("content-security-policy")).toContain("connect-src 'self';");
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it.each(["GET", "HEAD"])("preserves PDF response bytes for %s without rewriting or backend access", async method => {
+    const bytes = new TextEncoder().encode("%PDF-1.7\nSample fixture\n%%EOF");
+    const assets = vi.fn(async () => new Response(method === "HEAD" ? null : new Uint8Array(bytes), { headers: { "Content-Type": "application/pdf" } }));
+    const transport = vi.fn();
+    const response = await handleRequest(new Request(`https://venfour.com${sampleReportPdfPath}`, { method }), publicEnv(assets), dependencies(transport));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/pdf");
+    expect(response.headers.get("cache-control")).toContain("immutable");
+    const delivered = new Uint8Array(await response.arrayBuffer());
+    expect(delivered).toEqual(method === "HEAD" ? new Uint8Array() : new Uint8Array(bytes));
+    expect(assets).toHaveBeenCalledOnce();
+    expect(transport).not.toHaveBeenCalled();
   });
 
   it.each(["/", "/terms", "/privacy", "/refund-policy", "/refund-policy/", "/contact", "/methodology", "/cookies", "/referral-partners", "/about", "/resources/understanding-your-report", "/resources/valuation-review-checklist", "/resources/understanding-your-report/"])("serves %s without backend configuration or transport", async path => {
@@ -560,7 +618,7 @@ describe("production Worker boundary", () => {
     expect(response.headers.get("cache-control")).toContain("no-store");
   });
 
-  it.each(["/contact", "/cookies", "/methodology", "/privacy", "/terms/", "/refund-policy", "/refund-policy/", "/referral-partners"])("directs public page %s to the canonical public website", async (path) => {
+  it.each(["/contact", "/cookies", "/methodology", "/privacy", "/terms/", "/refund-policy", "/refund-policy/", "/referral-partners", "/pricing", "/pricing/", "/sample-report", "/sample-report/"])("directs public page %s to the canonical public website", async (path) => {
     const assets = vi.fn(async () => new Response("asset"));
     const response = await handleRequest(new Request(`https://app.venfour.com${path}?from=app`), productionEnv(assets));
     expect(response.status).toBe(308);

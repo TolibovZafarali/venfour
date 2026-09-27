@@ -556,14 +556,18 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
                     <li><a href={diminishedValueHref} className={footerLinkClassName}>Diminished Value</a>
                       {!diminishedValueIntakeAvailable ? <span className="public-footer__service-note">New requests paused</span> : null}
                     </li>
+                    <li><Link to={publicHref("/pricing")} className={footerLinkClassName}>Pricing &amp; what’s included</Link></li>
+                    <li><a href={applicationHref("/find-review")} className={footerLinkClassName}>Find your review</a></li>
                   </ul>
                 </section>
                 <section>
                   <h2 className="public-footer__heading">Resources</h2>
                   <ul>
+                    <li><Link to={publicHref("/sample-report")} className={footerLinkClassName}>View a sample report</Link></li>
                     <li><Link to="/resources/understanding-your-report" className={footerLinkClassName}>Understanding your report</Link></li>
                     <li><Link to="/resources/valuation-review-checklist" className={footerLinkClassName}>Valuation checklist</Link></li>
                     <li><Link to="/methodology" className={footerLinkClassName}>How we review reports</Link></li>
+                    <li><Link to={publicHref("/#faq")} className={footerLinkClassName}>Frequently asked questions</Link></li>
                   </ul>
                 </section>
                 <section>

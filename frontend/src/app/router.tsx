@@ -11,6 +11,7 @@ import type { PageMetadata } from "@/app/document-metadata";
 import { AppShell } from "@/components/app-shell";
 import { environment } from "@/config/env";
 import { publicSiteOnly } from "@/config/public-site";
+import { publicReviewMetadata } from "@/config/public-review";
 import { routeAudience } from "@/app/site-boundary";
 import { diminishedValueStaffReviewAvailable } from "@/config/product-availability";
 import { adminRoute } from "@/features/admin/admin-routes";
@@ -45,6 +46,8 @@ import { ReferralPartnersPage } from "@/pages/referral-partners-page";
 import { RouteErrorPage } from "@/pages/route-error-page";
 import { TermsPage } from "@/pages/terms-page";
 import { RefundPolicyPage } from "@/pages/refund-policy-page";
+import { PricingPage } from "@/pages/pricing-page";
+import { SampleReportPage } from "@/pages/sample-report-page";
 import { TotalLossAnalysisPage } from "@/pages/total-loss-analysis-page";
 import { TotalLossClaimPage } from "@/pages/total-loss-claim-page";
 import { TotalLossClaimWorkflowPage } from "@/pages/total-loss-claim-workflow-page";
@@ -80,6 +83,8 @@ const combinedRoutes: RouteObject[] = [
     children: [
       { path: "app", element: <AppEntryPage />, handle: metadata("Your Workspace | Venfour", "Resume your saved appraisal.") },
       { path: "refund-policy", element: <RefundPolicyPage />, handle: metadata("Fair-Result Refund Policy | Venfour", "Two separate protections: an automatic refund when a review does not support a dispute, and a manual refund for an eligible final valuation increase under $1,000.") },
+      { path: "pricing", element: <PricingPage />, handle: publicReviewMetadata["/pricing"] },
+      { path: "sample-report", element: <SampleReportPage />, handle: publicReviewMetadata["/sample-report"] },
       { path: "total-loss/cases/:caseId", element: <AppraisalResumePage />, handle: metadata("Your Appraisal | Venfour", "Resume your saved appraisal.") },
       ...(import.meta.env.DEV ? [{
         path: "_local/status-experience",

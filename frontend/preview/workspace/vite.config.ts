@@ -10,6 +10,7 @@ const checkout = sessionFile ? sandboxCheckout(JSON.parse(readFileSync(sessionFi
 
 export default defineConfig({
   root: import.meta.dirname,
+  publicDir: path.resolve(import.meta.dirname, "../../public"),
   envDir: false,
   plugins: [react(), tailwindcss(), {
     name: "workspace-stripe-sandbox",

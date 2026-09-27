@@ -4,6 +4,7 @@ import { getAuthCallbackUrl, sanitizeReturnLocation } from "@/features/auth/retu
 import { insurers, insurerPath } from "@/features/insurers/insurers";
 
 describe("public and application boundaries", () => {
+  it.each(["/pricing", "/pricing/", "/sample-report", "/sample-report/"])("keeps review information %s public", path => expect(routeAudience(path)).toBe("public"));
   it.each(["/", "/methodology", "/terms", "/privacy", "/refund-policy", "/refund-policy/", "/referral-partners", "/about", "/resources/understanding-your-report", "/resources/valuation-review-checklist", "/resources/understanding-your-report/"])("keeps %s public", path => expect(routeAudience(path)).toBe("public"));
   it.each(["/app", "/appraisals", "/start", "/total-loss/cases/saved/analysis", "/admin/cases", "/partners", "/partners/invitations/code", "/auth/callback"])("assigns %s to the application", path => expect(routeAudience(path)).toBe("application"));
   it.each(["/insurers", "/insurers/", ...insurers.flatMap(insurer => [insurerPath(insurer), `${insurerPath(insurer)}/`])])("keeps insurer destination %s public", path => expect(routeAudience(path)).toBe("public"));

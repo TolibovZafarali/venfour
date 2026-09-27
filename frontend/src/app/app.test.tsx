@@ -146,7 +146,7 @@ describe("Venfour application", () => {
     const footerNavigation = screen.getByRole("navigation", {
       name: "Footer navigation",
     });
-    expect(within(footerNavigation).getAllByRole("link")).toHaveLength(32);
+    expect(within(footerNavigation).getAllByRole("link")).toHaveLength(36);
     expect(within(footerNavigation).getByRole("link", { name: "About Venfour" })).toHaveAttribute("href", "/about");
     expect(within(footerNavigation).getByRole("link", { name: "Understanding your report" })).toHaveAttribute("href", "/resources/understanding-your-report");
     expect(within(footerNavigation).getByRole("link", { name: "Valuation checklist" })).toHaveAttribute("href", "/resources/valuation-review-checklist");

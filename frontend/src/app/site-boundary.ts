@@ -1,11 +1,13 @@
 import { states, statePath } from "@/features/states/states";
 import { insurers, insurerPath } from "@/features/insurers/insurers";
+import { publicReviewMetadata } from "@/config/public-review";
 
 export const PUBLIC_ORIGIN = "https://venfour.com";
 export const PARTNER_ORIGIN = "https://partners.venfour.com";
 export const APPLICATION_ORIGIN = "https://app.venfour.com";
 
 const publicPaths = new Set(["/", "/contact", "/cookies", "/methodology", "/privacy", "/terms", "/refund-policy", "/referral-partners", "/about", "/resources/understanding-your-report", "/resources/valuation-review-checklist", "/insurers"]);
+Object.keys(publicReviewMetadata).forEach(path => publicPaths.add(path));
 states.forEach(state => publicPaths.add(statePath(state)));
 insurers.forEach(insurer => publicPaths.add(insurerPath(insurer)));
 

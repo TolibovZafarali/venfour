@@ -1,5 +1,6 @@
 import { states, statePath, stateFromPath, stateMetadata } from "../src/features/states/states";
 import { insurers, insurerPath, insurerFromPath, insurerMetadata, insurerDirectoryMetadata } from "../src/features/insurers/insurers";
+import { publicReviewMetadata } from "../src/config/public-review";
 
 const API_RESPONSE_HEADERS = new Set([
   // Representation metadata must stay with the unread upstream body. Framing
@@ -42,6 +43,7 @@ const APP_ORIGIN = "https://app.venfour.com";
 const PARTNER_ORIGIN = "https://partners.venfour.com";
 const PRODUCTION_ORIGINS = new Set([PUBLIC_ORIGIN, APP_ORIGIN, PARTNER_ORIGIN, "https://www.venfour.com"]);
 const PUBLIC_PATHS = new Set(["/", "/contact", "/cookies", "/methodology", "/privacy", "/terms", "/refund-policy", "/referral-partners", "/about", "/resources/understanding-your-report", "/resources/valuation-review-checklist", "/insurers"]);
+Object.keys(publicReviewMetadata).forEach(path => PUBLIC_PATHS.add(path));
 states.forEach(state => PUBLIC_PATHS.add(statePath(state)));
 insurers.forEach(insurer => PUBLIC_PATHS.add(insurerPath(insurer)));
 
@@ -490,7 +492,8 @@ async function handlePublicSiteRequest(request: Request, env: Env) {
   const pathname = url.pathname.replace(/\/+$/, "") || "/";
   const state = stateFromPath(pathname);
   const insurer = insurerFromPath(pathname);
-  const metadata = state ? stateMetadata(state) : insurer ? insurerMetadata(insurer) : pathname === "/insurers" ? insurerDirectoryMetadata : undefined;
+  const metadata = state ? stateMetadata(state) : insurer ? insurerMetadata(insurer) : pathname === "/insurers" ? insurerDirectoryMetadata :
+    pathname === "/pricing" || pathname === "/sample-report" ? publicReviewMetadata[pathname] : undefined;
   if (metadata && response.ok && request.method === "GET" && response.headers.get("Content-Type")?.includes("text/html")) {
     // Catalog values are internal text, never request-supplied markup.
     const escape = (value: string) => value.replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]!);

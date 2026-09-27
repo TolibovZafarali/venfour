@@ -13,6 +13,8 @@ const base = `/total-loss/cases/${CASE_ID}`;
 export const categories: Category[] = [
   { id: "public", title: "Public website", description: "Website, service information, and policies.", screens: [
     screen("home", "Homepage", "/", "The public Venfour homepage."),
+    screen("pricing", "Pricing & what’s included", "/pricing", "One-time price, report contents, and refund protections."),
+    screen("sample-report", "Sample report", "/sample-report", "An introduction to the fictional six-page sample PDF."),
     screen("about", "About Venfour", "/about", "Our purpose and approach to vehicle valuation."),
     screen("report-guide", "Understanding your report", "/resources/understanding-your-report", "A fictional report example with clear explanations."),
     screen("review-checklist", "Valuation checklist", "/resources/valuation-review-checklist", "A practical checklist to use online or print."),
