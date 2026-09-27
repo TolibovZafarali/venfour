@@ -163,3 +163,31 @@ test("Missouri’s CTA supports keyboard access and preserves the current intake
   await actions.last().click();
   await expect(page).toHaveURL(/\/start\?service=total-loss$/);
 });
+
+test("Missouri guide aligns with legal pages and supports keyboard section navigation", async ({ page }) => {
+  await page.goto("/privacy");
+  const privacyHeading = page.getByRole("heading", { level: 1 });
+  await expect(privacyHeading).toBeVisible();
+  const legalLeft = (await privacyHeading.boundingBox())!.x;
+  await page.goto("/states/missouri");
+  const article = page.getByRole("article");
+  const heading = article.getByRole("heading", { level: 1 });
+  await expect(heading).toBeVisible();
+  expect(Math.abs((await heading.boundingBox())!.x - legalLeft)).toBeLessThan(1);
+  const contents = article.getByRole("navigation", { name: "On this page" });
+  await expect(contents.getByRole("link")).toHaveCount(5);
+  await contents.getByRole("link", { name: "Missouri rules", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  const rules = article.getByRole("heading", { name: "Missouri rules worth understanding", exact: true });
+  await expect(rules).toBeFocused();
+  await expect(rules).toBeInViewport();
+  await expect.poll(async () => (await rules.boundingBox())!.y).toBeGreaterThanOrEqual(64);
+  if (page.viewportSize()!.width >= 1024) {
+    await expect(contents).toBeInViewport();
+    expect((await contents.boundingBox())!.x).toBeGreaterThan((await heading.boundingBox())!.x + (await heading.boundingBox())!.width);
+  }
+  await contents.getByRole("link", { name: "Common questions", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  await expect(article.getByRole("heading", { name: "Common questions", exact: true })).toBeFocused();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});

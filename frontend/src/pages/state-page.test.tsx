@@ -64,6 +64,16 @@ describe("state pages", () => {
     expect(within(article).getByText(/If your policy includes an appraisal clause/)).toBeVisible();
     expect(article.querySelector("details:not([open])")).toBeNull();
     expect(article).toHaveTextContent(/Sources checked [A-Z][a-z]+ \d{1,2}, \d{4}/);
+    const contents = within(article).getByRole("navigation", { name: "On this page" });
+    const sectionLinks = within(contents).getAllByRole("link");
+    expect(sectionLinks).toHaveLength(5);
+    for (const link of sectionLinks) {
+      const destination = new URL(link.getAttribute("href")!, "http://localhost/states/missouri");
+      expect(destination.pathname).toBe("/states/missouri");
+      const target = document.getElementById(destination.hash.slice(1));
+      expect(target?.tagName).toBe("H2");
+      expect(target).toHaveAttribute("tabindex", "-1");
+    }
     expect(within(article).getByRole("link", { name: "All states" })).toHaveAttribute("href", "/#states");
     expect(document.title).toBe(missouriTitle);
     expect(document.querySelector('meta[name="description"]')).toHaveAttribute("content", missouriDescription);
