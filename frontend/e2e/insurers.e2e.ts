@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { insurers, insurerDirectoryMetadata, insurerMetadata, insurerPath } from "../src/features/insurers/insurers";
+import { footerInsurers, insurers, insurerDirectoryMetadata, insurerMetadata, insurerPath } from "../src/features/insurers/insurers";
 import { stateMetadata, states } from "../src/features/states/states";
 
 test.beforeEach(async ({ page }) => {
@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("venfour.cookie-consent", JSON.stringify({ version: 2, essential: true, analytics: false, advertising: false, source: "reject-non-essential", savedAt: new Date().toISOString() })));
 });
 
-test("directory and footer expose all eight guides without overflow", async ({ page }, testInfo) => {
+test("directory exposes all guides and footer stays curated without overflow", async ({ page }, testInfo) => {
   await page.goto("/insurers");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page).toHaveTitle(insurerDirectoryMetadata.title);
@@ -19,10 +19,10 @@ test("directory and footer expose all eight guides without overflow", async ({ p
   await expect(main.getByRole("searchbox")).toHaveCount(0);
   await expect(main.getByRole("combobox")).toHaveCount(0);
   const footer = page.getByRole("navigation", { name: "Footer insurance companies" });
-  await expect(footer.getByRole("link")).toHaveCount(9);
+  await expect(footer.getByRole("link")).toHaveCount(footerInsurers.length + 1);
   const expectedColumns = page.viewportSize()!.width >= 1280 ? 5 : page.viewportSize()!.width >= 640 ? 3 : 2;
   expect(await page.getByRole("navigation", { name: "Footer navigation", exact: true }).evaluate(element => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(expectedColumns);
-  for (const insurer of insurers) {
+  for (const insurer of footerInsurers) {
     const link = footer.getByRole("link", { name: insurer.name, exact: true });
     await expect(link).toHaveAttribute("href", insurerPath(insurer));
     expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
@@ -147,9 +147,29 @@ test("failed guide downloads recover through the existing retry button", async (
 
 test("unknown, uppercase, and nested insurer paths show the not-found page", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "Route rejection is independent of viewport.");
-  for (const path of ["/insurers/not-an-insurer", "/insurers/GEICO", "/insurers/state-farm/extra"]) {
+  for (const path of ["/insurers/aaa", "/insurers/AAA-CSAA", "/insurers/aaa-csaa/extra", "/insurers/not-an-insurer", "/insurers/GEICO", "/insurers/state-farm/extra"]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
     await expect(page.locator('link[rel="canonical"]')).toHaveCount(0);
   }
+});
+
+
+test("directory-only AAA guides wrap and switch without retaining another organization's sources", async ({ page }, testInfo) => {
+  await page.goto("/insurers");
+  const directory = page.getByRole("navigation", { name: "Insurer guides", exact: true });
+  const enterprises = directory.getByRole("link", { name: /^AAA \(Auto Club Enterprises\)/ });
+  await enterprises.focus();
+  await page.keyboard.press("Enter");
+  const article = page.getByRole("article");
+  await expect(article.getByRole("heading", { level: 1 })).toHaveText("Understand your AAA (Auto Club Enterprises) total-loss offer.");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("aaa-enterprises-hero.png") });
+  await article.getByRole("link", { name: "All insurer guides", exact: true }).click();
+  await directory.getByRole("link", { name: /^AAA \(CSAA Insurance Group\)/ }).click();
+  await expect(article.getByRole("heading", { level: 1 })).toHaveText("Understand your AAA (CSAA Insurance Group) total-loss offer.");
+  await expect(article.locator('a[href*="ace.aaa.com"]')).toHaveCount(0);
+  await expect(page.locator('link[rel="canonical"]')).toHaveCount(1);
+  await expect(page.locator('meta[property="og:url"]')).toHaveAttribute("content", "https://venfour.com/insurers/aaa-csaa");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

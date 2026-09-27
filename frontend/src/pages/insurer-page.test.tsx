@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { publicRoutes } from "@/app/router";
 import type * as PublicSiteConfiguration from "@/config/public-site";
 import * as guideLoader from "@/features/insurers/guide-loader";
-import { insurers, insurerDirectoryMetadata, insurerMetadata, insurerPath } from "@/features/insurers/insurers";
+import { footerInsurers, insurers, insurerDirectoryMetadata, insurerMetadata, insurerPath } from "@/features/insurers/insurers";
 import { stateMetadata, states } from "@/features/states/states";
 import { renderTestApp } from "@/test/render";
 
@@ -105,7 +105,7 @@ describe("insurer guides", () => {
     expect(article).toHaveTextContent("Online reviews are opening soon.");
   });
 
-  it.each(["/insurers/not-an-insurer", "/insurers/GEICO", "/insurers/State-Farm", "/insurers/state-farm/extra"])("does not invent a guide for %s", async path => {
+  it.each(["/insurers/aaa", "/insurers/AAA-CSAA", "/insurers/aaa-csaa/extra", "/insurers/not-an-insurer", "/insurers/GEICO", "/insurers/State-Farm", "/insurers/state-farm/extra"])("does not invent a guide for %s", async path => {
     const load = vi.spyOn(guideLoader, "loadInsurerGuide");
     await renderGuide(path);
     expect(screen.getByRole("heading", { name: "Page not found" })).toBeVisible();
@@ -157,13 +157,13 @@ describe("insurer guides", () => {
 });
 
 describe("insurer directory and discovery", () => {
-  it("lists eight insurers alphabetically with directory metadata and no guide download", async () => {
+  it("lists all insurers alphabetically with directory metadata and no guide download", async () => {
     const load = vi.spyOn(guideLoader, "loadInsurerGuide");
     expect(matchRoutes(publicRoutes, "/insurers")?.at(-1)?.route.path).toBe("insurers");
     await renderGuide("/insurers");
     const main = screen.getByRole("main");
     const guideLinks = within(main).getAllByRole("link").filter(link => insurers.some(insurer => insurerPath(insurer) === link.getAttribute("href")));
-    expect(guideLinks).toHaveLength(8);
+    expect(guideLinks).toHaveLength(insurers.length);
     expect(guideLinks.map(link => link.getAttribute("href"))).toEqual([...insurers].sort((a, b) => a.name.localeCompare(b.name)).map(insurerPath));
     for (const insurer of insurers) expect(main).toHaveTextContent(insurer.name);
     expect(within(main).queryByRole("searchbox")).not.toBeInTheDocument();
@@ -174,14 +174,15 @@ describe("insurer directory and discovery", () => {
     expect(document.querySelector('link[rel="canonical"]')).toHaveAttribute("href", insurerDirectoryMetadata.canonical);
   });
 
-  it("exposes every guide and the directory from the public footer", async () => {
+  it("exposes the curated guides and full directory from the public footer", async () => {
     const user = userEvent.setup();
     const { router } = await renderGuide("/insurers");
     const footer = screen.getByRole("navigation", { name: "Footer insurance companies" });
-    expect(within(footer).getAllByRole("link")).toHaveLength(9);
-    for (const insurer of insurers) {
+    expect(within(footer).getAllByRole("link")).toHaveLength(footerInsurers.length + 1);
+    for (const insurer of footerInsurers) {
       expect(within(footer).getByRole("link", { name: insurer.name })).toHaveAttribute("href", insurerPath(insurer));
     }
+    expect(within(footer).queryByRole("link", { name: "Amica" })).not.toBeInTheDocument();
     expect(within(footer).getByRole("link", { name: /All insurer guides/ })).toHaveAttribute("href", "/insurers");
     await user.click(within(footer).getByRole("link", { name: "Liberty Mutual" }));
     await screen.findByRole("heading", { level: 1, name: "Understand your Liberty Mutual total-loss offer." });

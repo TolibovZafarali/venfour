@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils";
 import { BrandLink } from "@/components/brand-link";
 import { useHomeSmoothScroll } from "@/pages/use-home-smooth-scroll";
 import { footerStates, statePath } from "@/features/states/states";
-import { insurers, insurerPath } from "@/features/insurers/insurers";
+import { footerInsurers, insurerPath } from "@/features/insurers/insurers";
 import { FreeValuationProcessingProvider } from "@/features/analyses/components/free-valuation-processing";
 import { CustomerWorkspace, CustomerWorkspaceIdentity } from "@/components/customer-workspace";
 import venfourMark from "../../../assets/brand/venfour-mark.svg";
@@ -581,7 +581,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
                 </nav>
                 <nav aria-label="Footer insurance companies" className="public-footer__insurers">
                   <h2 className="public-footer__heading">Insurance companies</h2>
-                  <ul>{insurers.map(insurer => <li key={insurer.slug}><Link to={publicHref(insurerPath(insurer))} className={footerLinkClassName}>{insurer.name}</Link></li>)}</ul>
+                  <ul>{footerInsurers.map(insurer => <li key={insurer.slug}><Link to={publicHref(insurerPath(insurer))} className={footerLinkClassName}>{insurer.name}</Link></li>)}</ul>
                   <Link to={publicHref("/insurers")} className={footerLinkClassName}>All insurer guides <span aria-hidden>→</span></Link>
                 </nav>
               </nav>

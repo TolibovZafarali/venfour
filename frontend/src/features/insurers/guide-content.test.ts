@@ -15,16 +15,82 @@ async function guideText(slug: string) {
   return paragraphs(guide).map(paragraph => paragraph.text).join(" ");
 }
 
-const officialHosts = {
-  allstate: "www.allstate.com",
-  farmers: "www.farmers.com",
-  geico: "www.geico.com",
-  "liberty-mutual": "www.libertymutual.com",
-  nationwide: "www.nationwide.com",
-  progressive: "www.progressive.com",
-  "state-farm": "www.statefarm.com",
-  usaa: "www.usaa.com",
-} as const;
+const officialHosts: Record<typeof insurers[number]["slug"], readonly string[]> = {
+  "aaa-auto-club-enterprises": [
+    "www.ace.aaa.com"
+  ],
+  "aaa-auto-club-group": [
+    "www.acg.aaa.com"
+  ],
+  "aaa-csaa": [
+    "csaa-insurance.aaa.com",
+    "www.csaainsurance.aaa.com"
+  ],
+  "allstate": [
+    "www.allstate.com"
+  ],
+  "american-family": [
+    "www.amfam.com"
+  ],
+  "amica": [
+    "www.amica.com"
+  ],
+  "auto-owners": [
+    "www.auto-owners.com"
+  ],
+  "country-financial": [
+    "www.countryfinancial.com"
+  ],
+  "erie": [
+    "www.erieinsurance.com"
+  ],
+  "farmers": [
+    "www.farmers.com"
+  ],
+  "geico": [
+    "www.geico.com"
+  ],
+  "hanover": [
+    "www.hanover.com"
+  ],
+  "kemper": [
+    "www.kemper.com"
+  ],
+  "liberty-mutual": [
+    "www.libertymutual.com"
+  ],
+  "mapfre": [
+    "www.mapfreinsurance.com"
+  ],
+  "mercury": [
+    "www.mercuryinsurance.com"
+  ],
+  "nationwide": [
+    "www.nationwide.com"
+  ],
+  "njm": [
+    "www.njm.com"
+  ],
+  "progressive": [
+    "www.progressive.com"
+  ],
+  "shelter": [
+    "support.shelterinsurance.com",
+    "www.shelterinsurance.com"
+  ],
+  "state-farm": [
+    "www.statefarm.com"
+  ],
+  "the-hartford": [
+    "www.thehartford.com"
+  ],
+  "travelers": [
+    "www.travelers.com"
+  ],
+  "usaa": [
+    "www.usaa.com"
+  ]
+};
 
 describe("insurer guide content", () => {
   it("has exactly one lazy content module for each supported insurer", () => {
@@ -63,7 +129,7 @@ describe("insurer guide content", () => {
     for (const source of guide.sources) {
       expect(referenced.has(source.id), `${insurer.slug}: unused ${source.id}`).toBe(true);
       expect(new URL(source.url).protocol).toBe("https:");
-      expect(new URL(source.url).hostname).toBe(officialHosts[insurer.slug]);
+      expect(officialHosts[insurer.slug]).toContain(new URL(source.url).hostname);
       expect(source.title.trim()).not.toBe("");
       expect(source.locator.trim()).not.toBe("");
       expect(source.applicability.trim()).not.toBe("");
@@ -95,4 +161,26 @@ describe("insurer guide content", () => {
     const geico = await guideText("geico");
     expect(geico).toContain("depends on your state");
   });
+
+  it("keeps the three AAA organizations and their source scope distinct", async () => {
+    const enterprise = await guideText("aaa-auto-club-enterprises");
+    expect(enterprise).toContain("VIN or stock number");
+    const csaa = await guideText("aaa-csaa");
+    expect(csaa).toContain("comprehensive auto losses");
+    expect(csaa).toContain("policy or claim letter");
+    const group = await guideText("aaa-auto-club-group");
+    expect(group).toContain("underwriting companies");
+    expect(group).toContain("non-original equipment");
+    expect(findInsurer("aaa")).toBeUndefined();
+  });
+
+  it("qualifies replacement coverage and preserves the new non-customer pathways", async () => {
+    expect(await guideText("hanover")).toContain("does not establish that your policy includes it");
+    expect(await guideText("shelter")).toContain("non-customer phone pathway");
+    expect(await guideText("amica")).toContain("non-customer upload");
+    expect(await guideText("auto-owners")).toContain("separate entry points");
+    expect(await guideText("the-hartford")).toContain("separate reporting route");
+    expect(await guideText("country-financial")).toContain("Do not assume so");
+  });
+
 });

@@ -23,7 +23,7 @@ describe("public insurer routes", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it.each(["/Insurers", "/insurers/unknown", "/insurers/GEICO", "/insurers/state_farm", "/insurers/geico/extra", "/insurers/geico/texas"])("returns an actual non-indexable 404 for %s", async path => {
+  it.each(["/Insurers", "/insurers/unknown", "/insurers/aaa", "/insurers/AAA-CSAA", "/insurers/aaa-csaa/extra", "/insurers/GEICO", "/insurers/state_farm", "/insurers/geico/extra", "/insurers/geico/texas"])("returns an actual non-indexable 404 for %s", async path => {
     const env = publicEnv();
     const fetch = vi.fn();
     const response = await handleRequest(new Request(`https://venfour.com${path}`), env, { fetch });

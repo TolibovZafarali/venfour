@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   findInsurer,
+  footerInsurers,
   insurerDirectoryMetadata,
   insurerFromPath,
   insurerMetadata,
@@ -9,14 +10,26 @@ import {
 } from "./insurers";
 
 describe("insurer catalog", () => {
-  it("contains the eight launch guides in alphabetical order", () => {
+  it("contains the supported guides in alphabetical order", () => {
     expect(insurers.map(insurer => insurer.slug)).toEqual([
-      "allstate", "farmers", "geico", "liberty-mutual",
-      "nationwide", "progressive", "state-farm", "usaa",
+      "aaa-auto-club-enterprises", "aaa-csaa", "aaa-auto-club-group",
+      "allstate", "american-family", "amica", "auto-owners", "country-financial",
+      "erie", "farmers", "geico", "hanover", "kemper", "liberty-mutual",
+      "mapfre", "mercury", "nationwide", "njm", "progressive", "shelter",
+      "state-farm", "the-hartford", "travelers", "usaa",
     ]);
+    expect(insurers.map(insurer => insurer.name)).toEqual(insurers.map(insurer => insurer.name).sort((a, b) => a.localeCompare(b)));
     expect(new Set(insurers.map(insurer => insurer.slug)).size).toBe(insurers.length);
     expect(new Set(insurers.map(insurer => insurer.summary)).size).toBe(insurers.length);
     expect(new Set(insurers.map(insurer => insurer.description)).size).toBe(insurers.length);
+  });
+
+  it("keeps twelve prominent links in the footer while all guides remain discoverable", () => {
+    expect(footerInsurers.map(insurer => insurer.slug)).toEqual([
+      "allstate", "american-family", "auto-owners", "erie", "farmers", "geico",
+      "liberty-mutual", "nationwide", "progressive", "state-farm", "travelers", "usaa",
+    ]);
+    for (const insurer of footerInsurers) expect(insurers).toContain(insurer);
   });
 
   it.each(insurers)("resolves $name with one canonical and catalog-owned metadata", insurer => {
@@ -33,7 +46,7 @@ describe("insurer catalog", () => {
   });
 
   it.each([
-    "/insurers", "/insurers/", "/insurers/unknown", "/insurers/GEICO",
+    "/insurers", "/insurers/", "/insurers/unknown", "/insurers/aaa", "/insurers/AAA-CSAA", "/insurers/aaa-csaa/extra", "/insurers/GEICO",
     "/insurers/geico/extra", "/insurers/geico//", "/insurers/geico?claim=1",
     "/insurers/%67eico", "/insurers/geico-california", "/insurers/geico/california",
   ])("does not resolve an unsupported insurer path: %s", path => {
