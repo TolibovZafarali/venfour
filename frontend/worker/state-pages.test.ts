@@ -44,7 +44,7 @@ describe("public state routes", () => {
     expect(env.ASSETS.fetch).not.toHaveBeenCalled();
   });
 
-  it("rewrites state HTML metadata before it reaches crawlers while retaining response protections", async () => {
+  it.each(states)("rewrites $name metadata before it reaches crawlers while retaining response protections", async state => {
     const rewritten: Record<string, { text?: string; attributes?: Record<string, string>; html?: string }> = {};
     const transform = vi.fn((response: Response) => response);
     vi.stubGlobal("HTMLRewriter", class {
@@ -60,17 +60,17 @@ describe("public state routes", () => {
       transform = transform;
     });
     const env = publicEnv(vi.fn(async () => new Response('<html><head><title>Venfour</title><meta name="description" content="Home"></head></html>', { headers: { "Content-Type": "text/html", "ETag": "old", "Content-Length": "100" } })));
-    const response = await handleRequest(new Request("https://venfour.com/states/missouri/?source=link"), env);
-    const metadata = stateMetadata(states.find(state => state.code === "MO")!);
+    const response = await handleRequest(new Request(`https://venfour.com${statePath(state)}/?source=link`), env);
+    const metadata = stateMetadata(state);
     expect(metadata).toEqual({
-      title: "Missouri Total-Loss Guide & Valuation Review | Venfour",
-      description: "Understand Missouri total-loss valuations, deductions, replacement-vehicle tax allowances, and your options. Start with Venfour’s free preliminary valuation.",
-      canonical: "https://venfour.com/states/missouri",
+      title: `${state.name} Total-Loss Guide & Valuation Review | Venfour`,
+      description: expect.any(String),
+      canonical: `https://venfour.com${statePath(state)}`,
     });
     expect(rewritten.title.text).toBe(metadata.title);
     expect(rewritten['meta[name="description"]'].attributes?.content).toBe(metadata.description);
     expect(rewritten.head.html).toContain(`rel="canonical" href="${metadata.canonical}"`);
-    expect(rewritten.head.html).toContain('property="og:title" content="Missouri Total-Loss Guide &amp; Valuation Review | Venfour"');
+    expect(rewritten.head.html).toContain(`property="og:title" content="${metadata.title.replaceAll("&", "&amp;")}"`);
     expect(rewritten.head.html).toContain(`property="og:description" content="${metadata.description}"`);
     expect(rewritten.head.html).not.toContain("source=link");
     expect(response.headers.get("ETag")).toBeNull();

@@ -28,6 +28,7 @@ import { AppEntryPage } from "@/pages/app-entry-page";
 import { AppraisalResumePage } from "@/pages/appraisal-resume-page";
 import { HomePage } from "@/pages/home-page";
 import { StatePage } from "@/pages/state-page";
+import { statePageLoader } from "@/pages/state-page-loader";
 import { findState, stateMetadata } from "@/features/states/states";
 import { AboutPage, UnderstandingReportPage, ValuationChecklistPage } from "@/pages/public-resources";
 import { MethodologyPage } from "@/pages/methodology-page";
@@ -106,6 +107,7 @@ const combinedRoutes: RouteObject[] = [
       {
         path: "states/:stateSlug",
         element: <StatePage />,
+        loader: statePageLoader,
         handle: ({ params }: { params: Record<string, string | undefined> }) => {
           const state = findState(params.stateSlug);
           return state ? stateMetadata(state) : metadata("Page Not Found | Venfour", "The requested Venfour page could not be found.");

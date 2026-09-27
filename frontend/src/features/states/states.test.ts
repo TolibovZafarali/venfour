@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { states, statePath, stateFromPath, findState, footerStates } from "./states";
-import { stateMapPaths } from "./map-paths";
+import { stateMapPaths, stateMapViewBoxes } from "./map-paths";
 import { routeAudience } from "@/app/site-boundary";
 
 describe("state catalog", () => {
@@ -18,6 +18,15 @@ describe("state catalog", () => {
     expect(stateFromPath(`${statePath(state)}/`)).toBe(state);
     expect(routeAudience(statePath(state))).toBe("public");
     expect(stateMapPaths[state.code]).toMatch(/^M[\d.,LZM-]+Z$/);
+    const [x, y, width, height] = stateMapViewBoxes[state.code].split(" ").map(Number);
+    expect(width).toBeGreaterThan(0);
+    expect(height).toBeGreaterThan(0);
+    for (const point of stateMapPaths[state.code].matchAll(/[ML](-?[\d.]+),(-?[\d.]+)/g)) {
+      expect(Number(point[1])).toBeGreaterThan(x);
+      expect(Number(point[1])).toBeLessThan(x + width);
+      expect(Number(point[2])).toBeGreaterThan(y);
+      expect(Number(point[2])).toBeLessThan(y + height);
+    }
   });
 
   it.each(["/states", "/states/", "/states/unknown", "/states/Missouri", "/states/missouri/extra", "/states/puerto-rico"])("does not register unsupported path %s", path => {

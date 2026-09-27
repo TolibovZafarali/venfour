@@ -1,3 +1,5 @@
+import { guideDescriptions } from "./guide-metadata";
+
 // Names and codes mirror venfour/data/nationwide_product_v1.json; checked by states.test.ts.
 export const states = [
   { code: "AL", name: "Alabama", slug: "alabama" },
@@ -70,10 +72,8 @@ export function stateFromPath(pathname: string) {
 
 export function stateMetadata(state: State) {
   return {
-    title: state.code === "MO" ? "Missouri Total-Loss Guide & Valuation Review | Venfour" : `${state.name} Total-Loss Valuation Review | Venfour`,
-    description: state.code === "MO"
-      ? "Understand Missouri total-loss valuations, deductions, replacement-vehicle tax allowances, and your options. Start with Venfour’s free preliminary valuation."
-      : `Start a free vehicle valuation in ${state.code === "DC" ? "the District of Columbia" : state.name}. See what you need, how Venfour reviews the evidence, and what happens if you choose a full review.`,
+    title: `${state.name} Total-Loss Guide & Valuation Review | Venfour`,
+    description: guideDescriptions[state.code],
     canonical: `https://venfour.com${statePath(state)}`,
   };
 }

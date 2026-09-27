@@ -1,4 +1,4 @@
-import { act, screen, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { matchRoutes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -6,6 +6,7 @@ import { publicRoutes } from "@/app/router";
 import type * as PublicSiteConfiguration from "@/config/public-site";
 import { renderTestApp } from "@/test/render";
 import { states, statePath, stateMetadata } from "@/features/states/states";
+import * as guideLoader from "@/features/states/guide-loader";
 
 const intakeConfiguration = vi.hoisted(() => ({ closed: false }));
 vi.mock("@/config/public-site", async importOriginal => ({
@@ -25,24 +26,74 @@ beforeEach(() => {
 });
 afterEach(() => descriptionMeta.remove());
 
+async function renderState(path: string) {
+  const result = renderTestApp([path], { authService: null });
+  await screen.findByRole("heading", { level: 1 });
+  return result;
+}
+
 describe("state pages", () => {
-  it.each(states.filter(state => state.code !== "MO"))("renders $name using the public state template", state => {
-    const matches = matchRoutes(publicRoutes, statePath(state));
-    expect(matches?.at(-1)?.route.path).toBe("states/:stateSlug");
-    renderTestApp([statePath(state)], { authService: null });
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(`${state.name}.`);
-    expect(document.title).toBe(stateMetadata(state).title);
-    expect(document.querySelector('link[rel="canonical"]')).toHaveAttribute("href", `https://venfour.com${statePath(state)}`);
-    expect(screen.getByRole("heading", { name: "Start with a free valuation" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "What to have ready" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "If you continue with Venfour" })).toBeVisible();
-    expect(screen.queryByRole("heading", { name: "Missouri rules worth understanding" })).not.toBeInTheDocument();
+  it("uses the existing route error screen if a guide cannot load", async () => {
+    const load = vi.spyOn(guideLoader, "loadStateGuide").mockRejectedValueOnce(new Error("Guide download failed"));
+    try {
+      await renderState("/states/texas");
+      expect(screen.getByRole("alert")).toHaveTextContent("We couldn’t display this page.");
+      expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
+      expect(screen.queryByRole("article")).not.toBeInTheDocument();
+    } finally {
+      load.mockRestore();
+    }
   });
 
-  it("renders Missouri’s guide with an accessible checklist and expanded answers", () => {
+  it.each(states)("renders $name with its researched guide and shared terms", async state => {
+    const matches = matchRoutes(publicRoutes, statePath(state));
+    expect(matches?.at(-1)?.route.path).toBe("states/:stateSlug");
+    await renderState(statePath(state));
+    const article = screen.getByRole("article");
+    expect(within(article).getByRole("heading", { level: 1 })).toHaveTextContent(`${state.name}.`);
+    await waitFor(() => expect(document.title).toBe(stateMetadata(state).title));
+    expect(document.querySelector('meta[name="description"]')).toHaveAttribute("content", stateMetadata(state).description);
+    expect(document.querySelector('link[rel="canonical"]')).toHaveAttribute("href", stateMetadata(state).canonical);
+    expect(within(article).getByRole("heading", { name: `${state.name} rules worth understanding` })).toBeVisible();
+    expect(within(article).getByRole("table")).toBeVisible();
+    expect(article.querySelector("details:not([open])")).toBeNull();
+    const content = await guideLoader.loadStateGuide(state);
+    expect(article.querySelector("time")).toHaveAttribute("datetime", content.checkedOn);
+    const sourceLinks = within(article).getAllByRole("link").map(link => link.getAttribute("href"));
+    for (const source of content.sources) expect(sourceLinks).toContain(source.url);
+    for (const faq of content.faqs) expect(within(article).getByRole("heading", { name: faq.title })).toBeVisible();
+    const sectionIds = [...article.querySelectorAll("[id]")].map(element => element.id);
+    expect(new Set(sectionIds).size).toBe(sectionIds.length);
+    const actions = within(article).getAllByRole("link", { name: "Start my free valuation" });
+    expect(actions).toHaveLength(2);
+    for (const action of actions) expect(action).toHaveAttribute("href", "/start?service=total-loss");
+    const service = within(article).getByRole("region", { name: "How Venfour helps" });
+    expect(service).toHaveTextContent("one-time payment of $199");
+    expect(service).toHaveTextContent("fee is refunded automatically");
+    expect(service).toHaveTextContent("final verified vehicle-value increase is under $1,000");
+    expect(service).toHaveTextContent("required documentation");
+    expect(service).toHaveTextContent("within 30 days after receiving the insurer’s final written response");
+    const contents = within(article).getByRole("navigation", { name: "On this page" });
+    for (const link of within(contents).getAllByRole("link")) {
+      const hash = new URL(link.getAttribute("href")!, "https://venfour.com").hash;
+      expect(document.getElementById(hash.slice(1))).toHaveAttribute("tabindex", "-1");
+    }
+  });
+
+  it.each(states)("preserves both closed-intake contact actions for $name", async state => {
+    intakeConfiguration.closed = true;
+    await renderState(statePath(state));
+    const article = screen.getByRole("article");
+    expect(within(article).queryByRole("link", { name: "Start my free valuation" })).not.toBeInTheDocument();
+    const actions = within(article).getAllByRole("link", { name: "Contact Venfour" });
+    expect(actions).toHaveLength(2);
+    for (const action of actions) expect(action).toHaveAttribute("href", "/contact");
+  });
+
+  it("renders Missouri’s guide with an accessible checklist and expanded answers", async () => {
     const matches = matchRoutes(publicRoutes, "/states/missouri");
     expect(matches?.at(-1)?.route.path).toBe("states/:stateSlug");
-    renderTestApp(["/states/missouri"], { authService: null });
+    await renderState("/states/missouri");
     const article = screen.getByRole("article");
     expect(within(article).getByRole("heading", { level: 1 })).toHaveTextContent("Understand your total-loss offer in Missouri.");
     const sectionTitles = within(article).getAllByRole("heading", { level: 2 }).map(heading => heading.textContent);
@@ -80,8 +131,8 @@ describe("state pages", () => {
     expect(document.querySelector('link[rel="canonical"]')).toHaveAttribute("href", "https://venfour.com/states/missouri");
   });
 
-  it("keeps Missouri’s qualifications and corrected official source links with the guidance", () => {
-    renderTestApp(["/states/missouri"], { authService: null });
+  it("keeps Missouri’s qualifications and corrected official source links with the guidance", async () => {
+    await renderState("/states/missouri");
     const article = screen.getByRole("article");
     const sourceLinks = within(article).getAllByRole("link").map(link => link.getAttribute("href"));
     expect(sourceLinks).toEqual(expect.arrayContaining([
@@ -105,8 +156,8 @@ describe("state pages", () => {
     expect(article).toHaveTextContent(/180 days after the total-loss payment/);
   });
 
-  it("describes the paid review and two separate refund protections", () => {
-    renderTestApp(["/states/missouri"], { authService: null });
+  it("describes the paid review and two separate refund protections", async () => {
+    await renderState("/states/missouri");
     const service = screen.getByRole("region", { name: "How Venfour helps" });
     expect(service).toHaveTextContent("one-time payment of $199");
     expect(service).toHaveTextContent("A complete insurer valuation report is required");
@@ -120,15 +171,15 @@ describe("state pages", () => {
     expect(within(service).getByRole("link", { name: "Read the Fair-Result Refund Policy" })).toHaveAttribute("href", "/refund-policy");
   });
 
-  it.each(["/states", "/states/not-a-state", "/states/Missouri", "/states/missouri/extra"])("does not invent a page for %s", path => {
-    renderTestApp([path], { authService: null });
+  it.each(["/states", "/states/not-a-state", "/states/Missouri", "/states/missouri/extra"])("does not invent a page for %s", async path => {
+    await renderState(path);
     expect(screen.getByRole("heading", { name: "Page not found" })).toBeVisible();
     expect(document.querySelector('link[rel="canonical"]')).toBeNull();
   });
 
   it("keeps the CTA in the existing intake and introduces no state fields", async () => {
     const user = userEvent.setup();
-    const { router } = renderTestApp(["/states/missouri"], { authService: null });
+    const { router } = await renderState("/states/missouri");
     const article = screen.getByRole("article");
     expect(within(article).queryByRole("combobox")).not.toBeInTheDocument();
     const cta = within(article).getAllByRole("link", { name: "Start my free valuation" });
@@ -142,7 +193,7 @@ describe("state pages", () => {
   it("provides two contact alternatives while intake is closed", async () => {
     intakeConfiguration.closed = true;
     const user = userEvent.setup();
-    const { router } = renderTestApp(["/states/missouri"], { authService: null });
+    const { router } = await renderState("/states/missouri");
     const article = screen.getByRole("article");
     expect(within(article).queryByRole("link", { name: "Start my free valuation" })).not.toBeInTheDocument();
     const contactLinks = within(article).getAllByRole("link", { name: "Contact Venfour" });
@@ -154,12 +205,12 @@ describe("state pages", () => {
   });
 
   it("updates metadata on state navigation and clears state tags when leaving", async () => {
-    const { router } = renderTestApp(["/states/missouri?source=example"], { authService: null });
+    const { router } = await renderState("/states/missouri?source=example");
     expect(document.title).toBe(missouriTitle);
     expect(document.querySelector('meta[name="description"]')).toHaveAttribute("content", missouriDescription);
     expect(document.querySelector('meta[property="og:url"]')).toHaveAttribute("content", "https://venfour.com/states/missouri");
     await act(() => router.navigate("/states/new-york/"));
-    expect(document.title).toBe("New York Total-Loss Valuation Review | Venfour");
+    expect(document.title).toBe("New York Total-Loss Guide & Valuation Review | Venfour");
     expect(document.querySelectorAll('link[rel="canonical"]')).toHaveLength(1);
     expect(document.querySelector('link[rel="canonical"]')).toHaveAttribute("href", "https://venfour.com/states/new-york");
     expect(document.querySelector('meta[name="description"]')).toHaveAttribute("content", stateMetadata(states.find(state => state.code === "NY")!).description);
