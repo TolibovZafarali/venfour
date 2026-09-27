@@ -10,6 +10,7 @@
 @import "./header-navigation.css";
 @import "./public-footer.css";
 @import "../features/states/states.css";
+@import "../features/insurers/insurers.css";
 @import "../pages/public-resources.css";
 
 @custom-variant dark (&:is(.dark *));

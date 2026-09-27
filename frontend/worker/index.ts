@@ -1,4 +1,5 @@
 import { states, statePath, stateFromPath, stateMetadata } from "../src/features/states/states";
+import { insurers, insurerPath, insurerFromPath, insurerMetadata, insurerDirectoryMetadata } from "../src/features/insurers/insurers";
 
 const API_RESPONSE_HEADERS = new Set([
   // Representation metadata must stay with the unread upstream body. Framing
@@ -40,8 +41,9 @@ const PUBLIC_ORIGIN = "https://venfour.com";
 const APP_ORIGIN = "https://app.venfour.com";
 const PARTNER_ORIGIN = "https://partners.venfour.com";
 const PRODUCTION_ORIGINS = new Set([PUBLIC_ORIGIN, APP_ORIGIN, PARTNER_ORIGIN, "https://www.venfour.com"]);
-const PUBLIC_PATHS = new Set(["/", "/contact", "/cookies", "/methodology", "/privacy", "/terms", "/refund-policy", "/referral-partners", "/about", "/resources/understanding-your-report", "/resources/valuation-review-checklist"]);
+const PUBLIC_PATHS = new Set(["/", "/contact", "/cookies", "/methodology", "/privacy", "/terms", "/refund-policy", "/referral-partners", "/about", "/resources/understanding-your-report", "/resources/valuation-review-checklist", "/insurers"]);
 states.forEach(state => PUBLIC_PATHS.add(statePath(state)));
+insurers.forEach(insurer => PUBLIC_PATHS.add(insurerPath(insurer)));
 
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
@@ -485,14 +487,16 @@ async function handlePublicSiteRequest(request: Request, env: Env) {
     "object-src 'none'", "script-src 'self'", "style-src 'self' 'unsafe-inline'", "upgrade-insecure-requests",
   ].join("; "));
   applyMeasurementPolicy(response, request, env);
-  const state = stateFromPath(url.pathname);
-  if (state && response.ok && request.method === "GET" && response.headers.get("Content-Type")?.includes("text/html")) {
-    const metadata = stateMetadata(state);
+  const pathname = url.pathname.replace(/\/+$/, "") || "/";
+  const state = stateFromPath(pathname);
+  const insurer = insurerFromPath(pathname);
+  const metadata = state ? stateMetadata(state) : insurer ? insurerMetadata(insurer) : pathname === "/insurers" ? insurerDirectoryMetadata : undefined;
+  if (metadata && response.ok && request.method === "GET" && response.headers.get("Content-Type")?.includes("text/html")) {
     // Catalog values are internal text, never request-supplied markup.
     const escape = (value: string) => value.replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]!);
-    const tags = `<link data-state-metadata rel="canonical" href="${escape(metadata.canonical)}">` +
+    const tags = `<link data-page-metadata rel="canonical" href="${escape(metadata.canonical)}">` +
       [["og:title", metadata.title], ["og:description", metadata.description], ["og:url", metadata.canonical], ["og:type", "website"]]
-        .map(([property, content]) => `<meta data-state-metadata property="${property}" content="${escape(content)}">`).join("");
+        .map(([property, content]) => `<meta data-page-metadata property="${property}" content="${escape(content)}">`).join("");
     response.headers.delete("Content-Length");
     response.headers.delete("ETag");
     return new HTMLRewriter()

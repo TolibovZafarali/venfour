@@ -1,11 +1,13 @@
 import { states, statePath } from "@/features/states/states";
+import { insurers, insurerPath } from "@/features/insurers/insurers";
 
 export const PUBLIC_ORIGIN = "https://venfour.com";
 export const PARTNER_ORIGIN = "https://partners.venfour.com";
 export const APPLICATION_ORIGIN = "https://app.venfour.com";
 
-const publicPaths = new Set(["/", "/contact", "/cookies", "/methodology", "/privacy", "/terms", "/refund-policy", "/referral-partners", "/about", "/resources/understanding-your-report", "/resources/valuation-review-checklist"]);
+const publicPaths = new Set(["/", "/contact", "/cookies", "/methodology", "/privacy", "/terms", "/refund-policy", "/referral-partners", "/about", "/resources/understanding-your-report", "/resources/valuation-review-checklist", "/insurers"]);
 states.forEach(state => publicPaths.add(statePath(state)));
+insurers.forEach(insurer => publicPaths.add(insurerPath(insurer)));
 
 export function routeAudience(pathname: string): "public" | "application" {
   return publicPaths.has(pathname.replace(/\/+$/, "") || "/") ? "public" : "application";

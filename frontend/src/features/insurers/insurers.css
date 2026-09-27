@@ -1,0 +1,23 @@
+@layer components {
+  .state-page--guide .insurer-guide__independence {
+    max-width: 38rem;
+    margin-top: 1.5rem;
+    color: #737373;
+    font-size: 0.8125rem;
+    line-height: 1.7;
+  }
+
+  .state-page--guide .insurers-directory__header { max-width: 42rem; padding-block: 1.5rem 3rem; }
+  .insurers-directory__list { max-width: 48rem; }
+  .insurers-directory__list ul { margin: 0; padding: 0; list-style: none; }
+  .insurers-directory__list li { border-top: 1px solid #e5e5e5; }
+  .insurers-directory__list li:last-child { border-bottom: 1px solid #e5e5e5; }
+  .insurers-directory__link { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding-block: 1.75rem; color: #171717; text-decoration: none; }
+  .insurers-directory__link > div { min-width: 0; }
+  .insurers-directory__link > svg { flex: none; }
+  .state-page--guide .insurers-directory__link h2 { margin: 0 0 0.5rem; font-size: 1.375rem; line-height: 1.3; letter-spacing: -0.025em; }
+  .state-page--guide .insurers-directory__link p { margin: 0; font-size: 0.9375rem; }
+  .insurers-directory__link:hover h2 { text-decoration: underline; text-underline-offset: 0.25em; }
+  .insurers-directory__link:focus-visible { outline: 2px solid var(--brand); outline-offset: 5px; }
+  .insurers-directory .state-guide__notes { max-width: 48rem; }
+}

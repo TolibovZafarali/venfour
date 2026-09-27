@@ -219,6 +219,6 @@ describe("state pages", () => {
     expect(document.querySelector('meta[name="description"]')).toHaveAttribute("content", missouriDescription);
     await act(() => router.navigate("/methodology"));
     expect(document.title).toBe("Total-Loss Review Methodology | Venfour");
-    expect(document.querySelector("[data-state-metadata]")).toBeNull();
+    expect(document.querySelector("[data-page-metadata]")).toBeNull();
   });
 });

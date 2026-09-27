@@ -32,6 +32,10 @@ import { HomePage } from "@/pages/home-page";
 import { StatePage } from "@/pages/state-page";
 import { statePageLoader } from "@/pages/state-page-loader";
 import { findState, stateMetadata } from "@/features/states/states";
+import { InsurerPage } from "@/pages/insurer-page";
+import { InsurersPage } from "@/pages/insurers-page";
+import { insurerPageLoader } from "@/pages/insurer-page-loader";
+import { findInsurer, insurerMetadata, insurerDirectoryMetadata } from "@/features/insurers/insurers";
 import { AboutPage, UnderstandingReportPage, ValuationChecklistPage } from "@/pages/public-resources";
 import { MethodologyPage } from "@/pages/methodology-page";
 import { NotFoundPage } from "@/pages/not-found-page";
@@ -114,6 +118,22 @@ const combinedRoutes: RouteObject[] = [
         handle: ({ params }: { params: Record<string, string | undefined> }) => {
           const state = findState(params.stateSlug);
           return state ? stateMetadata(state) : metadata("Page Not Found | Venfour", "The requested Venfour page could not be found.");
+        },
+      },
+      {
+        path: "insurers",
+        caseSensitive: true,
+        element: <InsurersPage />,
+        handle: insurerDirectoryMetadata,
+      },
+      {
+        path: "insurers/:insurerSlug",
+        caseSensitive: true,
+        element: <InsurerPage />,
+        loader: insurerPageLoader,
+        handle: ({ params }: { params: Record<string, string | undefined> }) => {
+          const insurer = findInsurer(params.insurerSlug);
+          return insurer ? insurerMetadata(insurer) : metadata("Page Not Found | Venfour", "The requested Venfour page could not be found.");
         },
       },
       {
@@ -483,7 +503,7 @@ export const publicRoutes: RouteObject[] = combinedRoutes.flatMap((route): Route
   if (route.path !== "/" || route.index) return [];
   return [{
     ...route,
-    children: route.children?.filter(child => child.index || child.path === "*" || child.path === "states/:stateSlug" ||
+    children: route.children?.filter(child => child.index || child.path === "*" || child.path === "states/:stateSlug" || child.path === "insurers/:insurerSlug" ||
       (child.path !== undefined && routeAudience(`/${child.path}`) === "public")),
   }];
 });

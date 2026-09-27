@@ -70,6 +70,7 @@ describe("public state routes", () => {
     expect(rewritten.title.text).toBe(metadata.title);
     expect(rewritten['meta[name="description"]'].attributes?.content).toBe(metadata.description);
     expect(rewritten.head.html).toContain(`rel="canonical" href="${metadata.canonical}"`);
+    expect(rewritten.head.html).toContain("data-page-metadata");
     expect(rewritten.head.html).toContain(`property="og:title" content="${metadata.title.replaceAll("&", "&amp;")}"`);
     expect(rewritten.head.html).toContain(`property="og:description" content="${metadata.description}"`);
     expect(rewritten.head.html).not.toContain("source=link");

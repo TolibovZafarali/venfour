@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { applicationHref, publicHref, hostAudience, routeAudience } from "./site-boundary";
 import { getAuthCallbackUrl, sanitizeReturnLocation } from "@/features/auth/return-location";
+import { insurers, insurerPath } from "@/features/insurers/insurers";
 
 describe("public and application boundaries", () => {
   it.each(["/", "/methodology", "/terms", "/privacy", "/refund-policy", "/refund-policy/", "/referral-partners", "/about", "/resources/understanding-your-report", "/resources/valuation-review-checklist", "/resources/understanding-your-report/"])("keeps %s public", path => expect(routeAudience(path)).toBe("public"));
   it.each(["/app", "/appraisals", "/start", "/total-loss/cases/saved/analysis", "/admin/cases", "/partners", "/partners/invitations/code", "/auth/callback"])("assigns %s to the application", path => expect(routeAudience(path)).toBe("application"));
+  it.each(["/insurers", "/insurers/", ...insurers.flatMap(insurer => [insurerPath(insurer), `${insurerPath(insurer)}/`])])("keeps insurer destination %s public", path => expect(routeAudience(path)).toBe("public"));
+  it.each(["/Insurers", "/insurers/unknown", "/insurers/GEICO", "/insurers/geico/extra", "/insurers/geico/texas"])("does not expose unsupported insurer destination %s as public", path => expect(routeAudience(path)).toBe("application"));
   it("uses distinct new entry points on production hosts", () => {
     expect(applicationHref("/app", "https://venfour.com")).toBe("https://app.venfour.com/app");
     expect(applicationHref("/start?service=total-loss&ref=example", "https://www.venfour.com")).toBe("https://app.venfour.com/start?service=total-loss&ref=example");

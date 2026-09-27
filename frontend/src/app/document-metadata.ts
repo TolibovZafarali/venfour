@@ -35,20 +35,20 @@ export function useDocumentMetadata(metadata: PageMetadata | null) {
     );
     descriptionElement?.setAttribute("content", description);
 
-    document.head.querySelectorAll("[data-state-metadata]").forEach(element => element.remove());
+    document.head.querySelectorAll("[data-page-metadata]").forEach(element => element.remove());
     if (!canonical) return;
     const link = document.createElement("link");
     link.rel = "canonical";
     link.href = canonical;
-    link.dataset.stateMetadata = "";
+    link.dataset.pageMetadata = "";
     document.head.append(link);
     for (const [property, content] of [["og:title", title], ["og:description", description], ["og:url", canonical], ["og:type", "website"]]) {
       const element = document.createElement("meta");
       element.setAttribute("property", property);
       element.content = content;
-      element.dataset.stateMetadata = "";
+      element.dataset.pageMetadata = "";
       document.head.append(element);
     }
-    return () => document.head.querySelectorAll("[data-state-metadata]").forEach(element => element.remove());
+    return () => document.head.querySelectorAll("[data-page-metadata]").forEach(element => element.remove());
   }, [canonical, description, title]);
 }

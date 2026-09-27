@@ -14,8 +14,8 @@
 
   .public-footer__main {
     display: grid;
-    grid-template-columns: 0.85fr 2fr;
-    gap: 4rem;
+    grid-template-columns: 20rem minmax(0, 1fr);
+    gap: 3rem;
     padding-bottom: 3.5rem;
   }
 
@@ -39,7 +39,7 @@
 
   .public-footer__navigation {
     display: grid;
-    grid-template-columns: 1fr 1.4fr 1fr 1fr;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     align-content: start;
     gap: 1.5rem;
     padding-top: 0.875rem;
@@ -102,7 +102,8 @@
     padding-top: 1.25rem;
   }
 
-  .public-footer__states > a { gap: 0.5rem; color: var(--ink); font-weight: 500; }
+  .public-footer__states > a,
+  .public-footer__insurers > a { gap: 0.5rem; color: var(--ink); font-weight: 500; }
 
   .public-footer__copyright,
   .public-footer__legal .public-footer__link {
@@ -117,12 +118,13 @@
     gap: 0 1.5rem;
   }
 
-  @media (max-width: 63.999rem) {
+  @media (max-width: 79.999rem) {
     .public-footer__main {
       grid-template-columns: 1fr;
       gap: 2.5rem;
       padding-bottom: 2.5rem;
     }
+    .public-footer__navigation { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   }
 
   @media (max-width: 39.999rem) {
