@@ -6,6 +6,11 @@ import type { Session } from "@supabase/supabase-js";
 import type { AuthService } from "@/features/auth";
 import type { DiminishedValueDependencies } from "@/features/diminished-value/dependencies";
 import type { TotalLossDependencies } from "@/features/total-loss/dependencies";
+import {
+  createEmptyTotalLossDraft,
+  readTotalLossDraft,
+  writeTotalLossDraft,
+} from "@/features/total-loss/draft";
 import { renderTestApp as renderBaseTestApp } from "@/test/render";
 
 const TOTAL_LOSS_CASE_ID = "22222222-2222-4222-8222-222222222222";
@@ -316,6 +321,44 @@ describe("/start appraisal intake", () => {
 
     await waitFor(() => expect(choice).not.toBeInTheDocument());
     expect(screen.getByRole("radio", { name: "Total Loss" })).toBeChecked();
+  });
+
+  it.each([
+    ["report", "report", "Upload your valuation report"],
+    ["manual", "vehicle", "Tell us about your vehicle"],
+    ["manual", "claim", "Add the claim details"],
+    ["manual", "contact", "Contact details"],
+  ] as const)("transitions from the example directly to the saved %s %s step", async (mode, step, heading) => {
+    const user = userEvent.setup();
+    const draft = createEmptyTotalLossDraft();
+    writeTotalLossDraft({
+      ...draft,
+      mode,
+      step,
+      manual: { ...draft.manual, zipCode: "60611" },
+      ownerUserId: ANONYMOUS_USER_ID,
+      confirmedCaseId: TOTAL_LOSS_CASE_ID,
+      reservedCaseId: TOTAL_LOSS_CASE_ID,
+      dirty: true,
+    });
+    renderTestApp(["/start?service=total-loss"]);
+    const overview = screen.getByRole("heading", { name: "Start with a free valuation." })
+      .closest<HTMLDivElement>("[data-appraisal-start-intro]");
+    const stageShell = overview?.closest("[data-intake-transition-shell]");
+
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    const savedStep = await screen.findByRole("heading", { name: heading });
+    expect(stageShell).toContainElement(savedStep);
+    expect(stageShell?.querySelector("[data-intake-transition-layer='outgoing']"))
+      .toContainElement(overview);
+    expect(savedStep.closest("[data-intake-transition-layer='incoming']"))
+      .toHaveClass("intake-step-forward-enter");
+    expect(stageShell?.querySelector("[data-intake-transition-layer='incoming']"))
+      .not.toHaveClass("intake-step-forward-enter");
+    expect(screen.queryByRole("group", { name: "Do you have your insurance valuation report?" }))
+      .not.toBeInTheDocument();
+    expect(readTotalLossDraft()).toMatchObject({ ok: true, draft: { mode, step } });
   });
 
   it.each([
