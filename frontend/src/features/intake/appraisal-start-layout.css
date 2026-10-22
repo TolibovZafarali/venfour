@@ -13,12 +13,45 @@
 
 .appraisal-start-visual__frame {
   position: sticky;
+  isolation: isolate;
   top: 0;
   height: 100svh;
   min-height: 640px;
-  background:
-    linear-gradient(180deg, #10111222 0%, transparent 55%, #08090a55 100%),
-    url("../../assets/valuation-studio.jpg") center / cover;
+  background: #292a29;
+}
+
+.appraisal-start-visual__frame::before,
+.appraisal-start-visual__frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.appraisal-start-visual__frame::before {
+  background: url("../../assets/valuation-river-sunset.jpg") center 60% / cover no-repeat;
+  filter: saturate(0.58) brightness(0.88);
+}
+
+.appraisal-start-visual__frame::after {
+  background: linear-gradient(
+    180deg,
+    rgb(18 23 26 / 70%) 0%,
+    rgb(18 23 26 / 58%) 28%,
+    rgb(18 23 26 / 18%) 50%,
+    rgb(18 23 26 / 4%) 68%,
+    rgb(18 23 26 / 64%) 100%
+  );
+}
+
+@media (min-width: 64rem) and (max-aspect-ratio: 40 / 27) {
+  .appraisal-start-visual__frame::before {
+    inset: auto 0 0;
+    aspect-ratio: 2 / 3;
+    background-position: center;
+    mask-image: linear-gradient(180deg, transparent, #000 28%);
+  }
 }
 
 .appraisal-start-visual__copy {
