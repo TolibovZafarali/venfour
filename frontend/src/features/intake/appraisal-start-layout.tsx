@@ -156,7 +156,7 @@ export function AppraisalStartLayout({
             data-appraisal-section-content="flow"
           >
             {stage === "overview" ? (
-              <div className="appraisal-start-overview" data-appraisal-start-intro data-total-loss-intro>
+              <div className="appraisal-start-overview intake-step-backward-enter" data-appraisal-start-intro data-total-loss-intro>
                 <p className="appraisal-start-kicker">Choose your service</p>
                 <ServiceSelector value={service} disabled={serviceSwitchDisabled} onChange={onServiceChange} />
                 <p className="appraisal-start-eyebrow">{eyebrow}</p>

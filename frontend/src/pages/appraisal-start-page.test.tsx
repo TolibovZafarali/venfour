@@ -250,15 +250,32 @@ describe("/start appraisal intake", () => {
     const { router } = renderTestApp(["/start?service=total-loss&campaign=spring"]);
     expect(screen.queryByRole("group", { name: "Do you have your insurance valuation report?" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByRole("group", { name: "Do you have your insurance valuation report?" })).toBeVisible();
+    const choice = await screen.findByRole("group", { name: "Do you have your insurance valuation report?" });
+    expect(choice).toBeVisible();
+    expect(choice.closest("[data-intake-transition-layer='incoming']")).toHaveClass("intake-step-forward-enter");
     expect(new URLSearchParams(router.state.location.search).get("view")).toBe("intake");
     expect(new URLSearchParams(router.state.location.search).get("campaign")).toBe("spring");
     expect(screen.queryByRole("button", { name: "Back to services" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Back" })).toHaveLength(1);
     await user.click(screen.getByRole("button", { name: "Back" }));
     expect(screen.getByRole("radio", { name: "Total Loss" })).toBeChecked();
+    expect(document.querySelector(".appraisal-start-overview")).toHaveClass("intake-step-backward-enter");
     expect(new URLSearchParams(router.state.location.search).get("view")).toBeNull();
     expect(new URLSearchParams(router.state.location.search).get("campaign")).toBe("spring");
+  });
+
+  it.each([
+    ["I have my valuation report", "Upload your valuation report"],
+    ["I don’t have the report", "Tell us about your vehicle"],
+  ])("animates the first forward step for %s", async (mode, heading) => {
+    const user = userEvent.setup();
+    renderTestApp(["/start?service=total-loss&view=intake"]);
+
+    await user.click(await screen.findByRole("radio", { name: new RegExp(mode) }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    const nextStep = await screen.findByRole("heading", { name: heading });
+    expect(nextStep.closest("[data-intake-transition-layer='incoming']")).toHaveClass("intake-step-forward-enter");
   });
 
   it("uses one Back button to return through intake before service selection", async () => {

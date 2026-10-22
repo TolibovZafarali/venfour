@@ -74,7 +74,55 @@ describe("shared appraisal intake controls", () => {
     expect(collapsedSegments[2]).toHaveStyle({ left: "100%", width: "0px" });
   });
 
-  test("crossfades directional steps without a blank frame", () => {
+  test.each(["forward", "backward"] as const)(
+    "animates a newly mounted step in the %s direction",
+    (direction) => {
+      const { container } = render(
+        <IntakeStepTransition direction={direction} transitionKey="vehicle">
+          <p>Vehicle step</p>
+        </IntakeStepTransition>,
+      );
+
+      expect(
+        container.querySelector("[data-intake-transition-layer='incoming']"),
+      ).toHaveClass(`intake-step-${direction}-enter`);
+      expect(
+        container.querySelector("[data-intake-transition-layer='outgoing']"),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  test("keeps the current step and focused field mounted when its values change", () => {
+    const { container, rerender } = render(
+      <IntakeStepTransition direction="forward" transitionKey="vehicle">
+        <input aria-label="VIN" value="1HG" readOnly />
+      </IntakeStepTransition>,
+    );
+    const incoming = container.querySelector(
+      "[data-intake-transition-layer='incoming']",
+    );
+    const input = screen.getByRole("textbox", { name: "VIN" });
+    input.focus();
+
+    rerender(
+      <IntakeStepTransition direction="forward" transitionKey="vehicle">
+        <input aria-label="VIN" value="1HGCM82633A004352" readOnly />
+      </IntakeStepTransition>,
+    );
+
+    expect(
+      container.querySelector("[data-intake-transition-layer='incoming']"),
+    ).toBe(incoming);
+    expect(incoming).toHaveClass("intake-step-forward-enter");
+    expect(screen.getByRole("textbox", { name: "VIN" })).toBe(input);
+    expect(input).toHaveValue("1HGCM82633A004352");
+    expect(input).toHaveFocus();
+    expect(
+      container.querySelector("[data-intake-transition-layer='outgoing']"),
+    ).not.toBeInTheDocument();
+  });
+
+  test("crossfades consecutive forward steps and backward steps without a blank frame", () => {
     vi.useFakeTimers();
     const { container, rerender, unmount } = render(
       <IntakeStepTransition direction="forward" transitionKey="start">
@@ -119,6 +167,28 @@ describe("shared appraisal intake controls", () => {
       expect(screen.queryByText("Start step")).not.toBeInTheDocument();
 
       rerender(
+        <IntakeStepTransition direction="forward" transitionKey="claim">
+          <div>
+            <IntakeProgress current={3} total={3} />
+            <p>Claim step</p>
+          </div>
+        </IntakeStepTransition>,
+      );
+
+      const nextIncoming = container.querySelector(
+        "[data-intake-transition-layer='incoming']",
+      );
+      expect(nextIncoming).not.toBe(forwardIncoming);
+      expect(nextIncoming).toHaveTextContent("Claim step");
+      expect(nextIncoming).toHaveClass("intake-step-forward-enter");
+      expect(
+        container.querySelector("[data-intake-transition-layer='outgoing']"),
+      ).toHaveTextContent("Vehicle step");
+
+      act(() => vi.advanceTimersByTime(400));
+      expect(screen.queryByText("Vehicle step")).not.toBeInTheDocument();
+
+      rerender(
         <IntakeStepTransition direction="backward" transitionKey="start">
           <div>
             <IntakeProgress current={1} total={3} />
@@ -133,6 +203,53 @@ describe("shared appraisal intake controls", () => {
       expect(
         container.querySelector("[data-intake-transition-layer='incoming']"),
       ).toHaveClass("intake-step-backward-enter");
+    } finally {
+      unmount();
+      vi.runOnlyPendingTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  test("keeps the latest transition intact when reversing before cleanup", () => {
+    vi.useFakeTimers();
+    const { container, rerender, unmount } = render(
+      <IntakeStepTransition direction="forward" transitionKey="start">
+        <p>Start step</p>
+      </IntakeStepTransition>,
+    );
+
+    try {
+      rerender(
+        <IntakeStepTransition direction="forward" transitionKey="vehicle">
+          <p>Vehicle step</p>
+        </IntakeStepTransition>,
+      );
+      act(() => vi.advanceTimersByTime(200));
+
+      rerender(
+        <IntakeStepTransition direction="backward" transitionKey="start">
+          <p>Start step</p>
+        </IntakeStepTransition>,
+      );
+      act(() => vi.advanceTimersByTime(200));
+
+      const incoming = container.querySelector(
+        "[data-intake-transition-layer='incoming']",
+      );
+      const outgoing = container.querySelector(
+        "[data-intake-transition-layer='outgoing']",
+      );
+      expect(incoming).toHaveTextContent("Start step");
+      expect(incoming).toHaveClass("intake-step-backward-enter");
+      expect(outgoing).toHaveTextContent("Vehicle step");
+      expect(outgoing).toHaveClass("intake-step-backward-exit");
+
+      act(() => vi.advanceTimersByTime(200));
+      expect(outgoing).not.toBeInTheDocument();
+      expect(
+        container.querySelector("[data-intake-transition-layer='incoming']"),
+      ).toBe(incoming);
+      expect(incoming).toHaveTextContent("Start step");
     } finally {
       unmount();
       vi.runOnlyPendingTimers();

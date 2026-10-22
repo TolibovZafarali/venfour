@@ -939,7 +939,6 @@ export function IntakeStepTransition({
   const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
   const visibleOutgoingStep =
     outgoingStep?.transitionKey === transitionKey ? null : outgoingStep;
-  const transitionActive = visibleOutgoingStep !== null;
 
   const clearOutgoingStep = useCallback((completedKey: Key) => {
     setOutgoingStep((current) =>
@@ -1002,10 +1001,9 @@ export function IntakeStepTransition({
           key={transitionKey}
           className={cn(
             "intake-step-transition-layer intake-step-incoming col-start-1 row-start-1 min-w-0",
-            transitionActive &&
-              (direction === "forward"
-                ? "intake-step-forward-enter"
-                : "intake-step-backward-enter"),
+            direction === "forward"
+              ? "intake-step-forward-enter"
+              : "intake-step-backward-enter",
           )}
           data-intake-transition-layer="incoming"
           data-intake-transition={direction}
