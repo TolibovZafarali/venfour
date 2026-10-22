@@ -264,6 +264,60 @@ describe("/start appraisal intake", () => {
     expect(new URLSearchParams(router.state.location.search).get("campaign")).toBe("spring");
   });
 
+  it("keeps the example and intake in one transition without restarting the draft", async () => {
+    const user = userEvent.setup();
+    const totalLossDependencies = createTotalLossDependencies();
+    renderTestApp(["/start?service=total-loss"], { totalLossDependencies });
+
+    const overview = screen.getByRole("heading", { name: "Start with a free valuation." })
+      .closest<HTMLDivElement>("[data-appraisal-start-intro]");
+    const stageShell = overview?.closest("[data-intake-transition-shell]");
+    expect(stageShell).toBeInTheDocument();
+    expect(totalLossDependencies.appraisalCaseService.getOrCreateTotalLossDraft).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    const choice = await screen.findByRole("group", { name: "Do you have your insurance valuation report?" });
+    const outgoingOverview = stageShell?.querySelector("[data-intake-transition-layer='outgoing']");
+    expect(stageShell).toContainElement(choice);
+    expect(outgoingOverview).toContainElement(overview);
+    expect(outgoingOverview).toHaveAttribute("aria-hidden", "true");
+    expect(outgoingOverview).toHaveAttribute("inert");
+    expect(screen.queryByRole("heading", { name: "Start with a free valuation." })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Total Loss" })).not.toBeInTheDocument();
+    expect(choice.closest("[data-intake-transition-layer='incoming']")).toHaveClass("intake-step-forward-enter");
+    expect(stageShell?.querySelector("[data-intake-transition-layer='incoming']"))
+      .not.toHaveClass("intake-step-forward-enter", "intake-step-backward-enter");
+    await waitFor(() =>
+      expect(totalLossDependencies.appraisalCaseService.getOrCreateTotalLossDraft).toHaveBeenCalledTimes(1),
+    );
+    await waitFor(() =>
+      expect(totalLossDependencies.totalLossDetailsService.getDetails).toHaveBeenCalledTimes(1),
+    );
+
+    await waitFor(() => expect(overview).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole("radio", { name: /I have my valuation report/ }));
+    vi.spyOn(Date, "now").mockReturnValue(Date.now() + 31_000);
+    await user.click(screen.getByRole("button", { name: "Back" }));
+
+    const restoredOverview = screen.getByRole("heading", { name: "Start with a free valuation." })
+      .closest<HTMLDivElement>("[data-appraisal-start-intro]");
+    expect(restoredOverview?.closest("[data-intake-transition-shell]")).toBe(stageShell);
+    expect(restoredOverview).toHaveClass("intake-step-backward-enter");
+    const outgoingIntake = stageShell?.querySelector("[data-intake-transition-layer='outgoing']");
+    expect(outgoingIntake).toContainElement(choice);
+    expect(outgoingIntake?.querySelector("input[value='report']")).toBeChecked();
+    expect(outgoingIntake).toHaveAttribute("aria-hidden", "true");
+    expect(outgoingIntake).toHaveAttribute("inert");
+    expect(screen.queryByRole("group", { name: "Do you have your insurance valuation report?" })).not.toBeInTheDocument();
+    expect(totalLossDependencies.appraisalCaseService.getOrCreateTotalLossDraft).toHaveBeenCalledTimes(1);
+    expect(totalLossDependencies.totalLossDetailsService.getDetails).toHaveBeenCalledTimes(1);
+
+    await waitFor(() => expect(choice).not.toBeInTheDocument());
+    expect(screen.getByRole("radio", { name: "Total Loss" })).toBeChecked();
+  });
+
   it.each([
     ["I have my valuation report", "Upload your valuation report"],
     ["I don’t have the report", "Tell us about your vehicle"],

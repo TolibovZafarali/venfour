@@ -122,6 +122,35 @@ describe("shared appraisal intake controls", () => {
     ).not.toBeInTheDocument();
   });
 
+  test("moves focus out of an outgoing step without taking focus from outside the flow", () => {
+    const step = (key: string) => (
+      <>
+        <button type="button">Help</button>
+        <IntakeStepTransition direction="forward" transitionKey={key}>
+          <button type="button">Continue {key}</button>
+        </IntakeStepTransition>
+      </>
+    );
+    const { container, rerender } = render(step("start"));
+    const continueButton = screen.getByRole("button", { name: "Continue start" });
+    continueButton.focus();
+
+    rerender(step("vehicle"));
+
+    const incoming = container.querySelector("[data-intake-transition-layer='incoming']");
+    const outgoing = container.querySelector("[data-intake-transition-layer='outgoing']");
+    expect(outgoing).toContainElement(continueButton);
+    expect(outgoing).toHaveAttribute("aria-hidden", "true");
+    expect(outgoing).toHaveAttribute("inert");
+    expect(incoming).toHaveFocus();
+    expect(continueButton).not.toHaveFocus();
+
+    const helpButton = screen.getByRole("button", { name: "Help" });
+    helpButton.focus();
+    rerender(step("claim"));
+    expect(helpButton).toHaveFocus();
+  });
+
   test("crossfades consecutive forward steps and backward steps without a blank frame", () => {
     vi.useFakeTimers();
     const { container, rerender, unmount } = render(
@@ -252,6 +281,87 @@ describe("shared appraisal intake controls", () => {
       expect(incoming).toHaveTextContent("Start step");
     } finally {
       unmount();
+      vi.runOnlyPendingTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  test("animates a retained stage on rapid reversal while delegating fresh entrances", () => {
+    vi.useFakeTimers();
+    const stage = (key: string, direction: "forward" | "backward") => (
+      <IntakeStepTransition
+        direction={direction}
+        transitionKey={key}
+        animateEntrance={false}
+      >
+        <p>{key}</p>
+      </IntakeStepTransition>
+    );
+    const { container, rerender, unmount } = render(stage("overview", "backward"));
+    const incoming = () => container.querySelector("[data-intake-transition-layer='incoming']");
+    const overview = incoming();
+
+    try {
+      expect(overview).not.toHaveClass("intake-step-backward-enter");
+      rerender(stage("intake", "forward"));
+      const intake = incoming();
+      expect(intake).not.toHaveClass("intake-step-forward-enter");
+      expect(overview).toHaveClass("intake-step-forward-exit");
+
+      act(() => vi.advanceTimersByTime(100));
+      rerender(stage("overview", "backward"));
+      expect(incoming()).toBe(overview);
+      expect(overview).toHaveClass("intake-step-backward-enter");
+      expect(overview).not.toHaveAttribute("inert");
+      expect(intake).toHaveClass("intake-step-backward-exit");
+
+      act(() => vi.advanceTimersByTime(100));
+      rerender(stage("intake", "forward"));
+      expect(incoming()).toBe(intake);
+      expect(intake).toHaveClass("intake-step-forward-enter");
+      expect(intake).not.toHaveAttribute("inert");
+
+      act(() => vi.advanceTimersByTime(400));
+      expect(overview).not.toBeInTheDocument();
+      rerender(stage("overview", "backward"));
+      expect(incoming()).not.toBe(overview);
+      expect(incoming()).not.toHaveClass("intake-step-backward-enter");
+    } finally {
+      unmount();
+      vi.runOnlyPendingTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  test("releases a delegated shell's measured height after the stage transition", () => {
+    vi.useFakeTimers();
+    const height = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get")
+      .mockReturnValue(420);
+    const { container, rerender, unmount } = render(
+      <IntakeStepTransition direction="forward" transitionKey="overview" animateResize={false}>
+        <p>Overview</p>
+      </IntakeStepTransition>,
+    );
+    const shell = container.querySelector<HTMLElement>("[data-intake-transition-shell]");
+
+    try {
+      act(() => vi.advanceTimersByTime(20));
+      expect(shell?.style.height).toBe("");
+
+      rerender(
+        <IntakeStepTransition direction="forward" transitionKey="intake" animateResize={false}>
+          <p>Intake</p>
+        </IntakeStepTransition>,
+      );
+      expect(shell?.style.height).toBe("420px");
+
+      act(() => vi.advanceTimersByTime(400));
+      expect(shell?.style.height).toBe("");
+      expect(screen.queryByText("Overview")).not.toBeInTheDocument();
+      expect(screen.getByText("Intake")).toBeInTheDocument();
+    } finally {
+      unmount();
+      height.mockRestore();
       vi.runOnlyPendingTimers();
       vi.useRealTimers();
     }

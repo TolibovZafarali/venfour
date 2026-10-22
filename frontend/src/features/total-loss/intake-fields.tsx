@@ -914,6 +914,8 @@ export interface IntakeStepTransitionProps {
   children: ReactNode;
   direction: "forward" | "backward";
   transitionKey: Key;
+  animateEntrance?: boolean;
+  animateResize?: boolean;
 }
 
 interface IntakeStepSnapshot {
@@ -928,15 +930,33 @@ export function IntakeStepTransition({
   children,
   direction,
   transitionKey,
+  animateEntrance = true,
+  animateResize = true,
 }: IntakeStepTransitionProps) {
   const contentRef = useRef<HTMLDivElement>(null);
-  const latestStepRef = useRef<Omit<IntakeStepSnapshot, "direction">>({
+  const [currentStep, setCurrentStep] = useState<
+    Omit<IntakeStepSnapshot, "direction">
+  >({
     children,
     transitionKey,
   });
   const [outgoingStep, setOutgoingStep] =
     useState<IntakeStepSnapshot | null>(null);
   const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
+  const [restoreEntrance, setRestoreEntrance] = useState(false);
+
+  // Capture the outgoing tree before commit so its keyed layer stays mounted.
+  if (
+    currentStep.transitionKey !== transitionKey ||
+    currentStep.children !== children
+  ) {
+    setCurrentStep({ children, transitionKey });
+    if (currentStep.transitionKey !== transitionKey) {
+      setRestoreEntrance(outgoingStep?.transitionKey === transitionKey);
+      setOutgoingStep({ ...currentStep, direction });
+    }
+  }
+
   const visibleOutgoingStep =
     outgoingStep?.transitionKey === transitionKey ? null : outgoingStep;
 
@@ -958,14 +978,16 @@ export function IntakeStepTransition({
   }, []);
 
   useLayoutEffect(() => {
-    const previous = latestStepRef.current;
-    if (previous.transitionKey === transitionKey) return;
-    setOutgoingStep({ ...previous, direction });
-  }, [direction, transitionKey]);
-
-  useLayoutEffect(() => {
-    latestStepRef.current = { children, transitionKey };
-  }, [children, transitionKey]);
+    const content = contentRef.current;
+    const focused = document.activeElement;
+    if (
+      content &&
+      content.parentElement?.contains(focused) &&
+      !content.contains(focused)
+    ) {
+      content.focus({ preventScroll: true });
+    }
+  }, [transitionKey]);
 
   useLayoutEffect(() => {
     const frame = window.requestAnimationFrame(measure);
@@ -992,18 +1014,24 @@ export function IntakeStepTransition({
   return (
     <div
       className="intake-step-transition-shell"
-      style={measuredHeight === null ? undefined : { height: measuredHeight }}
+      style={
+        measuredHeight === null || (!animateResize && !visibleOutgoingStep)
+          ? undefined
+          : { height: measuredHeight }
+      }
       data-intake-transition-shell
     >
-      <div className="grid min-w-0">
+      <div className="grid min-w-0 items-start">
         <div
           ref={contentRef}
           key={transitionKey}
+          tabIndex={-1}
           className={cn(
-            "intake-step-transition-layer intake-step-incoming col-start-1 row-start-1 min-w-0",
-            direction === "forward"
-              ? "intake-step-forward-enter"
-              : "intake-step-backward-enter",
+            "intake-step-transition-layer intake-step-incoming col-start-1 row-start-1 min-w-0 focus:outline-none",
+            (animateEntrance || restoreEntrance) &&
+              (direction === "forward"
+                ? "intake-step-forward-enter"
+                : "intake-step-backward-enter"),
           )}
           data-intake-transition-layer="incoming"
           data-intake-transition={direction}

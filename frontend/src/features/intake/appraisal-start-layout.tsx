@@ -9,6 +9,7 @@ import { supportEmail } from "@/config/support";
 import { ExampleAnalysisPreview } from "@/features/intake/example-analysis-preview";
 import type { AppraisalServiceSlug } from "@/features/intake/types";
 import { useCookieConsent } from "@/features/privacy/cookie-consent-context";
+import { IntakeStepTransition } from "@/features/total-loss/intake-fields";
 import { cn } from "@/lib/utils";
 
 export interface ServiceSelectorProps {
@@ -155,27 +156,34 @@ export function AppraisalStartLayout({
           <div className="appraisal-start-content"
             data-appraisal-section-content="flow"
           >
-            {stage === "overview" ? (
-              <div className="appraisal-start-overview intake-step-backward-enter" data-appraisal-start-intro data-total-loss-intro>
-                <p className="appraisal-start-kicker">Choose your service</p>
-                <ServiceSelector value={service} disabled={serviceSwitchDisabled} onChange={onServiceChange} />
-                <p className="appraisal-start-eyebrow">{eyebrow}</p>
-                <h1 className="appraisal-start-heading">{title}</h1>
-                <p className="appraisal-start-description">{description}</p>
-                {priceNote ? <p className="appraisal-start-price" data-review-price-note>{priceNote}</p> : null}
-                <ExampleAnalysisPreview service={service} />
-                {continueAvailable ? <button
-                  type="button"
-                  className="appraisal-start-continue mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-brand px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none"
-                  disabled={serviceSwitchDisabled}
-                  onClick={onContinue}
-                >
-                  {continueLabel}<ArrowRight className="size-4" aria-hidden />
-                </button> : null}
-              </div>
-            ) : (
-              children
-            )}
+            <IntakeStepTransition
+              transitionKey={stage}
+              direction={stage === "overview" ? "backward" : "forward"}
+              animateEntrance={false}
+              animateResize={false}
+            >
+              {stage === "overview" ? (
+                <div className="appraisal-start-overview intake-step-backward-enter" data-appraisal-start-intro data-total-loss-intro>
+                  <p className="appraisal-start-kicker">Choose your service</p>
+                  <ServiceSelector value={service} disabled={serviceSwitchDisabled} onChange={onServiceChange} />
+                  <p className="appraisal-start-eyebrow">{eyebrow}</p>
+                  <h1 className="appraisal-start-heading">{title}</h1>
+                  <p className="appraisal-start-description">{description}</p>
+                  {priceNote ? <p className="appraisal-start-price" data-review-price-note>{priceNote}</p> : null}
+                  <ExampleAnalysisPreview service={service} />
+                  {continueAvailable ? <button
+                    type="button"
+                    className="appraisal-start-continue mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-brand px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none"
+                    disabled={serviceSwitchDisabled}
+                    onClick={onContinue}
+                  >
+                    {continueLabel}<ArrowRight className="size-4" aria-hidden />
+                  </button> : null}
+                </div>
+              ) : (
+                children
+              )}
+            </IntakeStepTransition>
             <div className="appraisal-start-preferences">
               <span className="appraisal-start-help">
                 Need help? {supportEmail ? <a href={`mailto:${supportEmail}`}>{supportEmail}</a> : <a href={publicHref("/contact")}>Contact us</a>}
