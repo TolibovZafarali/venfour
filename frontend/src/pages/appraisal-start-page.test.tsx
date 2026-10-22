@@ -356,6 +356,8 @@ describe("/start appraisal intake", () => {
       .toHaveClass("intake-step-forward-enter");
     expect(stageShell?.querySelector("[data-intake-transition-layer='incoming']"))
       .not.toHaveClass("intake-step-forward-enter");
+    expect(stageShell?.querySelector("[data-intake-transition-layer='incoming']"))
+      .toHaveClass("intake-step-deferred-content");
     expect(screen.queryByRole("group", { name: "Do you have your insurance valuation report?" }))
       .not.toBeInTheDocument();
     expect(readTotalLossDraft()).toMatchObject({ ok: true, draft: { mode, step } });

@@ -1028,6 +1028,8 @@ export function IntakeStepTransition({
           tabIndex={-1}
           className={cn(
             "intake-step-transition-layer intake-step-incoming col-start-1 row-start-1 min-w-0 focus:outline-none",
+            !animateEntrance && !restoreEntrance && visibleOutgoingStep &&
+              "intake-step-deferred-content",
             (animateEntrance || restoreEntrance) &&
               (direction === "forward"
                 ? "intake-step-forward-enter"

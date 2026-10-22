@@ -151,7 +151,7 @@ describe("shared appraisal intake controls", () => {
     expect(helpButton).toHaveFocus();
   });
 
-  test("crossfades consecutive forward steps and backward steps without a blank frame", () => {
+  test("keeps consecutive forward and backward steps mounted until exit finishes", () => {
     vi.useFakeTimers();
     const { container, rerender, unmount } = render(
       <IntakeStepTransition direction="forward" transitionKey="start">
@@ -303,15 +303,18 @@ describe("shared appraisal intake controls", () => {
 
     try {
       expect(overview).not.toHaveClass("intake-step-backward-enter");
+      expect(overview).not.toHaveClass("intake-step-deferred-content");
       rerender(stage("intake", "forward"));
       const intake = incoming();
       expect(intake).not.toHaveClass("intake-step-forward-enter");
+      expect(intake).toHaveClass("intake-step-deferred-content");
       expect(overview).toHaveClass("intake-step-forward-exit");
 
       act(() => vi.advanceTimersByTime(100));
       rerender(stage("overview", "backward"));
       expect(incoming()).toBe(overview);
       expect(overview).toHaveClass("intake-step-backward-enter");
+      expect(overview).not.toHaveClass("intake-step-deferred-content");
       expect(overview).not.toHaveAttribute("inert");
       expect(intake).toHaveClass("intake-step-backward-exit");
 
