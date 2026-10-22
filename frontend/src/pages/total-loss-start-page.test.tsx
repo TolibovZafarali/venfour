@@ -934,7 +934,8 @@ describe("explicit Total Loss intake correction", () => {
     });
 
     if (mode === "report") {
-      await user.click(await screen.findByRole("button", { name: "Continue to contact" }));
+      await screen.findByText("Report attached");
+      await user.click(await screen.findByRole("button", { name: "Continue" }));
     } else {
       await screen.findByRole("heading", { name: "Tell us about your vehicle" });
       await user.click(
@@ -1356,7 +1357,7 @@ describe("explicit Total Loss intake correction", () => {
     });
     expect(harness.acquireReportUploadLease).not.toHaveBeenCalled();
     expect(harness.uploadReport).not.toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: "Continue to contact" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
     expect(harness.detailRows.get(CASE_ID)?.reportOriginalFilename).toBe("retained-valuation.pdf");
 
     await act(async () => preparation.resolve());
@@ -2540,10 +2541,11 @@ describe("/start?service=total-loss", () => {
     const report = await createPdfFile("insurer-valuation.pdf");
     fireEvent.change(fileInput, { target: { files: [report] } });
 
+    await screen.findByText("Report attached");
     expect(
-      await screen.findByRole("button", { name: "Continue to contact" }),
+      await screen.findByRole("button", { name: "Continue" }),
     ).toBeDisabled();
-    await user.click(screen.getByRole("button", { name: "Continue to contact" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(screen.getByLabelText("Market ZIP code"));
     await user.tab();
     expect(await screen.findByText("ZIP code is required.")).toBeVisible();
@@ -2552,7 +2554,7 @@ describe("/start?service=total-loss", () => {
     ).not.toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Market ZIP code"), "606011234");
-    await user.click(screen.getByRole("button", { name: "Continue to contact" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(
       await screen.findByRole("heading", { name: "Contact details" }),
@@ -3809,7 +3811,7 @@ describe("/start?service=total-loss", () => {
     expect(await screen.findByRole("heading", { name: "Upload your valuation report" })).toBeVisible();
     expect(await screen.findByText("saved-report.pdf")).toBeVisible();
     expect(screen.queryByText(/could not confirm the saved report/)).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Continue to contact" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByRole("heading", { name: "Contact details" })).toBeVisible();
     expect(harness.uploadReport).not.toHaveBeenCalled();
     expect(harness.confirmIntake).not.toHaveBeenCalled();

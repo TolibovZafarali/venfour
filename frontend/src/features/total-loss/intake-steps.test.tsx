@@ -258,7 +258,7 @@ describe("total-loss intake step presentation", () => {
     const marketZipCodeInput = screen.getByLabelText("Market ZIP code");
     const marketZipCodeContainer = marketZipCodeInput.closest(".mt-6");
     const uploadStorageNote = screen.getByText(
-      "Private, owner-only storage · PDF, JPG, or PNG · 50 MiB total",
+      "PDF, JPG or PNG · 50 MiB total",
     );
     const uploadSection = uploadStorageNote.parentElement;
 
@@ -411,17 +411,48 @@ describe("total-loss intake step presentation", () => {
 
     expect(
       screen.getByText(
-        "Add your market ZIP and securely attach the report to your private appraisal. Venfour won’t read or analyze it until after your contact details are saved.",
+        "Stored privately. Analysis starts after you save your contact details.",
       ),
     ).toBeVisible();
     expect(
       screen.getByText(
-        "Private, owner-only storage · PDF, JPG, or PNG · 50 MiB total",
+        "PDF, JPG or PNG · 50 MiB total",
       ),
     ).toBeVisible();
     expect(screen.queryByText(/reading report/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/extracting vehicle/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/review extracted details/i)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { uploadState: "idle" as const, marketZipCode: "60611" },
+    { uploadState: "error" as const, marketZipCode: "60611", selectedFilename: "report.pdf" },
+    { uploadState: "queued" as const, marketZipCode: "60611", savedFilename: "report.pdf" },
+    { uploadState: "uploading" as const, marketZipCode: "60611", savedFilename: "report.pdf" },
+    { uploadState: "success" as const, marketZipCode: "", savedFilename: "report.pdf" },
+    { uploadState: "success" as const, marketZipCode: "123", savedFilename: "report.pdf" },
+    { uploadState: "success" as const, marketZipCode: "60611", savedFilename: "report.pdf", busy: true },
+  ])("keeps Continue visible and inactive until the report and ZIP are ready (%j)", async (state) => {
+    const user = userEvent.setup();
+    const onContinue = vi.fn();
+    render(
+      <ReportUploadStep
+        storageAvailable
+        {...state}
+        onMarketZipCodeChange={vi.fn()}
+        onMarketZipCodeBlur={vi.fn()}
+        onBack={vi.fn()}
+        onFilesSelected={vi.fn()}
+        onRetryUpload={vi.fn()}
+        onContinue={onContinue}
+      />,
+    );
+
+    const continueButton = screen.getByRole("button", { name: "Continue" });
+    expect(continueButton).toBeVisible();
+    expect(continueButton).toBeDisabled();
+    await user.click(continueButton);
+    expect(onContinue).not.toHaveBeenCalled();
   });
 
   it("shows only secure upload progress while the file is being saved", () => {
@@ -444,10 +475,10 @@ describe("total-loss intake step presentation", () => {
     expect(screen.getByText("insurer-valuation.pdf")).toBeVisible();
     expect(
       screen.getByText(
-        "Keep this page open while Venfour finishes saving the file.",
+        "Keep this page open until the upload finishes.",
       ),
     ).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Continue to contact" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
     expect(screen.queryByText(/ready for review/i)).not.toBeInTheDocument();
   });
 
@@ -470,15 +501,15 @@ describe("total-loss intake step presentation", () => {
       />,
     );
 
-    expect(screen.getByText("Report securely attached")).toBeVisible();
+    expect(screen.getByText("Report attached")).toBeVisible();
     expect(
       screen.getByText(
-        "Next, add your contact details. The report will be reviewed during analysis.",
+        "Stored privately. Analysis starts after you save your contact details.",
       ),
     ).toBeVisible();
     expect(screen.getByRole("button", { name: "Replace report" })).toBeEnabled();
 
-    await user.click(screen.getByRole("button", { name: "Continue to contact" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(onContinue).toHaveBeenCalledOnce();
     expect(screen.queryByText(/review your details/i)).not.toBeInTheDocument();
@@ -507,7 +538,7 @@ describe("total-loss intake step presentation", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "The report could not be saved.",
     );
-    expect(screen.queryByRole("button", { name: "Continue to contact" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: "Try upload again" }));
 

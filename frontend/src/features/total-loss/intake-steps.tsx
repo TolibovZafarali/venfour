@@ -1,12 +1,8 @@
 import {
   ArrowLeft,
-  ArrowRight,
   CheckCircle2,
-  FileText,
   LoaderCircle,
   RefreshCw,
-  ShieldCheck,
-  Upload,
 } from "lucide-react";
 import { useId, useLayoutEffect, useRef } from "react";
 import type { ChangeEvent, KeyboardEvent, ReactNode } from "react";
@@ -510,6 +506,8 @@ export function ReportUploadStep({
     : (savedFilename ?? selectedFilename);
   const hasSavedReport = Boolean(savedFilename);
   const disabled = uploadPending || Boolean(busy);
+  const continueDisabled =
+    !hasSavedReport || uploadPending || Boolean(validateZipCode(marketZipCode));
 
   const handleFiles = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
@@ -561,7 +559,7 @@ export function ReportUploadStep({
       <TotalLossProgress mode="report" step="report" />
       <StepHeading
         title="Upload your valuation report"
-        description="Add your market ZIP and securely attach the report to your private appraisal. Venfour won’t read or analyze it until after your contact details are saved."
+        description="Use the report your insurer sent you. Include every page."
       />
 
       <input
@@ -572,65 +570,49 @@ export function ReportUploadStep({
         accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
         multiple
         disabled={disabled}
+        aria-label="Valuation report"
+        aria-describedby={`${inputId}-help`}
+        tabIndex={-1}
         onChange={handleFiles}
       />
 
-      <div className="mt-7 overflow-hidden rounded-2xl border border-line bg-white" data-intake-report-upload>
-        <div className="flex min-w-0 flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6">
-          <span
-            className={cn(
-              "flex size-14 shrink-0 items-center justify-center rounded-2xl",
-              hasSavedReport
-                ? "bg-market-soft text-market-strong"
-                : "bg-brand-soft text-brand",
-            )}
-            aria-hidden
-          >
-            {uploadPending ? (
-              <LoaderCircle className="size-6 animate-spin motion-reduce:animate-none" />
-            ) : hasSavedReport ? (
-              <CheckCircle2 className="size-6" />
-            ) : (
-              <FileText className="size-6" />
-            )}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-base font-semibold text-ink">
+      <div className="mt-6" data-intake-report-upload>
+        <p className="text-sm font-semibold text-ink">Report file</p>
+        <div className="intake-report-file mt-2 flex flex-wrap items-center gap-4 rounded-lg border border-line bg-white p-4">
+          <div className="min-w-0 flex-1 basis-40" role="status" aria-atomic="true">
+            <p className="truncate text-sm font-medium text-ink" title={displayedFilename ?? undefined}>
+              {displayedFilename ?? "No file selected"}
+            </p>
+            <p className="mt-1 flex items-center gap-1.5 text-xs leading-5 text-copy">
+              {uploadPending ? (
+                <LoaderCircle className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden />
+              ) : hasSavedReport ? (
+                <CheckCircle2 className="size-3.5 shrink-0" aria-hidden />
+              ) : null}
               {uploadPending
                 ? uploadState === "queued"
-                  ? "Waiting to upload securely"
+                  ? "Waiting to upload"
                   : "Uploading securely"
                 : hasSavedReport
-                  ? "Report securely attached"
-                  : "Choose your valuation report"}
+                  ? "Report attached"
+                  : "PDF, JPG or PNG · 50 MiB total"}
             </p>
-            <p className="mt-1 text-sm leading-6 text-copy">
-              {uploadPending
-                ? "Keep this page open while Venfour finishes saving the file."
-                : hasSavedReport
-                  ? "Next, add your contact details. The report will be reviewed during analysis."
-                  : "Add one PDF, or select JPG/PNG pages together. Venfour combines image pages into one private PDF before upload."}
-            </p>
-            {displayedFilename ? (
-              <p className="mt-2 truncate text-sm font-semibold text-ink" title={displayedFilename}>
-                {displayedFilename}
-              </p>
-            ) : null}
           </div>
           <button
             type="button"
-            className={secondaryFlowButtonClassName}
+            className={cn(secondaryFlowButtonClassName, "shrink-0")}
             disabled={disabled}
+            aria-describedby={`${inputId}-help`}
             onClick={() => inputRef.current?.click()}
           >
-            <Upload className="size-4" aria-hidden />
             {hasSavedReport ? "Replace report" : "Choose report"}
           </button>
         </div>
-        <div className="flex items-center gap-2 border-t border-line bg-surface/55 px-5 py-3 text-xs leading-5 text-copy sm:px-6">
-          <ShieldCheck className="size-4 shrink-0 text-brand" aria-hidden />
-          Private, owner-only storage · PDF, JPG, or PNG · 50 MiB total
-        </div>
+        <p id={`${inputId}-help`} className="mt-2 text-xs leading-5 text-copy">
+          {uploadPending
+            ? "Keep this page open until the upload finishes."
+            : "Choose one PDF or select all report photos together."}
+        </p>
       </div>
 
       <div className="mt-6 w-full">
@@ -654,46 +636,30 @@ export function ReportUploadStep({
       {uploadError ? <InlineError message={uploadError} /> : null}
       {error ? <InlineError message={error} /> : null}
 
-      <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between" data-intake-actions>
-        {!hideBack ? (
+      {retryAvailable ? (
+        <div className="mt-4">
           <button
             type="button"
             className={secondaryFlowButtonClassName}
             disabled={disabled}
-            onClick={onBack}
+            onClick={onRetryUpload}
           >
-            <ArrowLeft className="size-4" aria-hidden />
-            Back
+            <RefreshCw className="size-4" aria-hidden />
+            Try upload again
           </button>
-        ) : (
-          <span />
-        )}
-        <div className="flex flex-col gap-3 sm:flex-row">
-          {retryAvailable ? (
-            <button
-              type="button"
-              className={secondaryFlowButtonClassName}
-              disabled={disabled}
-              onClick={onRetryUpload}
-            >
-              <RefreshCw className="size-4" aria-hidden />
-              Try upload again
-            </button>
-          ) : null}
-          {hasSavedReport && !uploadPending ? (
-            <button
-              type="button"
-              className={primaryFlowButtonClassName}
-              disabled={disabled || Boolean(validateZipCode(marketZipCode))}
-              onClick={onContinue}
-              data-incomplete={Boolean(validateZipCode(marketZipCode)) || undefined}
-            >
-              Continue to contact
-              <ArrowRight className="size-4" aria-hidden />
-            </button>
-          ) : null}
         </div>
-      </div>
+      ) : null}
+
+      <p className="mt-6 text-xs leading-5 text-copy">
+        Stored privately. Analysis starts after you save your contact details.
+      </p>
+      <StepActions
+        onBack={hideBack ? undefined : onBack}
+        onContinue={onContinue}
+        busy={busy}
+        backDisabled={uploadPending}
+        continueDisabled={continueDisabled}
+      />
     </FlowCard>
   );
 }

@@ -196,13 +196,7 @@
 .appraisal-start-content [data-vehicle-method-switch] > label { min-height: 48px; font-size: 15px; padding-inline: 10px; }
 .appraisal-start-content [data-intake-loss-fields] { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .appraisal-start-content [data-intake-loss-fields] > :last-child { grid-column: 1 / -1; }
-.appraisal-start-content [data-intake-report-upload] { margin-top: 24px; border-radius: 8px; }
-.appraisal-start-content [data-intake-report-upload] > div:first-child { display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: start; gap: 16px; padding: 20px; }
-.appraisal-start-content [data-intake-report-upload] > div:first-child > span { width: 40px; height: 40px; border-radius: 6px; }
-.appraisal-start-content [data-intake-report-upload] > div:first-child > div > p:first-child { font-size: 14px; }
-.appraisal-start-content [data-intake-report-upload] > div:first-child > div > p:nth-child(2) { font-size: 15px; line-height: 1.6; }
-.appraisal-start-content [data-intake-report-upload] > div:first-child > button { grid-column: 2; justify-self: start; }
-.appraisal-start-content [data-intake-report-upload] > div:last-child { padding-inline: 20px; font-size: 11px; }
+.appraisal-start-content [data-intake-report-upload] { margin-top: 24px; }
 
 .appraisal-start-content :is(.intake-primary-action, .intake-secondary-action, .appraisal-start-continue) { min-height: var(--start-control-height); border-radius: 7px; font-size: 15px; }
 .appraisal-start-content [data-intake-actions] { flex-direction: row; margin-top: 24px; gap: 12px; }
@@ -225,7 +219,8 @@
   .appraisal-start-content [data-intake-mode-options] > label { gap: 12px; padding: 16px; }
   .appraisal-start-content .intake-mode-choice__description { font-size: 14px; }
   .appraisal-start-content [data-intake-loss-fields] { grid-template-columns: 1fr; }
-  .appraisal-start-content [data-intake-report-upload] > div:first-child { gap: 12px; padding: 16px; }
+  .appraisal-start-content .intake-report-file { flex-direction: column; align-items: stretch; gap: 14px; }
+  .appraisal-start-content .intake-report-file > div { flex-basis: auto; }
   .appraisal-start-content [data-example-analysis] dd { font-size: 21px; }
 }
 
