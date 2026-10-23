@@ -5,6 +5,7 @@ import { describe, expect, test, vi } from "vitest";
 import type { Session } from "@supabase/supabase-js";
 
 import venfourMark from "../../../assets/brand/venfour-mark.svg";
+import venfourWordmark from "../../../assets/brand/venfour-wordmark.svg";
 import type { AdminDiminishedValueDependencies } from "@/features/admin/diminished-value/dependencies";
 import type { AuthService } from "@/features/auth";
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
@@ -197,38 +198,32 @@ describe("Venfour application", () => {
       "link",
       { name: "Venfour home" },
     );
-    const headerWordmark = within(headerBrandLink).getByText("Venfour");
+    const headerWordmark = headerBrandLink.querySelector("img[data-brand-wordmark='venfour']");
     expect(headerBrandLink).toHaveAttribute("translate", "no");
     expect(headerBrandLink).toHaveClass("notranslate", "select-none");
     expect(headerWordmark).toHaveAttribute(
       "data-brand-wordmark",
       "venfour",
     );
-    expect(headerWordmark).toHaveClass(
-      "font-brand",
-      "text-[1.25rem]",
-      "font-semibold",
-      "tracking-[-0.035em]",
-    );
+    expect(headerWordmark).toHaveAttribute("src", venfourWordmark);
+    expect(headerWordmark).toHaveAttribute("alt", "");
+    expect(headerWordmark).toHaveAttribute("aria-hidden", "true");
     expect(headerWordmark).toBeVisible();
     expect(within(screen.getByRole("banner")).queryByText("VENFOUR")).toBeNull();
     const footer = screen.getByRole("contentinfo");
     const footerBrandLink = within(footer).getByRole("link", {
       name: "Venfour home",
     });
-    const footerWordmark = within(footerBrandLink).getByText("Venfour");
+    const footerWordmark = footerBrandLink.querySelector("img[data-brand-wordmark='venfour']");
     expect(footerBrandLink).toHaveAttribute("translate", "no");
     expect(footerBrandLink).toHaveClass("notranslate", "select-none");
     expect(footerWordmark).toHaveAttribute(
       "data-brand-wordmark",
       "venfour",
     );
-    expect(footerWordmark).toHaveClass(
-      "font-brand",
-      "text-[1.125rem]",
-      "font-semibold",
-      "tracking-[-0.035em]",
-    );
+    expect(footerWordmark).toHaveAttribute("src", venfourWordmark);
+    expect(footerWordmark).toHaveAttribute("alt", "");
+    expect(footerWordmark).toHaveAttribute("aria-hidden", "true");
     expect(footerWordmark).toBeVisible();
     expect(within(footer).queryByText("VENFOUR")).toBeNull();
     expect(footer.querySelector("[data-footer-legal]")).toHaveTextContent(

@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 
 import { cn } from "@/lib/utils";
+import { BrandWordmark } from "@/components/brand-wordmark";
 import venfourMark from "../../../assets/brand/venfour-mark.svg";
 
 export function BrandLink({ to, className }: { to: string; className?: string }) {
@@ -12,12 +13,7 @@ export function BrandLink({ to, className }: { to: string; className?: string })
       translate="no"
     >
       <img src={venfourMark} className="size-7" alt="" aria-hidden data-brand-logo="venfour" />
-      <span
-        className="font-brand text-[1.25rem] leading-none font-semibold tracking-[-0.035em] antialiased [font-kerning:normal] [text-rendering:geometricPrecision]"
-        data-brand-wordmark="venfour"
-      >
-        Venfour
-      </span>
+      <BrandWordmark />
     </Link>
   );
 }

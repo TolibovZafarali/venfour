@@ -149,6 +149,8 @@ class LocalAuthEmailTemplateTests(unittest.TestCase):
                 section = section[part]
             self.assertEqual(section['subject'], entry['subject'])
             self.assertEqual(section['content_path'], f'./supabase/templates/{name}.html')
+            self.assertIn('src="https://venfour.com/assets/brand/venfour-wordmark.png" alt="Venfour"', entry['html'])
+            self.assertNotIn('https://example.test', entry['html'])
             if '.notification.' in entry['section']:
                 self.assertFalse(section['enabled'])
                 self.assertNotIn('href=', entry['html'])

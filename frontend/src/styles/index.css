@@ -19,7 +19,6 @@
 @theme inline {
   --font-sans: var(--brand-font-sans);
   --font-hero: var(--brand-font-hero);
-  --font-brand: var(--brand-font-wordmark);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

@@ -33,6 +33,7 @@ import { CookieConsent } from "@/features/privacy/cookie-consent";
 import { useCookieConsent } from "@/features/privacy/cookie-consent-context";
 import { cn } from "@/lib/utils";
 import { BrandLink } from "@/components/brand-link";
+import { BrandWordmark } from "@/components/brand-wordmark";
 import { useHomeSmoothScroll } from "@/pages/use-home-smooth-scroll";
 import { footerStates, statePath } from "@/features/states/states";
 import { footerInsurers, insurerPath } from "@/features/insurers/insurers";
@@ -528,12 +529,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
                     aria-hidden
                     data-brand-logo="venfour"
                   />
-                  <span
-                    className="font-brand text-[1.125rem] leading-none font-semibold tracking-[-0.035em] antialiased [font-kerning:normal] [text-rendering:geometricPrecision]"
-                    data-brand-wordmark="venfour"
-                  >
-                    Venfour
-                  </span>
+                  <BrandWordmark className="h-[1.125rem]" />
                 </Link>
                 <p className="public-footer__statement">
                   Your vehicle’s value,<br />made clear.

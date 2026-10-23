@@ -6,6 +6,7 @@ import { FreeValuationProcessingContext, InlineValuationProcessingContext } from
 import type { FreeValuationProcessingOptions } from "./free-valuation-processing-context";
 import { ValuationSignalField } from "./valuation-signal-field";
 import venfourMark from "../../../../../assets/brand/venfour-mark.svg";
+import { BrandWordmark } from "@/components/brand-wordmark";
 import "./free-valuation-processing.css";
 
 const reviewActivities = [
@@ -166,8 +167,8 @@ function ProcessingEnvironment({ options, exiting, accountControl }: { options: 
       {!error || !particlesSettled ? <ValuationSignalField key={gatheringReplay} exiting={exiting || Boolean(error)} /> : null}
       <div className="free-valuation-processing__masthead">
         <a className="free-valuation-processing__brand notranslate" href="/" aria-label="Venfour home" translate="no">
-          <img src={venfourMark} alt="" aria-hidden />
-          <span className="font-brand">Venfour</span>
+          <img src={venfourMark} alt="" aria-hidden data-brand-logo="venfour" />
+          <BrandWordmark />
         </a>
         {development ? <div className="free-valuation-processing__development">
           <span>Synthetic preview</span>

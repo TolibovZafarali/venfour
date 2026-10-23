@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from html import escape
 
 
-LAYOUT_VERSION = "2026-09-17.1"
+LAYOUT_VERSION = "2026-10-21.1"
 # Match AppShell, the website theme, and its solid primary CTA; use local font fallbacks.
 DESIGN = {
     "background": "#f5f7fa",
@@ -16,7 +16,6 @@ DESIGN = {
     "border": "#d9e1e8",
     "inset": "#f5f7fa",
     "font": "-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif",
-    "brand_font": "'Avenir Next','Century Gothic','Trebuchet MS',Arial,sans-serif",
     "width": 560,
 }
 COMPANY_NAME = "Venfour LLC"
@@ -81,7 +80,7 @@ def render_master(*, subject: str, heading: str, paragraphs: tuple[str, ...],
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="{d["surface"]}" style="max-width:{d["width"]}px;background:{d["surface"]}">
 <tr><td class="vf-header" style="padding:32px 40px 0">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-bottom:1px solid {d["border"]}"><tr>
-<td align="left" valign="middle" style="padding:0 0 24px 9px"><span class="notranslate" translate="no" style="font-family:{d["brand_font"]};font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.7px;color:{d["ink"]}">Venfour</span></td>
+<td align="left" valign="middle" style="padding:0 0 24px"><img src="{escape(brand_origin, quote=True)}/assets/brand/venfour-wordmark.png" alt="Venfour" width="101" height="20" style="display:block;width:101.25px;height:20px;border:0"></td>
 </tr></table></td></tr>
 <tr><td class="vf-content" align="left" style="padding:28px 40px 32px;overflow-wrap:anywhere">
 <h1 class="vf-heading" style="font-size:22px;line-height:1.4;font-weight:600;letter-spacing:-.35px;margin:0 0 18px;color:{d["ink"]}">{escape(heading)}</h1>

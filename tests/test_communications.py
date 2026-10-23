@@ -5,6 +5,7 @@ import hashlib
 import json
 import unittest
 from pathlib import Path
+from html.parser import HTMLParser
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, urlsplit
@@ -49,6 +50,23 @@ def signed(value,*,resend=False,when=NOW):
 
 
 class EmailTemplateTests(unittest.TestCase):
+    def assert_wordmark_image(self, html, origin='https://venfour.com'):
+        images = []
+
+        class ImageParser(HTMLParser):
+            def handle_starttag(self, tag, attrs):
+                if tag == 'img':
+                    images.append(dict(attrs))
+
+        ImageParser().feed(html)
+        self.assertEqual(len(images), 1)
+        image = images[0]
+        self.assertEqual(image['src'], origin + '/assets/brand/venfour-wordmark.png')
+        self.assertEqual(image['alt'], 'Venfour')
+        self.assertEqual(image['width'], '101')
+        self.assertEqual(image['height'], '20')
+        self.assertNotIn('srcset', image)
+
     def test_every_template_has_accessible_html_plain_text_and_no_tracking(self):
         for key in TEMPLATES:
             with self.subTest(key=key):
@@ -58,10 +76,10 @@ class EmailTemplateTests(unittest.TestCase):
                 self.assertNotIn('SAMPLE PREVIEW',result.html)
                 self.assertIn(BRAND_LINE,result.text)
                 self.assertNotIn('<script',result.html)
-                self.assertNotIn('<img ', result.html)
+                self.assert_wordmark_image(result.html)
                 self.assertNotIn('CLARITY FOR YOUR NEXT STEP', result.html)
 
-    def test_shared_brand_matches_the_website_and_keeps_live_wordmark_text(self):
+    def test_shared_brand_matches_the_website_and_uses_the_wordmark_asset(self):
         root = Path(__file__).resolve().parents[1]
         theme = (root / 'frontend/src/styles/public-tokens.css').read_text()
         foundations = (root / 'frontend/src/styles/brand-foundations.css').read_text()
@@ -70,8 +88,8 @@ class EmailTemplateTests(unittest.TestCase):
         for email_token, site_token in [('ink', 'ink'), ('body', 'copy'), ('border', 'line')]:
             self.assertIn(f'--{site_token}: {DESIGN[email_token]};', theme)
         result = render_preview('paid_review_ready')
-        self.assertIn('font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.7px', result.html)
-        self.assertIn('>Venfour</span>', result.html)
+        self.assert_wordmark_image(result.html)
+        self.assertNotIn('>Venfour</span>', result.html)
         self.assertNotIn('gradient', result.html)
         self.assertNotIn('box-shadow', result.html)
         self.assertIn('font-size:22px', result.html)
@@ -82,7 +100,9 @@ class EmailTemplateTests(unittest.TestCase):
                        'https://example.test/path', 'https://example.test?case=private', 'https://example.test/#private'):
             with self.subTest(origin=origin), self.assertRaises(ValueError):
                 render_preview('auth_sign_in', brand_origin=origin)
-        self.assertNotIn('<img ', render_preview('auth_sign_in', brand_origin='http://127.0.0.1:4186/').html)
+        for origin in ('https://app.venfour.example', 'http://127.0.0.1:4186', 'http://localhost:5173'):
+            with self.subTest(origin=origin):
+                self.assert_wordmark_image(render_preview('auth_sign_in', brand_origin=origin + '/').html, origin)
 
     def test_future_content_automatically_inherits_master_and_preview(self):
         template = EmailTemplate('future_email', 'A saved update', 'Your update', ('An update <script>literal</script>.',),

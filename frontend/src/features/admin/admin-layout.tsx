@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router";
 
 import { useDocumentMetadata } from "@/app/document-metadata";
+import { BrandWordmark } from "@/components/brand-wordmark";
 import { SignInDialogProvider, useAuth } from "@/features/auth";
 import { getFriendlyAuthError } from "@/features/auth/auth-errors";
 import { getUserAccountLabel, getUserIdentityLabel } from "@/features/auth/user-display";
@@ -102,7 +103,7 @@ export function AdminLayout() {
           <img src={venfourMark} alt="" aria-hidden="true" />
         </button> : <Link to="/admin" aria-label="Venfour admin overview" onClick={() => setMobileOpen(false)}>
         <img src={venfourMark} alt="" aria-hidden="true" />
-        <span className="admin-nav-label">Venfour</span>
+        <BrandWordmark />
       </Link>}
       {!mobile && !compact && <button ref={collapseRef} className="admin-icon-button admin-collapse-toggle" type="button" onClick={toggle} aria-label="Collapse sidebar" aria-expanded={true} aria-controls="admin-desktop-navigation"><ChevronLeft size={20} strokeWidth={1.7} aria-hidden="true" /></button>}
       {mobile && <Dialog.Close className="admin-icon-button" aria-label="Close navigation"><X size={20} /></Dialog.Close>}

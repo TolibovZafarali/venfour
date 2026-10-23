@@ -316,7 +316,6 @@ def render_auth_smtp_template(key: str, *, case_link: bool = False) -> str:
     token = "{{ if eq (len .Token) 6 }}{{ slice .Token 0 3 }}-{{ slice .Token 3 6 }}{{ else }}{{ .Token }}{{ end }}"
     template = TEMPLATES[key]
     rendered = render_email(key,
-        brand_origin="https://example.test",
         code="9876543210" if template.interaction in {"code", "code_and_link"} else "",
         action_url="https://example.test/smtp-action" if template.interaction in {"link", "code_and_link"} else "")
     url = '{{ .RedirectTo }}?token_hash={{ .TokenHash }}&amp;type=email' if case_link else '{{ .ConfirmationURL }}'
